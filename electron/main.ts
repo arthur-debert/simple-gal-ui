@@ -13,6 +13,11 @@ import {
 	deleteImage,
 	reorderImages,
 	writeDescription,
+	createAlbum,
+	createPage,
+	renameEntry,
+	deleteEntry,
+	writePage,
 	type WriteSidecarArgs,
 	type WriteSidecarResult,
 	type RenameImageArgs,
@@ -24,7 +29,17 @@ import {
 	type ReorderImagesArgs,
 	type ReorderImagesResult,
 	type WriteDescriptionArgs,
-	type WriteDescriptionResult
+	type WriteDescriptionResult,
+	type CreateAlbumArgs,
+	type CreateAlbumResult,
+	type CreatePageArgs,
+	type CreatePageResult,
+	type RenameEntryArgs,
+	type RenameEntryResult,
+	type DeleteEntryArgs,
+	type DeleteEntryResult,
+	type WritePageArgs,
+	type WritePageResult
 } from './fs.js';
 import { watchHome, stopWatching } from './watch.js';
 
@@ -209,6 +224,31 @@ function registerIpcHandlers(): void {
 		async (_ev, args: WriteDescriptionArgs): Promise<WriteDescriptionResult> => {
 			return writeDescription(args);
 		}
+	);
+
+	ipcMain.handle(
+		'fs:createAlbum',
+		async (_ev, args: CreateAlbumArgs): Promise<CreateAlbumResult> => createAlbum(args)
+	);
+
+	ipcMain.handle(
+		'fs:createPage',
+		async (_ev, args: CreatePageArgs): Promise<CreatePageResult> => createPage(args)
+	);
+
+	ipcMain.handle(
+		'fs:renameEntry',
+		async (_ev, args: RenameEntryArgs): Promise<RenameEntryResult> => renameEntry(args)
+	);
+
+	ipcMain.handle(
+		'fs:deleteEntry',
+		async (_ev, args: DeleteEntryArgs): Promise<DeleteEntryResult> => deleteEntry(args)
+	);
+
+	ipcMain.handle(
+		'fs:writePage',
+		async (_ev, args: WritePageArgs): Promise<WritePageResult> => writePage(args)
 	);
 }
 

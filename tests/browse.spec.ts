@@ -67,10 +67,10 @@ test('selecting a thumbnail shows the image detail view', async () => {
 	await expect(page.getByTestId('image-detail-editor')).toBeVisible();
 });
 
-test('selecting a page shows the page view', async () => {
+test('selecting a page shows the page editor', async () => {
 	const firstPage = page.getByTestId('tree-page').first();
 	await firstPage.click();
-	await expect(page.getByTestId('page-view')).toBeVisible();
+	await expect(page.getByTestId('page-editor')).toBeVisible();
 });
 
 test('captures browse screenshots', async () => {

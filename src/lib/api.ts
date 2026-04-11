@@ -93,6 +93,62 @@ export interface WriteDescriptionResult {
 	removedPaths: string[];
 }
 
+export interface CreateAlbumArgs {
+	home: string;
+	parentPath: string;
+	title: string;
+}
+
+export interface CreateAlbumResult {
+	ok: boolean;
+	albumPath: string;
+	dirName: string;
+}
+
+export interface CreatePageArgs {
+	home: string;
+	title: string;
+	body?: string;
+}
+
+export interface CreatePageResult {
+	ok: boolean;
+	pagePath: string;
+	fileName: string;
+}
+
+export interface RenameEntryArgs {
+	home: string;
+	entryPath: string;
+	newTitle: string;
+}
+
+export interface RenameEntryResult {
+	ok: boolean;
+	oldPath: string;
+	newPath: string;
+	newName: string;
+}
+
+export interface DeleteEntryArgs {
+	home: string;
+	entryPath: string;
+}
+
+export interface DeleteEntryResult {
+	ok: boolean;
+}
+
+export interface WritePageArgs {
+	home: string;
+	pagePath: string;
+	body: string;
+}
+
+export interface WritePageResult {
+	ok: boolean;
+}
+
 export const api = {
 	app: {
 		version: () => window.api.app.version()
@@ -128,6 +184,16 @@ export const api = {
 			window.api.fs.reorderImages(args) as Promise<ReorderImagesResult>,
 		writeDescription: (args: WriteDescriptionArgs): Promise<WriteDescriptionResult> =>
 			window.api.fs.writeDescription(args) as Promise<WriteDescriptionResult>,
+		createAlbum: (args: CreateAlbumArgs): Promise<CreateAlbumResult> =>
+			window.api.fs.createAlbum(args) as Promise<CreateAlbumResult>,
+		createPage: (args: CreatePageArgs): Promise<CreatePageResult> =>
+			window.api.fs.createPage(args) as Promise<CreatePageResult>,
+		renameEntry: (args: RenameEntryArgs): Promise<RenameEntryResult> =>
+			window.api.fs.renameEntry(args) as Promise<RenameEntryResult>,
+		deleteEntry: (args: DeleteEntryArgs): Promise<DeleteEntryResult> =>
+			window.api.fs.deleteEntry(args) as Promise<DeleteEntryResult>,
+		writePage: (args: WritePageArgs): Promise<WritePageResult> =>
+			window.api.fs.writePage(args) as Promise<WritePageResult>,
 		getPathForFile: (file: File): string => window.api.fs.getPathForFile(file)
 	},
 	watch: {

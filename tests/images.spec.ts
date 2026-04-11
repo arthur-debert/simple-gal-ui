@@ -61,9 +61,7 @@ test('importing images via IPC copies them into the album with NNN- prefix', asy
 		async ({ sourcePaths }) => {
 			return (window as typeof window).api.fs.importImages({
 				home: (window as typeof window).location.search.match(/home=([^&]+)/)?.[1]
-					? decodeURIComponent(
-							(window as typeof window).location.search.match(/home=([^&]+)/)![1]
-						)
+					? decodeURIComponent((window as typeof window).location.search.match(/home=([^&]+)/)![1])
 					: '',
 				albumPath: '010-Landscapes',
 				sourcePaths
@@ -89,9 +87,7 @@ test('deleting an image moves it to OS trash', async () => {
 
 	const result = await page.evaluate(async () => {
 		return (window as typeof window).api.fs.deleteImage({
-			home: decodeURIComponent(
-				(window as typeof window).location.search.match(/home=([^&]+)/)![1]
-			),
+			home: decodeURIComponent((window as typeof window).location.search.match(/home=([^&]+)/)![1]),
 			imageSourcePath: '030-Minimal/001-solo.jpg'
 		});
 	});
@@ -106,9 +102,7 @@ test('writing an album description creates description.md', async () => {
 
 	const result = await page.evaluate(async () => {
 		return (window as typeof window).api.fs.writeDescription({
-			home: decodeURIComponent(
-				(window as typeof window).location.search.match(/home=([^&]+)/)![1]
-			),
+			home: decodeURIComponent((window as typeof window).location.search.match(/home=([^&]+)/)![1]),
 			albumPath: '020-Travel/020-Italy',
 			body: '# Italy\n\nA week in Rome.'
 		});
