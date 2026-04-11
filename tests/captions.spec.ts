@@ -46,12 +46,13 @@ test.afterAll(async () => {
 });
 
 test('editing caption writes sidecar on disk', async () => {
-	// Navigate to Landscapes → dusk (no existing sidecar — has .jpg only)
+	// Navigate to Landscapes → dusk (no existing sidecar — has .jpg only).
+	// Single-click now only selects; double-click opens the detail editor.
 	await page.getByTestId('tree-album').filter({ hasText: 'Landscapes' }).click();
 	await page
 		.getByTestId('album-thumb')
 		.filter({ has: page.locator('text=dusk') })
-		.click();
+		.dblclick();
 
 	await expect(page.getByTestId('image-detail-editor')).toBeVisible();
 
@@ -72,7 +73,7 @@ test('editing title renames the image file', async () => {
 	await page
 		.getByTestId('album-thumb')
 		.filter({ has: page.locator('text=thumb') })
-		.click();
+		.dblclick();
 	await expect(page.getByTestId('image-detail-editor')).toBeVisible();
 
 	await page.getByTestId('image-title-input').fill('The Hero Shot');
@@ -93,7 +94,7 @@ test('emptying caption removes sidecar', async () => {
 	await page
 		.getByTestId('album-thumb')
 		.filter({ has: page.locator('text=dawn') })
-		.click();
+		.dblclick();
 	await expect(page.getByTestId('image-detail-editor')).toBeVisible();
 
 	await page.getByTestId('image-caption-input').fill('');
@@ -105,7 +106,7 @@ test('emptying caption removes sidecar', async () => {
 test('captures editor screenshot', async () => {
 	const outDir = path.join(repoRoot, 'tests/__screenshots__/pr4');
 	await page.getByTestId('tree-album').filter({ hasText: 'Landscapes' }).click();
-	await page.getByTestId('album-thumb').first().click();
+	await page.getByTestId('album-thumb').first().dblclick();
 	await expect(page.getByTestId('image-detail-editor')).toBeVisible();
 	await page.screenshot({ path: path.join(outDir, 'editor.png'), fullPage: true });
 });
