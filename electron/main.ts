@@ -1,6 +1,7 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readFileSync } from 'node:fs';
 import { resolveSimpleGalBin, getSimpleGalVersion } from './binPath.js';
 import { scan, type SimpleGalResult, type ScanData } from './simpleGal.js';
 import {
@@ -63,6 +64,30 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const RENDERER_DEV_URL = process.env.VITE_DEV_SERVER_URL;
 const IS_DEV = !!RENDERER_DEV_URL;
+
+/**
+ * Read the app's own version from package.json rather than using
+ * `app.getVersion()`, which returns Electron's runtime version in dev mode
+ * (when the app is unpackaged). We read from the repo root in dev, and from
+ * the asar / resources dir in packaged builds.
+ */
+function readAppVersion(): string {
+	const candidates = [
+		path.join(__dirname, '..', 'package.json'), // dist-electron → repo root
+		path.join(app.getAppPath(), 'package.json')
+	];
+	for (const p of candidates) {
+		try {
+			const parsed = JSON.parse(readFileSync(p, 'utf8')) as { version?: string };
+			if (parsed.version) return parsed.version;
+		} catch {
+			// try the next one
+		}
+	}
+	// Final fallback: whatever Electron thinks
+	return app.getVersion();
+}
+const APP_VERSION = readAppVersion();
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -148,7 +173,7 @@ async function openGalleryHomeDialog(win: BrowserWindow): Promise<string | null>
 }
 
 function registerIpcHandlers(): void {
-	ipcMain.handle('app:version', () => app.getVersion());
+	ipcMain.handle('app:version', () => APP_VERSION);
 
 	ipcMain.handle('simpleGal:version', async () => {
 		try {
