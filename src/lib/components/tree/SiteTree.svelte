@@ -4,9 +4,26 @@
 	import { showToast } from '$lib/stores/toastStore.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import { cn } from '$lib/utils';
+	import { tick } from 'svelte';
 	import type { Selection } from '$lib/types/manifest';
 
 	const manifest = $derived(site.manifest);
+
+	// Inline create state — Electron's renderer does not support window.prompt(),
+	// so we render an input row at the top of the relevant section instead.
+	let creatingAlbum = $state(false);
+	let creatingAlbumTitle = $state('');
+	let creatingAlbumInput = $state<HTMLInputElement>();
+
+	let creatingPage = $state(false);
+	let creatingPageTitle = $state('');
+	let creatingPageInput = $state<HTMLInputElement>();
+
+	// Inline rename state — same reason, and it's the only way to rename
+	// pages from the tree.
+	let renamingKey = $state<string | null>(null); // album.path or page.slug
+	let renameDraft = $state('');
+	let renameInput = $state<HTMLInputElement>();
 
 	type MenuTarget =
 		| { kind: 'album'; path: string; title: string; sourceDir: string }
@@ -48,9 +65,19 @@
 		menu = null;
 	}
 
-	async function onNewAlbum(): Promise<void> {
+	async function startCreateAlbum(): Promise<void> {
 		if (!site.home) return;
-		const title = window.prompt('New album title');
+		creatingAlbum = true;
+		creatingAlbumTitle = '';
+		await tick();
+		creatingAlbumInput?.focus();
+	}
+
+	async function commitCreateAlbum(): Promise<void> {
+		if (!site.home || !creatingAlbum) return;
+		const title = creatingAlbumTitle.trim();
+		creatingAlbum = false;
+		creatingAlbumTitle = '';
 		if (!title) return;
 		try {
 			const result = await api.fs.createAlbum({
@@ -65,9 +92,24 @@
 		}
 	}
 
-	async function onNewPage(): Promise<void> {
+	function cancelCreateAlbum(): void {
+		creatingAlbum = false;
+		creatingAlbumTitle = '';
+	}
+
+	async function startCreatePage(): Promise<void> {
 		if (!site.home) return;
-		const title = window.prompt('New page title');
+		creatingPage = true;
+		creatingPageTitle = '';
+		await tick();
+		creatingPageInput?.focus();
+	}
+
+	async function commitCreatePage(): Promise<void> {
+		if (!site.home || !creatingPage) return;
+		const title = creatingPageTitle.trim();
+		creatingPage = false;
+		creatingPageTitle = '';
 		if (!title) return;
 		try {
 			const result = await api.fs.createPage({ home: site.home, title });
@@ -78,13 +120,30 @@
 		}
 	}
 
+	function cancelCreatePage(): void {
+		creatingPage = false;
+		creatingPageTitle = '';
+	}
+
 	async function onRename(): Promise<void> {
-		if (!menu || !site.home) return;
+		if (!menu) return;
 		const target = menu.target;
-		const current = target.title;
-		const newTitle = window.prompt('New title', current);
+		const key = target.kind === 'album' ? target.path : target.slug;
+		renamingKey = key;
+		renameDraft = target.title;
 		closeMenu();
-		if (!newTitle || newTitle === current) return;
+		await tick();
+		renameInput?.focus();
+		renameInput?.select();
+	}
+
+	async function commitRename(target: MenuTarget): Promise<void> {
+		if (!site.home || renamingKey === null) return;
+		const newTitle = renameDraft.trim();
+		const wasRenaming = renamingKey;
+		renamingKey = null;
+		renameDraft = '';
+		if (!newTitle || newTitle === target.title) return;
 		try {
 			const entryPath = target.kind === 'album' ? target.sourceDir : target.filename;
 			await api.fs.renameEntry({
@@ -96,7 +155,13 @@
 			await rescanCurrentHome();
 		} catch (err) {
 			showToast({ kind: 'error', title: 'Rename failed', body: (err as Error).message });
+			renamingKey = wasRenaming;
 		}
+	}
+
+	function cancelRename(): void {
+		renamingKey = null;
+		renameDraft = '';
 	}
 
 	async function onDelete(): Promise<void> {
@@ -226,7 +291,8 @@
 					<Button
 						variant="ghost"
 						size="sm"
-						onclick={onNewAlbum}
+						onclick={startCreateAlbum}
+						disabled={creatingAlbum}
 						data-testid="new-album-btn"
 						class="-my-1 h-5 px-1.5"
 					>
@@ -234,8 +300,30 @@
 					</Button>
 				</div>
 				<ul>
+					{#if creatingAlbum}
+						<li class="px-2 py-1">
+							<input
+								bind:this={creatingAlbumInput}
+								bind:value={creatingAlbumTitle}
+								placeholder="Album title…"
+								class="bg-surface-0 border-accent text-text-primary w-full rounded-sm border px-2 py-1 text-[length:var(--text-body)] outline-none"
+								data-testid="new-album-input"
+								onkeydown={(e) => {
+									if (e.key === 'Enter') {
+										e.preventDefault();
+										commitCreateAlbum();
+									} else if (e.key === 'Escape') {
+										e.preventDefault();
+										cancelCreateAlbum();
+									}
+								}}
+								onblur={commitCreateAlbum}
+							/>
+						</li>
+					{/if}
 					{#each manifest.albums as album, i (album.path)}
 						{@const sel = { kind: 'album', albumPath: album.path } satisfies Selection}
+						{@const isRenaming = renamingKey === album.path}
 						<!-- Gap before row i -->
 						<li
 							class={cn(
@@ -248,29 +336,59 @@
 							data-gap={i}
 						></li>
 						<li>
-							<button
-								type="button"
-								class={cn(
-									'flex w-full items-center justify-between gap-2 rounded-sm px-2 py-1 text-left text-[length:var(--text-body)]',
-									isSelected(site.selection, sel)
-										? 'bg-selected text-selected-text'
-										: 'text-text-secondary hover:bg-surface-2',
-									dragIndex === i && dragKind === 'album' ? 'opacity-40' : null
-								)}
-								draggable="true"
-								ondragstart={(e) => onDragStart('album', i, e)}
-								ondragend={onDragEnd}
-								onclick={() => select(sel)}
-								oncontextmenu={(e) =>
-									openAlbumMenu(e, album.path, album.title, albumSourceDirFor(album.path))}
-								data-testid="tree-album"
-								data-album-path={album.path}
-							>
-								<span class="truncate">{album.title}</span>
-								<span class="text-text-faint text-[length:var(--text-micro)]">
-									{album.images.length}
-								</span>
-							</button>
+							{#if isRenaming}
+								<input
+									bind:this={renameInput}
+									bind:value={renameDraft}
+									class="bg-surface-0 border-accent text-text-primary mx-1 w-[calc(100%-0.5rem)] rounded-sm border px-2 py-1 text-[length:var(--text-body)] outline-none"
+									data-testid="tree-rename-input"
+									onkeydown={(e) => {
+										if (e.key === 'Enter') {
+											e.preventDefault();
+											commitRename({
+												kind: 'album',
+												path: album.path,
+												title: album.title,
+												sourceDir: albumSourceDirFor(album.path)
+											});
+										} else if (e.key === 'Escape') {
+											e.preventDefault();
+											cancelRename();
+										}
+									}}
+									onblur={() =>
+										commitRename({
+											kind: 'album',
+											path: album.path,
+											title: album.title,
+											sourceDir: albumSourceDirFor(album.path)
+										})}
+								/>
+							{:else}
+								<button
+									type="button"
+									class={cn(
+										'flex w-full items-center justify-between gap-2 rounded-sm px-2 py-1 text-left text-[length:var(--text-body)]',
+										isSelected(site.selection, sel)
+											? 'bg-selected text-selected-text'
+											: 'text-text-secondary hover:bg-surface-2',
+										dragIndex === i && dragKind === 'album' ? 'opacity-40' : null
+									)}
+									draggable="true"
+									ondragstart={(e) => onDragStart('album', i, e)}
+									ondragend={onDragEnd}
+									onclick={() => select(sel)}
+									oncontextmenu={(e) =>
+										openAlbumMenu(e, album.path, album.title, albumSourceDirFor(album.path))}
+									data-testid="tree-album"
+									data-album-path={album.path}
+								>
+									<span class="truncate">{album.title}</span>
+									<span class="text-text-faint text-[length:var(--text-micro)]">
+										{album.images.length}
+									</span>
+								</button>
+							{/if}
 						</li>
 					{/each}
 					<!-- Gap after last album row -->
@@ -301,7 +419,8 @@
 					<Button
 						variant="ghost"
 						size="sm"
-						onclick={onNewPage}
+						onclick={startCreatePage}
+						disabled={creatingPage}
 						data-testid="new-page-btn"
 						class="-my-1 h-5 px-1.5"
 					>
@@ -309,8 +428,30 @@
 					</Button>
 				</div>
 				<ul>
+					{#if creatingPage}
+						<li class="px-2 py-1">
+							<input
+								bind:this={creatingPageInput}
+								bind:value={creatingPageTitle}
+								placeholder="Page title…"
+								class="bg-surface-0 border-accent text-text-primary w-full rounded-sm border px-2 py-1 text-[length:var(--text-body)] outline-none"
+								data-testid="new-page-input"
+								onkeydown={(e) => {
+									if (e.key === 'Enter') {
+										e.preventDefault();
+										commitCreatePage();
+									} else if (e.key === 'Escape') {
+										e.preventDefault();
+										cancelCreatePage();
+									}
+								}}
+								onblur={commitCreatePage}
+							/>
+						</li>
+					{/if}
 					{#each manifest.pages as page, i (page.slug)}
 						{@const sel = { kind: 'page', pageSlug: page.slug } satisfies Selection}
+						{@const isRenaming = renamingKey === page.slug}
 						<li
 							class={cn(
 								'h-1.5 transition-colors',
@@ -322,29 +463,59 @@
 							data-gap={i}
 						></li>
 						<li>
-							<button
-								type="button"
-								class={cn(
-									'flex w-full items-center gap-2 rounded-sm px-2 py-1 text-left text-[length:var(--text-body)]',
-									isSelected(site.selection, sel)
-										? 'bg-selected text-selected-text'
-										: 'text-text-secondary hover:bg-surface-2',
-									dragIndex === i && dragKind === 'page' ? 'opacity-40' : null
-								)}
-								draggable="true"
-								ondragstart={(e) => onDragStart('page', i, e)}
-								ondragend={onDragEnd}
-								onclick={() => select(sel)}
-								oncontextmenu={(e) =>
-									openPageMenu(e, page.slug, page.title, pageFilenameFor(page.slug))}
-								data-testid="tree-page"
-								data-page-slug={page.slug}
-							>
-								<span class="truncate">{page.title}</span>
-								{#if page.is_link}
-									<span class="text-text-faint text-[length:var(--text-micro)]">link</span>
-								{/if}
-							</button>
+							{#if isRenaming}
+								<input
+									bind:this={renameInput}
+									bind:value={renameDraft}
+									class="bg-surface-0 border-accent text-text-primary mx-1 w-[calc(100%-0.5rem)] rounded-sm border px-2 py-1 text-[length:var(--text-body)] outline-none"
+									data-testid="tree-rename-input"
+									onkeydown={(e) => {
+										if (e.key === 'Enter') {
+											e.preventDefault();
+											commitRename({
+												kind: 'page',
+												slug: page.slug,
+												title: page.title,
+												filename: pageFilenameFor(page.slug)
+											});
+										} else if (e.key === 'Escape') {
+											e.preventDefault();
+											cancelRename();
+										}
+									}}
+									onblur={() =>
+										commitRename({
+											kind: 'page',
+											slug: page.slug,
+											title: page.title,
+											filename: pageFilenameFor(page.slug)
+										})}
+								/>
+							{:else}
+								<button
+									type="button"
+									class={cn(
+										'flex w-full items-center gap-2 rounded-sm px-2 py-1 text-left text-[length:var(--text-body)]',
+										isSelected(site.selection, sel)
+											? 'bg-selected text-selected-text'
+											: 'text-text-secondary hover:bg-surface-2',
+										dragIndex === i && dragKind === 'page' ? 'opacity-40' : null
+									)}
+									draggable="true"
+									ondragstart={(e) => onDragStart('page', i, e)}
+									ondragend={onDragEnd}
+									onclick={() => select(sel)}
+									oncontextmenu={(e) =>
+										openPageMenu(e, page.slug, page.title, pageFilenameFor(page.slug))}
+									data-testid="tree-page"
+									data-page-slug={page.slug}
+								>
+									<span class="truncate">{page.title}</span>
+									{#if page.is_link}
+										<span class="text-text-faint text-[length:var(--text-micro)]">link</span>
+									{/if}
+								</button>
+							{/if}
 						</li>
 					{/each}
 					{#if manifest.pages.length > 0}

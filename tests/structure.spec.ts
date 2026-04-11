@@ -57,6 +57,35 @@ test('new album / new page buttons live inside their own section headers', async
 	await expect(page.getByTestId('tree-section-divider')).toBeVisible();
 });
 
+test('+ album button reveals inline input and creates the directory on Enter', async () => {
+	await page.getByTestId('new-album-btn').click();
+	const input = page.getByTestId('new-album-input');
+	await expect(input).toBeVisible();
+	await input.fill('Button Flow Album');
+	await input.press('Enter');
+	// Give the scan pipeline a tick to settle and the on-disk write to land.
+	await expect
+		.poll(() => fs.existsSync(path.join(fixtureCopy, '040-Button Flow Album')), { timeout: 5000 })
+		.toBe(true);
+});
+
+test('+ page button reveals inline input and creates the markdown file on Enter', async () => {
+	await page.getByTestId('new-page-btn').click();
+	const input = page.getByTestId('new-page-input');
+	await expect(input).toBeVisible();
+	await input.fill('Button Flow Page');
+	await input.press('Enter');
+	await expect
+		.poll(
+			() =>
+				fs
+					.readdirSync(fixtureCopy)
+					.some((f) => /^\d+-Button-Flow-Page\.md$/.test(f)),
+			{ timeout: 5000 }
+		)
+		.toBe(true);
+});
+
 test('createAlbum IPC creates a new NNN- directory at root', async () => {
 	const home = await getHome();
 	const result = await page.evaluate(
