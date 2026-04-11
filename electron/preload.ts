@@ -1,11 +1,19 @@
-import { contextBridge, ipcRenderer } from 'electron';
+import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import type { SimpleGalResult, ScanData } from './simpleGal.js';
 import type { BuildRunResult } from './build.js';
 import type {
 	WriteSidecarArgs,
 	WriteSidecarResult,
 	RenameImageArgs,
-	RenameImageResult
+	RenameImageResult,
+	ImportImagesArgs,
+	ImportImagesResult,
+	DeleteImageArgs,
+	DeleteImageResult,
+	ReorderImagesArgs,
+	ReorderImagesResult,
+	WriteDescriptionArgs,
+	WriteDescriptionResult
 } from './fs.js';
 
 export interface SimpleGalVersionResult {
@@ -47,7 +55,16 @@ const api = {
 		writeSidecar: (args: WriteSidecarArgs): Promise<WriteSidecarResult> =>
 			ipcRenderer.invoke('fs:writeSidecar', args),
 		renameImage: (args: RenameImageArgs): Promise<RenameImageResult> =>
-			ipcRenderer.invoke('fs:renameImage', args)
+			ipcRenderer.invoke('fs:renameImage', args),
+		importImages: (args: ImportImagesArgs): Promise<ImportImagesResult> =>
+			ipcRenderer.invoke('fs:importImages', args),
+		deleteImage: (args: DeleteImageArgs): Promise<DeleteImageResult> =>
+			ipcRenderer.invoke('fs:deleteImage', args),
+		reorderImages: (args: ReorderImagesArgs): Promise<ReorderImagesResult> =>
+			ipcRenderer.invoke('fs:reorderImages', args),
+		writeDescription: (args: WriteDescriptionArgs): Promise<WriteDescriptionResult> =>
+			ipcRenderer.invoke('fs:writeDescription', args),
+		getPathForFile: (file: File): string => webUtils.getPathForFile(file)
 	},
 	watch: {
 		start: (home: string): Promise<void> => ipcRenderer.invoke('watch:start', home),
