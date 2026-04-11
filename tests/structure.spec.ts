@@ -76,14 +76,57 @@ test('+ page button reveals inline input and creates the markdown file on Enter'
 	await input.fill('Button Flow Page');
 	await input.press('Enter');
 	await expect
+		.poll(() => fs.readdirSync(fixtureCopy).some((f) => /^\d+-Button-Flow-Page\.md$/.test(f)), {
+			timeout: 5000
+		})
+		.toBe(true);
+});
+
+test('create → edit → delete a page through the page editor', async () => {
+	// Stub confirm so the delete confirmation auto-accepts.
+	await page.evaluate(() => {
+		(window as typeof window).confirm = () => true;
+	});
+
+	// Create via the + page button
+	await page.getByTestId('new-page-btn').click();
+	const createInput = page.getByTestId('new-page-input');
+	await expect(createInput).toBeVisible();
+	await createInput.fill('My Images');
+	await createInput.press('Enter');
+
+	// The file lands on disk with the hyphen-slug filename.
+	let createdFilename: string | null = null;
+	await expect
 		.poll(
-			() =>
-				fs
+			() => {
+				const match = fs
 					.readdirSync(fixtureCopy)
-					.some((f) => /^\d+-Button-Flow-Page\.md$/.test(f)),
+					.find((f) => /^\d+-My-Images\.md$/.test(f));
+				if (match) createdFilename = match;
+				return !!match;
+			},
 			{ timeout: 5000 }
 		)
 		.toBe(true);
+	expect(createdFilename).not.toBeNull();
+	const createdAbs = path.join(fixtureCopy, createdFilename!);
+	expect(fs.existsSync(createdAbs)).toBe(true);
+
+	// Open the page in the editor (click its row in the tree)
+	await page.getByTestId('tree-page').filter({ hasText: 'My Images' }).click();
+	await expect(page.getByTestId('page-editor')).toBeVisible();
+
+	// Edit and save
+	await page.getByTestId('page-body-input').fill('# My Images\n\nSome body text.');
+	await page.getByTestId('page-save-btn').click();
+	await expect
+		.poll(() => fs.readFileSync(createdAbs, 'utf8').includes('Some body text'), { timeout: 5000 })
+		.toBe(true);
+
+	// Delete via the trash button
+	await page.getByTestId('page-delete-btn').click();
+	await expect.poll(() => fs.existsSync(createdAbs), { timeout: 5000 }).toBe(false);
 });
 
 test('createAlbum IPC creates a new NNN- directory at root', async () => {

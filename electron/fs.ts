@@ -550,6 +550,50 @@ export async function writePage(args: WritePageArgs): Promise<WritePageResult> {
 	return { ok: true };
 }
 
+// --- Find a page file on disk by slug -------------------------------------
+
+export interface FindPageFileArgs {
+	home: string;
+	slug: string;
+}
+
+export interface FindPageFileResult {
+	ok: boolean;
+	filename: string | null;
+}
+
+/**
+ * Given a simple-gal manifest page slug, find the actual `.md` file on disk
+ * at the home root that corresponds to it.
+ *
+ * We can't reconstruct the filename from the manifest fields reliably:
+ * simple-gal's `link_title` converts filename hyphens to spaces for human
+ * display, and its `slug` is a URL-safe transform that loses information
+ * about the original filename's casing and word separators. Instead we
+ * scan every `NNN-*.md` at the root and pick the one whose stem normalizes
+ * to the same slug token.
+ */
+function normalizeToSlug(s: string): string {
+	return s
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, '-')
+		.replace(/^-+|-+$/g, '');
+}
+
+export async function findPageFile(args: FindPageFileArgs): Promise<FindPageFileResult> {
+	const entries = await fs.readdir(args.home).catch(() => [] as string[]);
+	const target = normalizeToSlug(args.slug);
+	for (const name of entries) {
+		if (!name.endsWith('.md')) continue;
+		const stem = name.slice(0, -3);
+		const stripped = stem.replace(/^\d+-?/, '');
+		if (normalizeToSlug(stripped) === target) {
+			return { ok: true, filename: name };
+		}
+	}
+	return { ok: false, filename: null };
+}
+
 // --- Reorder tree entries (albums or pages) -------------------------------
 
 export interface ReorderTreeEntriesArgs {

@@ -12,19 +12,40 @@
 
 	const { page }: Props = $props();
 
-	/**
-	 * simple-gal's manifest exposes a page's slug but not its source filename.
-	 * We reconstruct it from the page ordering: `{sort_key NNN-}{slug}.md`.
-	 * For numbered pages the prefix matches sort_key (already NNN-padded).
-	 */
-	const pageFilename = $derived.by(() => {
-		const prefix = page.in_nav ? `${String(page.sort_key).padStart(3, '0')}-` : '';
-		return `${prefix}${page.link_title}.md`;
-	});
-
 	let body = $state(page.body ?? '');
 	let lastSlug = $state(page.slug);
 	let saving = $state(false);
+
+	/**
+	 * The real on-disk filename, resolved from the home directory. We can't
+	 * reconstruct it from the manifest (simple-gal's `link_title` converts
+	 * filename hyphens to spaces for display), so we scan and fuzzy-match
+	 * by slug via a main-process helper.
+	 */
+	let resolvedFilename = $state<string | null>(null);
+
+	$effect(() => {
+		const slug = page.slug;
+		const home = site.home;
+		if (!home) {
+			resolvedFilename = null;
+			return;
+		}
+		let cancelled = false;
+		api.fs
+			.findPageFile({ home, slug })
+			.then((r) => {
+				if (cancelled) return;
+				resolvedFilename = r.filename;
+			})
+			.catch(() => {
+				if (cancelled) return;
+				resolvedFilename = null;
+			});
+		return () => {
+			cancelled = true;
+		};
+	});
 
 	$effect(() => {
 		if (page.slug !== lastSlug) {
@@ -37,15 +58,23 @@
 
 	async function save(): Promise<void> {
 		if (!site.home || saving) return;
+		if (!resolvedFilename) {
+			showToast({
+				kind: 'error',
+				title: 'Cannot save',
+				body: 'Unable to find the page file on disk. Try reopening the gallery.'
+			});
+			return;
+		}
 		saving = true;
 		try {
 			const result = await api.fs.writePage({
 				home: site.home,
-				pagePath: pageFilename,
+				pagePath: resolvedFilename,
 				body
 			});
 			if (result.ok) {
-				showToast({ kind: 'success', title: 'Page saved', body: pageFilename });
+				showToast({ kind: 'success', title: 'Page saved', body: resolvedFilename });
 				await rescanCurrentHome();
 			} else {
 				showToast({ kind: 'error', title: 'Save failed' });
@@ -66,9 +95,17 @@
 
 	async function onDeletePage(): Promise<void> {
 		if (!site.home) return;
+		if (!resolvedFilename) {
+			showToast({
+				kind: 'error',
+				title: 'Cannot delete',
+				body: 'Unable to find the page file on disk. Try reopening the gallery.'
+			});
+			return;
+		}
 		if (!window.confirm(`Move page "${page.title}" to trash?`)) return;
 		try {
-			await api.fs.deleteEntry({ home: site.home, entryPath: pageFilename });
+			await api.fs.deleteEntry({ home: site.home, entryPath: resolvedFilename });
 			showToast({ kind: 'success', title: 'Page moved to trash', body: page.title });
 			site.selection = { kind: 'none' };
 			await rescanCurrentHome();
@@ -89,7 +126,7 @@
 				{page.title}
 			</div>
 			<div class="text-text-muted mt-0.5 truncate text-[length:var(--text-caption)]">
-				{pageFilename}
+				{resolvedFilename ?? '(resolving…)'}
 				{#if page.is_link}
 					<span class="text-text-faint ml-2">· external link</span>
 				{/if}

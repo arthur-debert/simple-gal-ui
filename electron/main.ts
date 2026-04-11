@@ -19,6 +19,7 @@ import {
 	deleteEntry,
 	writePage,
 	reorderTreeEntries,
+	findPageFile,
 	type WriteSidecarArgs,
 	type WriteSidecarResult,
 	type RenameImageArgs,
@@ -42,7 +43,9 @@ import {
 	type WritePageArgs,
 	type WritePageResult,
 	type ReorderTreeEntriesArgs,
-	type ReorderTreeEntriesResult
+	type ReorderTreeEntriesResult,
+	type FindPageFileArgs,
+	type FindPageFileResult
 } from './fs.js';
 import { watchHome, stopWatching } from './watch.js';
 
@@ -258,6 +261,11 @@ function registerIpcHandlers(): void {
 		'fs:reorderTreeEntries',
 		async (_ev, args: ReorderTreeEntriesArgs): Promise<ReorderTreeEntriesResult> =>
 			reorderTreeEntries(args)
+	);
+
+	ipcMain.handle(
+		'fs:findPageFile',
+		async (_ev, args: FindPageFileArgs): Promise<FindPageFileResult> => findPageFile(args)
 	);
 }
 

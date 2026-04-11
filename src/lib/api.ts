@@ -161,6 +161,16 @@ export interface ReorderTreeEntriesResult {
 	renames: { old: string; new: string }[];
 }
 
+export interface FindPageFileArgs {
+	home: string;
+	slug: string;
+}
+
+export interface FindPageFileResult {
+	ok: boolean;
+	filename: string | null;
+}
+
 export const api = {
 	app: {
 		version: () => window.api.app.version()
@@ -211,6 +221,8 @@ export const api = {
 			window.api.fs.writePage(args) as Promise<WritePageResult>,
 		reorderTreeEntries: (args: ReorderTreeEntriesArgs): Promise<ReorderTreeEntriesResult> =>
 			window.api.fs.reorderTreeEntries(args) as Promise<ReorderTreeEntriesResult>,
+		findPageFile: (args: FindPageFileArgs): Promise<FindPageFileResult> =>
+			window.api.fs.findPageFile(args) as Promise<FindPageFileResult>,
 		getPathForFile: (file: File): string => window.api.fs.getPathForFile(file)
 	},
 	watch: {
