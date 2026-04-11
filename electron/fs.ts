@@ -580,6 +580,136 @@ function normalizeToSlug(s: string): string {
 		.replace(/^-+|-+$/g, '');
 }
 
+// --- Set album thumbnail --------------------------------------------------
+
+export interface SetAlbumThumbnailArgs {
+	home: string;
+	/** Album source directory relative to home, e.g. "010-Landscapes" or "020-Travel/010-Japan". */
+	albumPath: string;
+	/** Image source path relative to home, e.g. "010-Landscapes/003-Sunset.jpg". */
+	imageSourcePath: string;
+}
+
+export interface SetAlbumThumbnailResult {
+	ok: boolean;
+	/** The previously-designated thumb, renamed to strip its `thumb-` segment. null if none. */
+	previousThumb: { old: string; new: string } | null;
+	/** The chosen image, renamed to carry `thumb-` after its NNN- prefix. */
+	newThumb: { old: string; new: string };
+	/** True if the chosen image was already the thumb — no renames happened. */
+	noOp: boolean;
+}
+
+/**
+ * Mark a given image as the album's thumbnail by renaming it to insert
+ * `thumb-` after the `NNN-` prefix, and (if another file in the album was
+ * carrying the thumbnail marker) rename that file back by stripping its
+ * `thumb-` segment. Simple-gal uses the first file matching `NNN-thumb…`
+ * as the preview.
+ */
+export async function setAlbumThumbnail(
+	args: SetAlbumThumbnailArgs
+): Promise<SetAlbumThumbnailResult> {
+	const albumAbs = path.join(args.home, args.albumPath);
+	const entries = await fs.readdir(albumAbs);
+
+	// Match files of the form `NNN-thumb.ext` or `NNN-thumb-<rest>.ext`.
+	const thumbPattern = /^(\d+)-thumb(?:-(.*))?(\.[^.]+)$/;
+
+	const chosenBasename = path.basename(args.imageSourcePath);
+
+	// If the chosen image is already the thumb, no-op.
+	if (thumbPattern.test(chosenBasename)) {
+		return {
+			ok: true,
+			previousThumb: null,
+			newThumb: {
+				old: args.imageSourcePath,
+				new: args.imageSourcePath
+			},
+			noOp: true
+		};
+	}
+
+	let previousThumb: SetAlbumThumbnailResult['previousThumb'] = null;
+
+	// Find and demote any existing thumbnail file
+	for (const name of entries) {
+		const m = name.match(thumbPattern);
+		if (!m) continue;
+		const prefix = m[1];
+		const tail = m[2]; // may be undefined for bare `NNN-thumb.ext`
+		const ext = m[3];
+		const newName = tail ? `${prefix}-${tail}${ext}` : `${prefix}${ext}`;
+		const oldAbs = path.join(albumAbs, name);
+		const newAbs = path.join(albumAbs, newName);
+		markSelfWrite(oldAbs);
+		markSelfWrite(newAbs);
+		await fs.rename(oldAbs, newAbs);
+		previousThumb = {
+			old: path.posix.join(args.albumPath, name),
+			new: path.posix.join(args.albumPath, newName)
+		};
+		// Also move a sidecar if one existed for the demoted file
+		const oldSidecar = sidecarPathFor(oldAbs);
+		try {
+			await fs.access(oldSidecar);
+			const { dir, name: oldSideName } = path.parse(oldSidecar);
+			void oldSideName;
+			const newSidecar = path.join(dir, `${path.parse(newName).name}.txt`);
+			markSelfWrite(oldSidecar);
+			markSelfWrite(newSidecar);
+			await fs.rename(oldSidecar, newSidecar);
+		} catch {
+			// no sidecar, nothing to rename
+		}
+		break; // simple-gal only honors the first; one demotion is enough
+	}
+
+	// Promote the chosen image by inserting `thumb-` after its NNN- prefix
+	const chosenAbs = path.join(args.home, args.imageSourcePath);
+	const parsed = path.parse(chosenAbs);
+	const prefixMatch = parsed.name.match(/^(\d+)(?:-(.*))?$/);
+	let newChosenBasename: string;
+	if (prefixMatch) {
+		const prefix = prefixMatch[1];
+		const rest = prefixMatch[2];
+		newChosenBasename = rest
+			? `${prefix}-thumb-${rest}${parsed.ext}`
+			: `${prefix}-thumb${parsed.ext}`;
+	} else {
+		// No NNN- prefix — unusual for simple-gal content, but handle gracefully
+		newChosenBasename = `thumb-${parsed.name}${parsed.ext}`;
+	}
+	const newChosenAbs = path.join(parsed.dir, newChosenBasename);
+	markSelfWrite(chosenAbs);
+	markSelfWrite(newChosenAbs);
+	await fs.rename(chosenAbs, newChosenAbs);
+
+	// Move the chosen image's sidecar if one exists
+	const oldChosenSidecar = sidecarPathFor(chosenAbs);
+	try {
+		await fs.access(oldChosenSidecar);
+		const newChosenSidecar = path.join(parsed.dir, `${path.parse(newChosenBasename).name}.txt`);
+		markSelfWrite(oldChosenSidecar);
+		markSelfWrite(newChosenSidecar);
+		await fs.rename(oldChosenSidecar, newChosenSidecar);
+	} catch {
+		// no sidecar
+	}
+
+	const relParent = args.imageSourcePath.slice(0, args.imageSourcePath.lastIndexOf('/'));
+	return {
+		ok: true,
+		previousThumb,
+		newThumb: {
+			old: args.imageSourcePath,
+			new: relParent ? `${relParent}/${newChosenBasename}` : newChosenBasename
+		},
+		noOp: false
+	};
+}
+
 export async function findPageFile(args: FindPageFileArgs): Promise<FindPageFileResult> {
 	const entries = await fs.readdir(args.home).catch(() => [] as string[]);
 	const target = normalizeToSlug(args.slug);

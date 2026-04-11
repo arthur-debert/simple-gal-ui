@@ -27,7 +27,9 @@ import type {
 	ReorderTreeEntriesArgs,
 	ReorderTreeEntriesResult,
 	FindPageFileArgs,
-	FindPageFileResult
+	FindPageFileResult,
+	SetAlbumThumbnailArgs,
+	SetAlbumThumbnailResult
 } from './fs.js';
 
 export interface SimpleGalVersionResult {
@@ -93,6 +95,8 @@ const api = {
 			ipcRenderer.invoke('fs:reorderTreeEntries', args),
 		findPageFile: (args: FindPageFileArgs): Promise<FindPageFileResult> =>
 			ipcRenderer.invoke('fs:findPageFile', args),
+		setAlbumThumbnail: (args: SetAlbumThumbnailArgs): Promise<SetAlbumThumbnailResult> =>
+			ipcRenderer.invoke('fs:setAlbumThumbnail', args),
 		getPathForFile: (file: File): string => webUtils.getPathForFile(file)
 	},
 	watch: {

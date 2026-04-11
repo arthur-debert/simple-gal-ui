@@ -20,6 +20,7 @@ import {
 	writePage,
 	reorderTreeEntries,
 	findPageFile,
+	setAlbumThumbnail,
 	type WriteSidecarArgs,
 	type WriteSidecarResult,
 	type RenameImageArgs,
@@ -45,7 +46,9 @@ import {
 	type ReorderTreeEntriesArgs,
 	type ReorderTreeEntriesResult,
 	type FindPageFileArgs,
-	type FindPageFileResult
+	type FindPageFileResult,
+	type SetAlbumThumbnailArgs,
+	type SetAlbumThumbnailResult
 } from './fs.js';
 import { watchHome, stopWatching } from './watch.js';
 
@@ -266,6 +269,12 @@ function registerIpcHandlers(): void {
 	ipcMain.handle(
 		'fs:findPageFile',
 		async (_ev, args: FindPageFileArgs): Promise<FindPageFileResult> => findPageFile(args)
+	);
+
+	ipcMain.handle(
+		'fs:setAlbumThumbnail',
+		async (_ev, args: SetAlbumThumbnailArgs): Promise<SetAlbumThumbnailResult> =>
+			setAlbumThumbnail(args)
 	);
 }
 

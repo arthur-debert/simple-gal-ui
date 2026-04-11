@@ -171,6 +171,19 @@ export interface FindPageFileResult {
 	filename: string | null;
 }
 
+export interface SetAlbumThumbnailArgs {
+	home: string;
+	albumPath: string;
+	imageSourcePath: string;
+}
+
+export interface SetAlbumThumbnailResult {
+	ok: boolean;
+	previousThumb: { old: string; new: string } | null;
+	newThumb: { old: string; new: string };
+	noOp: boolean;
+}
+
 export const api = {
 	app: {
 		version: () => window.api.app.version()
@@ -223,6 +236,8 @@ export const api = {
 			window.api.fs.reorderTreeEntries(args) as Promise<ReorderTreeEntriesResult>,
 		findPageFile: (args: FindPageFileArgs): Promise<FindPageFileResult> =>
 			window.api.fs.findPageFile(args) as Promise<FindPageFileResult>,
+		setAlbumThumbnail: (args: SetAlbumThumbnailArgs): Promise<SetAlbumThumbnailResult> =>
+			window.api.fs.setAlbumThumbnail(args) as Promise<SetAlbumThumbnailResult>,
 		getPathForFile: (file: File): string => window.api.fs.getPathForFile(file)
 	},
 	watch: {
