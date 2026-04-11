@@ -549,3 +549,83 @@ export async function writePage(args: WritePageArgs): Promise<WritePageResult> {
 	await fs.writeFile(abs, args.body.replace(/\s+$/, '') + '\n', 'utf8');
 	return { ok: true };
 }
+
+// --- Reorder tree entries (albums or pages) -------------------------------
+
+export interface ReorderTreeEntriesArgs {
+	home: string;
+	parentPath: string; // "" for root
+	kind: 'dir' | 'file'; // 'dir' = albums/groups, 'file' = pages
+	/** Ordered list of current entry names (basenames) at parentPath. */
+	orderedNames: string[];
+}
+
+export interface ReorderTreeEntriesResult {
+	ok: boolean;
+	renames: { old: string; new: string }[];
+}
+
+/**
+ * Renumber a set of sibling entries (directories for albums/groups, files for
+ * pages) to match the desired order, using sparse 10/20/30 prefixes.
+ *
+ * Two-phase rename: first every entry moves to a temp name, then each is
+ * renamed to its final name. This avoids collisions when two entries would
+ * swap positions or share a target prefix.
+ */
+export async function reorderTreeEntries(
+	args: ReorderTreeEntriesArgs
+): Promise<ReorderTreeEntriesResult> {
+	const parentAbs = path.join(args.home, args.parentPath);
+	const renames: ReorderTreeEntriesResult['renames'] = [];
+
+	interface StepOne {
+		tmp: string;
+		finalName: string;
+	}
+	const stepOne: StepOne[] = [];
+
+	for (let i = 0; i < args.orderedNames.length; i++) {
+		const oldName = args.orderedNames[i];
+		const oldAbs = path.join(parentAbs, oldName);
+
+		let stripped: string;
+		let ext = '';
+		if (args.kind === 'file') {
+			ext = path.extname(oldName);
+			const base = path.basename(oldName, ext);
+			stripped = base.replace(/^\d+-?/, '');
+		} else {
+			stripped = oldName.replace(/^\d+-?/, '');
+		}
+
+		const prefix = String((i + 1) * 10).padStart(3, '0');
+		const finalName = stripped
+			? args.kind === 'file'
+				? `${prefix}-${stripped}${ext}`
+				: `${prefix}-${stripped}`
+			: args.kind === 'file'
+				? `${prefix}${ext}`
+				: prefix;
+
+		const tmp = path.join(parentAbs, `.sgui-tree-tmp-${i}-${oldName}`);
+		markSelfWrite(oldAbs);
+		markSelfWrite(tmp);
+		await fs.rename(oldAbs, tmp);
+
+		stepOne.push({ tmp, finalName });
+		renames.push({
+			old: path.posix.join(args.parentPath, oldName),
+			new: path.posix.join(args.parentPath, finalName)
+		});
+	}
+
+	for (const { tmp, finalName } of stepOne) {
+		const finalAbs = path.join(parentAbs, finalName);
+		markSelfWrite(tmp);
+		markSelfWrite(finalAbs);
+		await fs.rename(tmp, finalAbs);
+	}
+
+	return { ok: true, renames };
+}

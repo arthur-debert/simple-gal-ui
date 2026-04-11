@@ -49,9 +49,12 @@ test.afterAll(async () => {
 	if (userDataDir && fs.existsSync(userDataDir)) fs.rmSync(userDataDir, { recursive: true });
 });
 
-test('new album buttons exist in tree header', async () => {
-	await expect(page.getByTestId('new-album-btn')).toBeVisible();
-	await expect(page.getByTestId('new-page-btn')).toBeVisible();
+test('new album / new page buttons live inside their own section headers', async () => {
+	const albumsSection = page.getByTestId('tree-section-albums');
+	const pagesSection = page.getByTestId('tree-section-pages');
+	await expect(albumsSection.getByTestId('new-album-btn')).toBeVisible();
+	await expect(pagesSection.getByTestId('new-page-btn')).toBeVisible();
+	await expect(page.getByTestId('tree-section-divider')).toBeVisible();
 });
 
 test('createAlbum IPC creates a new NNN- directory at root', async () => {
@@ -145,4 +148,73 @@ test('selecting a page shows the page editor', async () => {
 test('captures structure screenshot', async () => {
 	const outDir = path.join(repoRoot, 'tests/__screenshots__/pr6');
 	await page.screenshot({ path: path.join(outDir, 'tree-with-actions.png'), fullPage: true });
+});
+
+// --- Reorder specs are last because they renumber everything at root -----
+
+test('reorderTreeEntries IPC renumbers albums with sparse 10/20/30 prefixes', async () => {
+	const home = await getHome();
+	const before = fs
+		.readdirSync(fixtureCopy, { withFileTypes: true })
+		.filter((d) => d.isDirectory() && /^\d+-/.test(d.name))
+		.map((d) => d.name)
+		.sort();
+	expect(before.length).toBeGreaterThanOrEqual(2);
+
+	const reversed = [...before].reverse();
+	const result = await page.evaluate(
+		async ({ home, orderedNames }) =>
+			(window as typeof window).api.fs.reorderTreeEntries({
+				home,
+				parentPath: '',
+				kind: 'dir',
+				orderedNames
+			}),
+		{ home, orderedNames: reversed }
+	);
+	expect(result.ok).toBe(true);
+
+	const after = fs
+		.readdirSync(fixtureCopy, { withFileTypes: true })
+		.filter((d) => d.isDirectory() && /^\d+-/.test(d.name))
+		.map((d) => d.name)
+		.sort();
+	const prefixes = after
+		.map((n) => parseInt(n.match(/^(\d+)-/)?.[1] ?? '0', 10))
+		.sort((a, b) => a - b);
+	expect(prefixes.every((n) => n % 10 === 0)).toBe(true);
+	expect(after.length).toBe(before.length);
+});
+
+test('reorderTreeEntries IPC renumbers page files with sparse prefixes', async () => {
+	const home = await getHome();
+	const before = fs
+		.readdirSync(fixtureCopy)
+		.filter((f) => /^\d+-.*\.md$/.test(f))
+		.sort();
+	if (before.length < 2) {
+		test.skip();
+		return;
+	}
+	const reversed = [...before].reverse();
+	const result = await page.evaluate(
+		async ({ home, orderedNames }) =>
+			(window as typeof window).api.fs.reorderTreeEntries({
+				home,
+				parentPath: '',
+				kind: 'file',
+				orderedNames
+			}),
+		{ home, orderedNames: reversed }
+	);
+	expect(result.ok).toBe(true);
+
+	const after = fs
+		.readdirSync(fixtureCopy)
+		.filter((f) => /^\d+-.*\.md$/.test(f))
+		.sort();
+	const prefixes = after
+		.map((n) => parseInt(n.match(/^(\d+)-/)?.[1] ?? '0', 10))
+		.sort((a, b) => a - b);
+	expect(prefixes.every((n) => n % 10 === 0)).toBe(true);
 });

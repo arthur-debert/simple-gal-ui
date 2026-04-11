@@ -18,6 +18,7 @@ import {
 	renameEntry,
 	deleteEntry,
 	writePage,
+	reorderTreeEntries,
 	type WriteSidecarArgs,
 	type WriteSidecarResult,
 	type RenameImageArgs,
@@ -39,7 +40,9 @@ import {
 	type DeleteEntryArgs,
 	type DeleteEntryResult,
 	type WritePageArgs,
-	type WritePageResult
+	type WritePageResult,
+	type ReorderTreeEntriesArgs,
+	type ReorderTreeEntriesResult
 } from './fs.js';
 import { watchHome, stopWatching } from './watch.js';
 
@@ -249,6 +252,12 @@ function registerIpcHandlers(): void {
 	ipcMain.handle(
 		'fs:writePage',
 		async (_ev, args: WritePageArgs): Promise<WritePageResult> => writePage(args)
+	);
+
+	ipcMain.handle(
+		'fs:reorderTreeEntries',
+		async (_ev, args: ReorderTreeEntriesArgs): Promise<ReorderTreeEntriesResult> =>
+			reorderTreeEntries(args)
 	);
 }
 

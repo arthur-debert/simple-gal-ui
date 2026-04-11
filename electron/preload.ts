@@ -23,7 +23,9 @@ import type {
 	DeleteEntryArgs,
 	DeleteEntryResult,
 	WritePageArgs,
-	WritePageResult
+	WritePageResult,
+	ReorderTreeEntriesArgs,
+	ReorderTreeEntriesResult
 } from './fs.js';
 
 export interface SimpleGalVersionResult {
@@ -84,6 +86,8 @@ const api = {
 			ipcRenderer.invoke('fs:deleteEntry', args),
 		writePage: (args: WritePageArgs): Promise<WritePageResult> =>
 			ipcRenderer.invoke('fs:writePage', args),
+		reorderTreeEntries: (args: ReorderTreeEntriesArgs): Promise<ReorderTreeEntriesResult> =>
+			ipcRenderer.invoke('fs:reorderTreeEntries', args),
 		getPathForFile: (file: File): string => webUtils.getPathForFile(file)
 	},
 	watch: {
