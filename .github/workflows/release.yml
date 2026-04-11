@@ -1,0 +1,86 @@
+name: Release
+
+# Triggered by pushing a `v*.*.*` tag. Produces an unsigned macOS arm64
+# .dmg, smoke-tests the packaged .app, and creates a draft GitHub Release
+# with the artifact attached. You manually promote the draft to published
+# once the release notes are in place.
+#
+# Usage:
+#   1. Bump `version` in package.json (and `simpleGalVersion` if pinned to a
+#      newer simple-gal).
+#   2. Commit and tag: `git tag v0.1.0 && git push --tags`
+#   3. Watch https://github.com/arthur-debert/simple-gal-ui/actions
+#   4. On success, a draft release appears at /releases; edit the notes and
+#      hit Publish.
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        env:
+          SIMPLE_GAL_PATH: ''
+        run: pnpm install --frozen-lockfile
+
+      - name: Download simple-gal release binary
+        # This is also run by `pnpm run package`, but we call it separately so
+        # any failure surfaces as its own step in the UI.
+        run: node scripts/fetch-simple-gal.mjs
+
+      - name: Package macOS arm64 .dmg
+        run: pnpm run package
+
+      - name: List release artifacts
+        run: ls -la release/
+
+      - name: Smoke-test the packaged .app
+        # The packaged smoke spec is excluded from the default test:e2e glob
+        # (see playwright.config.ts `testIgnore`), so run it explicitly here
+        # against the unpacked .app that electron-builder produces alongside
+        # the .dmg in release/mac-arm64/.
+        run: pnpm exec playwright test tests/packaged.spec.ts
+
+      - name: Upload packaged app screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: packaged-screenshot
+          path: tests/__screenshots__/fb2/
+          if-no-files-found: ignore
+
+      - name: Create draft GitHub Release with the DMG
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          DMG=$(ls release/*.dmg | head -1)
+          if [ -z "$DMG" ]; then
+            echo "No .dmg found in release/"
+            exit 1
+          fi
+          gh release create "$TAG" "$DMG" \
+            --draft \
+            --title "$TAG" \
+            --generate-notes

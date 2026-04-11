@@ -1,0 +1,73 @@
+name: Test
+
+# Every push + PR runs the full Playwright suite on macOS (the only target
+# this round supports for packaging). When the release target expands to
+# Linux/Windows in a future round the matrix comes back.
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  test:
+    runs-on: macos-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        env:
+          # Skip the postinstall binary download on CI — the test job doesn't
+          # need a packaged binary, and letting the fetch script run would
+          # require cargo OR network access to GitHub releases. The binPath
+          # resolver will pick up the sibling build / SIMPLE_GAL_PATH below.
+          SIMPLE_GAL_PATH: ''
+        run: pnpm install --frozen-lockfile
+
+      - name: Download simple-gal release binary
+        run: node scripts/fetch-simple-gal.mjs
+
+      - name: Point SIMPLE_GAL_PATH at the downloaded binary
+        run: |
+          echo "SIMPLE_GAL_PATH=$GITHUB_WORKSPACE/resources/bin/darwin-arm64/simple-gal" >> $GITHUB_ENV
+
+      - name: Format check
+        run: pnpm run format:check
+
+      - name: Lint
+        run: pnpm run lint
+
+      - name: Type check
+        run: pnpm run check
+
+      - name: Build
+        run: pnpm run build
+
+      - name: Playwright (Electron smoke + full UI suite)
+        run: pnpm run test:e2e
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: tests/__screenshots__/
+          if-no-files-found: ignore
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          if-no-files-found: ignore
