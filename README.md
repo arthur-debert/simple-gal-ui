@@ -8,8 +8,8 @@ A desktop UI for [simple-gal](https://github.com/arthur-debert/simple-gal), the 
 
 In active development. Delivered as a series of stacked PRs that each leave the app in a usable-but-limited state:
 
-- **PR1 — Foundation** *(current)*: Electron shell, three-pane layout, shadcn-svelte primitives, simple-gal binary resolver, Playwright smoke test.
-- PR2 — Read-only gallery browse
+- PR1 — Foundation: Electron shell, three-pane layout, shadcn-svelte primitives, simple-gal binary resolver, Playwright smoke test.
+- **PR2 — Read-only gallery browse** *(current)*: Open a gallery home, scan via `simple-gal scan --format json`, render the site tree (albums + pages), and browse albums / images / pages read-only.
 - PR3 — Preview pipeline
 - PR4 — Image title & caption editing
 - PR5 — Image management within an album

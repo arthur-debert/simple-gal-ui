@@ -21,6 +21,13 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install simple-gal from source
+        run: cargo install --git https://github.com/arthur-debert/simple-gal.git simple-gal
+        shell: bash
+      - name: Export simple-gal path
+        shell: bash
+        run: echo "SIMPLE_GAL_PATH=$(which simple-gal || echo $HOME/.cargo/bin/simple-gal)" >> $GITHUB_ENV
       - run: pnpm install --frozen-lockfile
       - run: pnpm run format:check
       - run: pnpm run lint

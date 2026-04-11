@@ -17,7 +17,7 @@ export default defineConfig({
 					build: {
 						outDir: 'dist-electron',
 						rollupOptions: {
-							external: ['electron', 'electron-store']
+							external: ['electron', 'electron-store', 'conf']
 						}
 					}
 				}
@@ -28,7 +28,11 @@ export default defineConfig({
 					build: {
 						outDir: 'dist-electron',
 						rollupOptions: {
-							external: ['electron']
+							external: ['electron'],
+							output: {
+								format: 'cjs',
+								entryFileNames: '[name].cjs'
+							}
 						}
 					}
 				}
