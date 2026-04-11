@@ -62,21 +62,48 @@
 			save();
 		}
 	}
+
+	async function onDeletePage(): Promise<void> {
+		if (!site.home) return;
+		if (!window.confirm(`Move page "${page.title}" to trash?`)) return;
+		try {
+			await api.fs.deleteEntry({ home: site.home, entryPath: pageFilename });
+			showToast({ kind: 'success', title: 'Page moved to trash', body: page.title });
+			site.selection = { kind: 'none' };
+			await rescanCurrentHome();
+		} catch (err) {
+			showToast({ kind: 'error', title: 'Delete failed', body: (err as Error).message });
+		}
+	}
 </script>
 
 <svelte:window onkeydown={onKeydown} />
 
 <div class="flex h-full flex-col" data-testid="page-editor">
-	<header class="border-border bg-surface-1 shrink-0 border-b px-4 py-3">
-		<div class="text-text-primary text-[length:var(--text-label)] font-semibold">
-			{page.title}
+	<header
+		class="border-border bg-surface-1 flex shrink-0 items-start justify-between gap-3 border-b px-4 py-3"
+	>
+		<div class="min-w-0 flex-1">
+			<div class="text-text-primary truncate text-[length:var(--text-label)] font-semibold">
+				{page.title}
+			</div>
+			<div class="text-text-muted mt-0.5 truncate text-[length:var(--text-caption)]">
+				{pageFilename}
+				{#if page.is_link}
+					<span class="text-text-faint ml-2">· external link</span>
+				{/if}
+			</div>
 		</div>
-		<div class="text-text-muted mt-0.5 text-[length:var(--text-caption)]">
-			{pageFilename}
-			{#if page.is_link}
-				<span class="text-text-faint ml-2">· external link</span>
-			{/if}
-		</div>
+		<Button
+			variant="ghost"
+			size="icon"
+			onclick={onDeletePage}
+			aria-label="Delete page"
+			data-testid="page-delete-btn"
+			class="text-text-muted hover:text-danger hover:bg-danger/10 shrink-0"
+		>
+			<span aria-hidden="true" class="text-[length:var(--text-label)]">×</span>
+		</Button>
 	</header>
 
 	<div class="bg-surface-0 min-h-0 flex-1 overflow-y-auto">

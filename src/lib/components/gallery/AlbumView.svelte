@@ -4,6 +4,7 @@
 	import { showToast } from '$lib/stores/toastStore.svelte';
 	import type { ManifestAlbum, ManifestImage } from '$lib/types/manifest';
 	import DescriptionEditor from './DescriptionEditor.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
 	import { cn } from '$lib/utils';
 
 	interface Props {
@@ -94,16 +95,13 @@
 		}
 	}
 
-	async function onDelete(img: ManifestImage, e: MouseEvent): Promise<void> {
-		e.stopPropagation();
+	async function onDeleteAlbum(): Promise<void> {
 		if (!site.home) return;
+		if (!window.confirm(`Move album "${album.title}" to trash?`)) return;
 		try {
-			await api.fs.deleteImage({ home: site.home, imageSourcePath: img.source_path });
-			showToast({
-				kind: 'success',
-				title: 'Moved to trash',
-				body: img.filename
-			});
+			await api.fs.deleteEntry({ home: site.home, entryPath: albumSourceDir });
+			showToast({ kind: 'success', title: 'Album moved to trash', body: album.title });
+			site.selection = { kind: 'none' };
 			await rescanCurrentHome();
 		} catch (err) {
 			showToast({ kind: 'error', title: 'Delete failed', body: (err as Error).message });
@@ -169,14 +167,28 @@
 	ondrop={onDrop}
 	role="presentation"
 >
-	<header class="border-border bg-surface-1 shrink-0 border-b px-4 py-3">
-		<div class="text-text-primary text-[length:var(--text-label)] font-semibold">
-			{album.title}
+	<header
+		class="border-border bg-surface-1 flex shrink-0 items-start justify-between gap-3 border-b px-4 py-3"
+	>
+		<div class="min-w-0 flex-1">
+			<div class="text-text-primary truncate text-[length:var(--text-label)] font-semibold">
+				{album.title}
+			</div>
+			<div class="text-text-muted mt-1 text-[length:var(--text-caption)]">
+				{album.images.length} image{album.images.length === 1 ? '' : 's'}
+				<span class="text-text-faint">· drag images here to import</span>
+			</div>
 		</div>
-		<div class="text-text-muted mt-1 text-[length:var(--text-caption)]">
-			{album.images.length} image{album.images.length === 1 ? '' : 's'}
-			<span class="text-text-faint">· drag images here to import</span>
-		</div>
+		<Button
+			variant="ghost"
+			size="icon"
+			onclick={onDeleteAlbum}
+			aria-label="Delete album"
+			data-testid="album-delete-btn"
+			class="text-text-muted hover:text-danger hover:bg-danger/10 shrink-0"
+		>
+			<span aria-hidden="true" class="text-[length:var(--text-label)]">×</span>
+		</Button>
 	</header>
 
 	<DescriptionEditor {album} {albumSourceDir} />
@@ -222,15 +234,6 @@
 								#{img.number}
 							</span>
 						</div>
-					</button>
-					<button
-						type="button"
-						class="bg-danger/80 hover:bg-danger absolute top-1 right-1 rounded-sm px-1.5 py-0.5 text-[length:var(--text-micro)] text-white opacity-0 transition-opacity group-hover:opacity-100"
-						onclick={(e) => onDelete(img, e)}
-						aria-label="Delete image"
-						data-testid="thumb-delete-btn"
-					>
-						trash
 					</button>
 				</div>
 			{/each}
