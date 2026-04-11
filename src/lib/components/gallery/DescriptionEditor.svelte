@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Button from '$lib/components/ui/Button.svelte';
+	import MarkdownEditor from '$lib/components/markdown/MarkdownEditor.svelte';
 	import { api } from '$lib/api';
 	import { site, rescanCurrentHome } from '$lib/stores/siteStore.svelte';
 	import { showToast } from '$lib/stores/toastStore.svelte';
@@ -67,13 +68,13 @@
 	</button>
 	{#if open}
 		<div class="px-4 pb-3">
-			<textarea
-				bind:value={body}
-				rows="3"
-				placeholder="Markdown description (description.md)"
-				class="bg-surface-0 border-border focus:border-accent text-text-primary w-full resize-y rounded-sm border px-2 py-1.5 font-mono text-[length:var(--text-caption)] outline-none"
-				data-testid="description-input"
-			></textarea>
+			<div class="border-border h-32 rounded-sm border" data-testid="description-input-wrapper">
+				<MarkdownEditor
+					bind:value={body}
+					placeholder="Markdown description (description.md)"
+					data-testid="description-input"
+				/>
+			</div>
 			<div class="mt-2 flex items-center gap-2">
 				<Button
 					variant="default"

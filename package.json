@@ -48,10 +48,15 @@
 		"vite-plugin-electron-renderer": "^0.14.6"
 	},
 	"dependencies": {
+		"@codemirror/commands": "^6.10.3",
+		"@codemirror/lang-markdown": "^6.5.0",
+		"@codemirror/state": "^6.6.0",
+		"@codemirror/view": "^6.41.0",
 		"@iconify-json/lucide": "^1.2.20",
 		"bits-ui": "^1.0.0-next.78",
 		"chokidar": "^5.0.0",
 		"clsx": "^2.1.1",
+		"codemirror": "^6.0.2",
 		"electron-store": "^10.0.1",
 		"serve-handler": "^6.1.7",
 		"tailwind-merge": "^2.6.0",

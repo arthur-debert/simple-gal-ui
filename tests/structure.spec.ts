@@ -146,8 +146,12 @@ test('create → edit → delete a page through the page editor', async () => {
 	await page.getByTestId('tree-page').filter({ hasText: 'My Images' }).click();
 	await expect(page.getByTestId('page-editor')).toBeVisible();
 
-	// Edit and save
-	await page.getByTestId('page-body-input').fill('# My Images\n\nSome body text.');
+	// Edit and save — CodeMirror 6 uses a contenteditable surface, so we click
+	// into the editor to focus and type via the keyboard instead of .fill()
+	// (which only works on <input>/<textarea>).
+	const editor = page.getByTestId('page-body-input').locator('.cm-content');
+	await editor.click();
+	await page.keyboard.type('# My Images\n\nSome body text.');
 	await page.getByTestId('page-save-btn').click();
 	await expect
 		.poll(() => fs.readFileSync(createdAbs, 'utf8').includes('Some body text'), { timeout: 5000 })
