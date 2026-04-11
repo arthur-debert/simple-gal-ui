@@ -3,6 +3,7 @@
 	import { api } from '$lib/api';
 	import { showToast } from '$lib/stores/toastStore.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
+	import IconTrash from '~icons/lucide/trash-2';
 	import type { ManifestPage } from '$lib/types/manifest';
 
 	interface Props {
@@ -95,14 +96,15 @@
 			</div>
 		</div>
 		<Button
-			variant="ghost"
+			variant="danger"
 			size="icon"
 			onclick={onDeletePage}
 			aria-label="Delete page"
+			title="Delete page"
 			data-testid="page-delete-btn"
-			class="text-text-muted hover:text-danger hover:bg-danger/10 shrink-0"
+			class="shrink-0"
 		>
-			<span aria-hidden="true" class="text-[length:var(--text-label)]">×</span>
+			<IconTrash class="h-4 w-4" />
 		</Button>
 	</header>
 

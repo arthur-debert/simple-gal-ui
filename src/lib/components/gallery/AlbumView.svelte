@@ -6,6 +6,7 @@
 	import DescriptionEditor from './DescriptionEditor.svelte';
 	import InlineTitleEdit from './InlineTitleEdit.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
+	import IconTrash from '~icons/lucide/trash-2';
 	import { cn } from '$lib/utils';
 
 	interface Props {
@@ -375,16 +376,16 @@
 			</div>
 		</div>
 		<Button
-			variant="ghost"
+			variant="danger"
 			size="icon"
 			onclick={onHeaderDelete}
 			aria-label={headerDeleteLabel}
 			title={headerDeleteLabel}
 			data-testid="album-delete-btn"
 			data-selection-count={selected.size}
-			class="text-text-muted hover:text-danger hover:bg-danger/10 shrink-0"
+			class="shrink-0"
 		>
-			<span aria-hidden="true" class="text-[length:var(--text-label)]">×</span>
+			<IconTrash class="h-4 w-4" />
 		</Button>
 	</header>
 
@@ -401,7 +402,7 @@
 				{@const isDrag = draggingSet?.includes(img.source_path) ?? false}
 				<div
 					class={cn(
-						'group bg-surface-1 relative flex flex-col overflow-hidden rounded-md border transition-colors',
+						'group bg-surface-1 relative flex flex-col rounded-md border transition-colors',
 						isSel ? 'border-accent ring-accent ring-2' : 'border-border hover:border-border-strong',
 						isDrag ? 'opacity-40' : null
 					)}
@@ -412,23 +413,23 @@
 					ondragend={onThumbDragEnd}
 					role="listitem"
 				>
-					<!-- Left insertion bar -->
+					<!-- Left insertion bar — sits just outside the card on the left edge -->
 					{#if dropAtIndex === i && draggingSet !== null}
 						<div
-							class="bg-drop pointer-events-none absolute top-0 bottom-0 -left-1.5 w-0.5 rounded-full"
+							class="bg-drop pointer-events-none absolute top-0 bottom-0 -left-2 z-10 w-1 rounded-full"
 							data-testid="drop-bar-left"
 						></div>
 					{/if}
-					<!-- Right insertion bar (for last gap) -->
+					<!-- Right insertion bar — sits just outside the card on the right edge -->
 					{#if dropAtIndex === i + 1 && draggingSet !== null}
 						<div
-							class="bg-drop pointer-events-none absolute top-0 -right-1.5 bottom-0 w-0.5 rounded-full"
+							class="bg-drop pointer-events-none absolute top-0 -right-2 bottom-0 z-10 w-1 rounded-full"
 							data-testid="drop-bar-right"
 						></div>
 					{/if}
 					<button
 						type="button"
-						class="flex flex-col text-left"
+						class="flex flex-col overflow-hidden rounded-md text-left"
 						onclick={(e) => onThumbClick(img, e)}
 						ondblclick={() => onThumbDoubleClick(img)}
 						data-testid="album-thumb"

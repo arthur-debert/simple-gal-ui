@@ -41,9 +41,7 @@ test('window opens and renders three panes', async () => {
 });
 
 test('app header is draggable for native window move', async () => {
-	const headerStyle = await page
-		.getByTestId('app-header')
-		.getAttribute('style');
+	const headerStyle = await page.getByTestId('app-header').getAttribute('style');
 	expect(headerStyle ?? '').toContain('app-region: drag');
 });
 
