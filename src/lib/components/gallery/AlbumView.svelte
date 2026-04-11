@@ -7,6 +7,7 @@
 	import InlineTitleEdit from './InlineTitleEdit.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import IconTrash from '~icons/lucide/trash-2';
+	import IconImage from '~icons/lucide/image';
 	import { cn } from '$lib/utils';
 
 	interface Props {
@@ -158,6 +159,34 @@
 			await rescanCurrentHome();
 		} catch (err) {
 			showToast({ kind: 'error', title: 'Delete failed', body: (err as Error).message });
+		}
+	}
+
+	async function onUseAsThumbnail(): Promise<void> {
+		if (!site.home || selected.size !== 1) return;
+		const imageSourcePath = [...selected][0];
+		try {
+			const result = await api.fs.setAlbumThumbnail({
+				home: site.home,
+				albumPath: albumSourceDir,
+				imageSourcePath
+			});
+			if (result.noOp) {
+				showToast({ kind: 'info', title: 'Already the thumbnail' });
+				return;
+			}
+			showToast({
+				kind: 'success',
+				title: 'Thumbnail updated',
+				body: result.previousThumb
+					? `Previous: ${result.previousThumb.new.split('/').pop()}`
+					: undefined
+			});
+			await rescanCurrentHome();
+			// Re-pin selection to the renamed image
+			selected = new Set([result.newThumb.new]);
+		} catch (err) {
+			showToast({ kind: 'error', title: 'Set thumbnail failed', body: (err as Error).message });
 		}
 	}
 
@@ -375,18 +404,32 @@
 				{/if}
 			</div>
 		</div>
-		<Button
-			variant="danger"
-			size="icon"
-			onclick={onHeaderDelete}
-			aria-label={headerDeleteLabel}
-			title={headerDeleteLabel}
-			data-testid="album-delete-btn"
-			data-selection-count={selected.size}
-			class="shrink-0"
-		>
-			<IconTrash class="h-4 w-4" />
-		</Button>
+		<div class="flex shrink-0 items-center gap-2">
+			{#if selected.size === 1}
+				<Button
+					variant="outline"
+					size="sm"
+					onclick={onUseAsThumbnail}
+					data-testid="album-use-as-thumb-btn"
+					class="shrink-0"
+				>
+					<IconImage class="h-3.5 w-3.5" />
+					Use as Thumbnail
+				</Button>
+			{/if}
+			<Button
+				variant="danger"
+				size="icon"
+				onclick={onHeaderDelete}
+				aria-label={headerDeleteLabel}
+				title={headerDeleteLabel}
+				data-testid="album-delete-btn"
+				data-selection-count={selected.size}
+				class="shrink-0"
+			>
+				<IconTrash class="h-4 w-4" />
+			</Button>
+		</div>
 	</header>
 
 	<DescriptionEditor {album} {albumSourceDir} />

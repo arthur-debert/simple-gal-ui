@@ -7,14 +7,18 @@ test-results/
 playwright-report/
 tests/__screenshots__/
 
-# Bundled simple-gal binaries (downloaded at build time)
+# Bundled simple-gal binaries (downloaded at install/package time)
 resources/bin/
+
+# electron-builder output
+release/
 
 # Env
 .env
 .env.*
 !.env.example
 .DS_Store
+**/.DS_Store
 .padz
 
 # Fixture scratch

@@ -1,10 +1,18 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readFileSync } from 'node:fs';
 import { resolveSimpleGalBin, getSimpleGalVersion } from './binPath.js';
 import { scan, type SimpleGalResult, type ScanData } from './simpleGal.js';
-import { getLastGalleryHome, getRecentGalleryHomes, recordGalleryHome } from './store.js';
-import { build, type BuildRunResult } from './build.js';
+import {
+	getLastGalleryHome,
+	getRecentGalleryHomes,
+	recordGalleryHome,
+	getPaneState,
+	setPaneState,
+	type PaneState
+} from './store.js';
+import { build, cancelBuild, type BuildRunResult } from './build.js';
 import { ensureServer, stopServer } from './previewServer.js';
 import {
 	writeSidecar,
@@ -20,6 +28,7 @@ import {
 	writePage,
 	reorderTreeEntries,
 	findPageFile,
+	setAlbumThumbnail,
 	type WriteSidecarArgs,
 	type WriteSidecarResult,
 	type RenameImageArgs,
@@ -45,7 +54,9 @@ import {
 	type ReorderTreeEntriesArgs,
 	type ReorderTreeEntriesResult,
 	type FindPageFileArgs,
-	type FindPageFileResult
+	type FindPageFileResult,
+	type SetAlbumThumbnailArgs,
+	type SetAlbumThumbnailResult
 } from './fs.js';
 import { watchHome, stopWatching } from './watch.js';
 
@@ -53,6 +64,30 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const RENDERER_DEV_URL = process.env.VITE_DEV_SERVER_URL;
 const IS_DEV = !!RENDERER_DEV_URL;
+
+/**
+ * Read the app's own version from package.json rather than using
+ * `app.getVersion()`, which returns Electron's runtime version in dev mode
+ * (when the app is unpackaged). We read from the repo root in dev, and from
+ * the asar / resources dir in packaged builds.
+ */
+function readAppVersion(): string {
+	const candidates = [
+		path.join(__dirname, '..', 'package.json'), // dist-electron → repo root
+		path.join(app.getAppPath(), 'package.json')
+	];
+	for (const p of candidates) {
+		try {
+			const parsed = JSON.parse(readFileSync(p, 'utf8')) as { version?: string };
+			if (parsed.version) return parsed.version;
+		} catch {
+			// try the next one
+		}
+	}
+	// Final fallback: whatever Electron thinks
+	return app.getVersion();
+}
+const APP_VERSION = readAppVersion();
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -138,7 +173,7 @@ async function openGalleryHomeDialog(win: BrowserWindow): Promise<string | null>
 }
 
 function registerIpcHandlers(): void {
-	ipcMain.handle('app:version', () => app.getVersion());
+	ipcMain.handle('app:version', () => APP_VERSION);
 
 	ipcMain.handle('simpleGal:version', async () => {
 		try {
@@ -159,6 +194,11 @@ function registerIpcHandlers(): void {
 	ipcMain.handle('gallery:last', () => getLastGalleryHome() ?? null);
 	ipcMain.handle('gallery:recent', () => getRecentGalleryHomes());
 
+	ipcMain.handle('app:getPaneState', (_ev, id: string) => getPaneState(id));
+	ipcMain.handle('app:setPaneState', (_ev, id: string, state: PaneState) => {
+		setPaneState(id, state);
+	});
+
 	ipcMain.handle('gallery:scan', async (_ev, home: string): Promise<SimpleGalResult<ScanData>> => {
 		return scan(home);
 	});
@@ -178,6 +218,10 @@ function registerIpcHandlers(): void {
 
 	ipcMain.handle('preview:stop', async () => {
 		await stopServer();
+	});
+
+	ipcMain.handle('preview:cancel', () => {
+		return cancelBuild();
 	});
 
 	ipcMain.handle(
@@ -266,6 +310,12 @@ function registerIpcHandlers(): void {
 	ipcMain.handle(
 		'fs:findPageFile',
 		async (_ev, args: FindPageFileArgs): Promise<FindPageFileResult> => findPageFile(args)
+	);
+
+	ipcMain.handle(
+		'fs:setAlbumThumbnail',
+		async (_ev, args: SetAlbumThumbnailArgs): Promise<SetAlbumThumbnailResult> =>
+			setAlbumThumbnail(args)
 	);
 }
 

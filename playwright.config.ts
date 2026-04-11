@@ -10,5 +10,19 @@ export default defineConfig({
 	timeout: 60_000,
 	use: {
 		trace: 'on-first-retry'
-	}
+	},
+	// Two projects: the default "dev" project runs the full UI suite against
+	// `dist-electron/main.js`; the opt-in "packaged" project smoke-tests a
+	// built `.app` under `release/mac-arm64/`. Run the packaged project via
+	// `pnpm exec playwright test --project=packaged` after `pnpm run package:dir`.
+	projects: [
+		{
+			name: 'dev',
+			testIgnore: [/packaged\.spec\.ts$/]
+		},
+		{
+			name: 'packaged',
+			testMatch: [/packaged\.spec\.ts$/]
+		}
+	]
 });

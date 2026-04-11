@@ -4,6 +4,7 @@
 	import { showToast } from '$lib/stores/toastStore.svelte';
 	import type { ManifestImage } from '$lib/types/manifest';
 	import Button from '$lib/components/ui/Button.svelte';
+	import IconImage from '~icons/lucide/image';
 
 	interface Props {
 		albumPath: string;
@@ -95,6 +96,46 @@
 			save();
 		}
 	}
+
+	/**
+	 * Derive the album's on-disk source directory the same way AlbumView does:
+	 * strip the image filename off its source_path.
+	 */
+	const albumSourceDir = $derived.by(() => {
+		const idx = image.source_path.lastIndexOf('/');
+		return idx === -1 ? '' : image.source_path.slice(0, idx);
+	});
+
+	async function onUseAsThumbnail(): Promise<void> {
+		if (!site.home) return;
+		try {
+			const result = await api.fs.setAlbumThumbnail({
+				home: site.home,
+				albumPath: albumSourceDir,
+				imageSourcePath: image.source_path
+			});
+			if (result.noOp) {
+				showToast({ kind: 'info', title: 'Already the thumbnail' });
+				return;
+			}
+			showToast({
+				kind: 'success',
+				title: 'Thumbnail updated',
+				body: result.previousThumb
+					? `Previous: ${result.previousThumb.new.split('/').pop()}`
+					: undefined
+			});
+			await rescanCurrentHome();
+			// Re-pin this editor to the renamed image
+			site.selection = {
+				kind: 'image',
+				albumPath,
+				imageSourcePath: result.newThumb.new
+			};
+		} catch (err) {
+			showToast({ kind: 'error', title: 'Set thumbnail failed', body: (err as Error).message });
+		}
+	}
 </script>
 
 <svelte:window onkeydown={onKeydown} />
@@ -124,6 +165,16 @@
 		</div>
 
 		<div class="border-border border-t px-4 py-4">
+			<p
+				class="text-text-faint mb-3 text-[length:var(--text-micro)] leading-relaxed"
+				data-testid="image-metadata-note"
+			>
+				Title edits rename the file (preserving the <code class="bg-surface-2 rounded px-1"
+					>NNN-</code
+				>
+				prefix). Caption edits write a <code class="bg-surface-2 rounded px-1">.txt</code> sidecar next
+				to the image. Any IPTC metadata inside the image file is left untouched.
+			</p>
 			<form
 				class="flex flex-col gap-3"
 				onsubmit={(e) => {
@@ -162,6 +213,16 @@
 						data-testid="image-save-btn"
 					>
 						{saving ? 'Saving…' : 'Save (⌘S)'}
+					</Button>
+					<Button
+						type="button"
+						variant="outline"
+						size="sm"
+						onclick={onUseAsThumbnail}
+						data-testid="image-use-as-thumb-btn"
+					>
+						<IconImage class="h-3.5 w-3.5" />
+						Use as Thumbnail
 					</Button>
 					{#if dirty && !saving}
 						<span class="text-text-faint text-[length:var(--text-caption)]">unsaved changes</span>

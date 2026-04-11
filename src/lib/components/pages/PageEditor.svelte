@@ -3,6 +3,7 @@
 	import { api } from '$lib/api';
 	import { showToast } from '$lib/stores/toastStore.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
+	import MarkdownEditor from '$lib/components/markdown/MarkdownEditor.svelte';
 	import IconTrash from '~icons/lucide/trash-2';
 	import type { ManifestPage } from '$lib/types/manifest';
 
@@ -147,12 +148,16 @@
 
 	<div class="bg-surface-0 min-h-0 flex-1 overflow-y-auto">
 		<div class="flex h-full flex-col gap-3 p-4">
-			<textarea
-				bind:value={body}
-				class="bg-surface-1 border-border focus:border-accent text-text-primary flex-1 resize-none rounded-sm border p-3 font-mono text-[length:var(--text-body)] outline-none"
-				placeholder="Markdown body…"
-				data-testid="page-body-input"
-			></textarea>
+			<div
+				class="border-border bg-surface-1 min-h-0 flex-1 rounded-sm border"
+				data-testid="page-body-input-wrapper"
+			>
+				<MarkdownEditor
+					bind:value={body}
+					placeholder="Markdown body…"
+					data-testid="page-body-input"
+				/>
+			</div>
 			<div class="flex items-center gap-2">
 				<Button
 					variant="default"

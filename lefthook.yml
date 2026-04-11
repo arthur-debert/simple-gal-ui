@@ -1,0 +1,30 @@
+# Lefthook pre-commit hooks for simple-gal-ui.
+#
+# Hooks run in parallel where possible. Format checking is auto-fixed
+# so formatting changes always land in the same commit that introduces
+# them.
+#
+# Install hooks: `pnpm run prepare` (runs lefthook install).
+# Skip hooks for an emergency commit: `git commit --no-verify`.
+
+pre-commit:
+  parallel: true
+  commands:
+    format:
+      glob: '*.{ts,js,mjs,svelte,json,html,css,yml}'
+      run: pnpm exec prettier --write {staged_files}
+      stage_fixed: true
+    lint:
+      glob: '*.{ts,js,mjs,svelte}'
+      run: pnpm exec eslint {staged_files}
+    check:
+      # svelte-check runs on the whole project (not individual files)
+      glob: '*.{ts,svelte}'
+      run: pnpm run check
+
+pre-push:
+  commands:
+    # Full Playwright suite is slow (~12s). Skip by default; uncomment to
+    # run before every push.
+    # test:
+    #   run: pnpm run test:e2e

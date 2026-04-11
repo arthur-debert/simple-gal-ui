@@ -1,8 +1,5 @@
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
+import { spawn, type ChildProcess } from 'node:child_process';
 import { resolveSimpleGalBin } from './binPath.js';
-
-const execFileAsync = promisify(execFile);
 
 /**
  * JSON envelope contract for simple-gal --format json.
@@ -55,41 +52,131 @@ function buildArgs(command: string, opts: RunOptions): string[] {
 }
 
 /**
- * Run a simple-gal subcommand and return a parsed JSON envelope.
- *
- * On non-zero exit, stderr is parsed as a JSON error envelope; if parsing
- * fails, a synthetic error envelope is returned.
+ * A handle returned by `spawnSimpleGal`. The Promise resolves to the parsed
+ * JSON envelope once the child exits. Callers can call `cancel()` to SIGTERM
+ * (and after a grace period, SIGKILL) the child, which resolves the Promise
+ * with a synthetic `{kind: 'cancelled'}` envelope.
+ */
+export interface SimpleGalHandle<TData = unknown> {
+	result: Promise<SimpleGalResult<TData>>;
+	cancel: () => void;
+	child: ChildProcess;
+}
+
+/**
+ * Run a simple-gal subcommand and return a parsed JSON envelope. Convenience
+ * wrapper around `spawnSimpleGal` for call sites that don't need cancel
+ * support.
  */
 export async function runSimpleGal<TData = unknown>(
 	command: string,
 	opts: RunOptions = {}
 ): Promise<SimpleGalResult<TData>> {
+	return spawnSimpleGal<TData>(command, opts).result;
+}
+
+/**
+ * Spawn a simple-gal subprocess and return a cancellable handle.
+ *
+ * On non-zero exit, stderr is parsed as a JSON error envelope; if parsing
+ * fails, a synthetic error envelope is returned. On cancel, the child
+ * receives SIGTERM and (if still alive after 2s) SIGKILL.
+ */
+export function spawnSimpleGal<TData = unknown>(
+	command: string,
+	opts: RunOptions = {}
+): SimpleGalHandle<TData> {
 	const bin = resolveSimpleGalBin();
 	const args = buildArgs(command, opts);
 
-	try {
-		const { stdout } = await execFileAsync(bin, args, {
-			cwd: opts.cwd,
-			maxBuffer: 64 * 1024 * 1024
+	let cancelled = false;
+	let killTimer: NodeJS.Timeout | null = null;
+
+	const child = spawn(bin, args, {
+		cwd: opts.cwd,
+		stdio: ['ignore', 'pipe', 'pipe']
+	});
+
+	let stdout = '';
+	let stderr = '';
+	child.stdout?.on('data', (buf) => {
+		stdout += buf.toString();
+	});
+	child.stderr?.on('data', (buf) => {
+		stderr += buf.toString();
+	});
+
+	const result = new Promise<SimpleGalResult<TData>>((resolve) => {
+		child.on('error', (err) => {
+			if (killTimer) clearTimeout(killTimer);
+			resolve({
+				ok: false,
+				kind: 'spawn_error',
+				message: err.message
+			});
 		});
-		return JSON.parse(stdout) as SimpleGalOk<TData>;
-	} catch (err) {
-		const e = err as NodeJS.ErrnoException & { stdout?: string; stderr?: string; code?: number };
-		const stderr = e.stderr ?? '';
-		if (stderr.trim().startsWith('{')) {
-			try {
-				return JSON.parse(stderr) as SimpleGalErr;
-			} catch {
-				// fallthrough to synthetic error
+		child.on('close', (code) => {
+			if (killTimer) clearTimeout(killTimer);
+			if (cancelled) {
+				resolve({
+					ok: false,
+					kind: 'cancelled',
+					message: 'Build was cancelled'
+				});
+				return;
 			}
+			if (code === 0) {
+				try {
+					resolve(JSON.parse(stdout) as SimpleGalOk<TData>);
+					return;
+				} catch (err) {
+					resolve({
+						ok: false,
+						kind: 'parse_error',
+						message: (err as Error).message,
+						causes: [stdout.slice(0, 400)]
+					});
+					return;
+				}
+			}
+			// Non-zero exit: try to parse the error envelope from stderr
+			if (stderr.trim().startsWith('{')) {
+				try {
+					resolve(JSON.parse(stderr) as SimpleGalErr);
+					return;
+				} catch {
+					// fall through
+				}
+			}
+			resolve({
+				ok: false,
+				kind: 'spawn_error',
+				message: `simple-gal exited with code ${code}`,
+				causes: stderr ? [stderr] : undefined
+			});
+		});
+	});
+
+	function cancel(): void {
+		if (cancelled || child.exitCode !== null) return;
+		cancelled = true;
+		try {
+			child.kill('SIGTERM');
+		} catch {
+			// ignore
 		}
-		return {
-			ok: false,
-			kind: 'spawn_error',
-			message: e.message || String(err),
-			causes: stderr ? [stderr] : undefined
-		};
+		killTimer = setTimeout(() => {
+			if (child.exitCode === null) {
+				try {
+					child.kill('SIGKILL');
+				} catch {
+					// ignore
+				}
+			}
+		}, 2000);
 	}
+
+	return { result, cancel, child };
 }
 
 // --- Typed accessors for known commands ----------------------------------

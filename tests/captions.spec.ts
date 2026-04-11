@@ -103,6 +103,17 @@ test('emptying caption removes sidecar', async () => {
 	await expect.poll(() => fs.existsSync(sidecar), { timeout: 5000 }).toBe(false);
 });
 
+test('image detail editor shows the metadata behavior note', async () => {
+	await page.getByTestId('tree-album').filter({ hasText: 'Landscapes' }).click();
+	await page.getByTestId('album-thumb').first().dblclick();
+	await expect(page.getByTestId('image-detail-editor')).toBeVisible();
+	const note = page.getByTestId('image-metadata-note');
+	await expect(note).toBeVisible();
+	await expect(note).toContainText('Title edits rename the file');
+	await expect(note).toContainText('sidecar');
+	await expect(note).toContainText('IPTC');
+});
+
 test('captures editor screenshot', async () => {
 	const outDir = path.join(repoRoot, 'tests/__screenshots__/pr4');
 	await page.getByTestId('tree-album').filter({ hasText: 'Landscapes' }).click();

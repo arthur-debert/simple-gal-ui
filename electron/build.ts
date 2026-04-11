@@ -1,4 +1,4 @@
-import { runSimpleGal, type SimpleGalResult } from './simpleGal.js';
+import { spawnSimpleGal, type SimpleGalHandle, type SimpleGalResult } from './simpleGal.js';
 import { workPathsForHome } from './paths.js';
 
 export interface BuildCounts {
@@ -29,7 +29,10 @@ export interface BuildRunResult {
 	envelope: SimpleGalResult<BuildData>;
 }
 
-let inflight: Promise<BuildRunResult> | null = null;
+let inflight: {
+	promise: Promise<BuildRunResult>;
+	handle: SimpleGalHandle<BuildData>;
+} | null = null;
 
 /**
  * Run `simple-gal build` on `home` into a stable per-home tmp dir.
@@ -38,26 +41,35 @@ let inflight: Promise<BuildRunResult> | null = null;
  * gets the same Promise, so rapid change bursts don't stack up builds.
  */
 export function build(home: string): Promise<BuildRunResult> {
-	if (inflight) return inflight;
-	inflight = runBuild(home).finally(() => {
-		inflight = null;
-	});
-	return inflight;
-}
-
-async function runBuild(home: string): Promise<BuildRunResult> {
+	if (inflight) return inflight.promise;
 	const { dist, temp } = workPathsForHome(home);
 	const started = Date.now();
-	const envelope = await runSimpleGal<BuildData>('build', {
+	const handle = spawnSimpleGal<BuildData>('build', {
 		source: home,
 		output: dist,
 		tempDir: temp
 	});
-	return {
-		ok: envelope.ok,
-		distPath: dist,
-		tempPath: temp,
-		durationMs: Date.now() - started,
-		envelope
-	};
+	const promise = handle.result
+		.then<BuildRunResult>((envelope) => ({
+			ok: envelope.ok,
+			distPath: dist,
+			tempPath: temp,
+			durationMs: Date.now() - started,
+			envelope
+		}))
+		.finally(() => {
+			inflight = null;
+		});
+	inflight = { promise, handle };
+	return promise;
+}
+
+/**
+ * Cancel the currently in-flight build (if any). The pending `build()`
+ * Promise resolves with a `{kind: 'cancelled'}` envelope.
+ */
+export function cancelBuild(): boolean {
+	if (!inflight) return false;
+	inflight.handle.cancel();
+	return true;
 }

@@ -1,0 +1,44 @@
+# electron-builder configuration for simple-gal-ui
+#
+# First-round packaging target: macOS arm64 unsigned. Other platforms and
+# code signing will land in a follow-up round.
+#
+# Usage:
+#   pnpm run package         — produces a signed/notarized .dmg in release/
+#   pnpm run package:dir     — produces an unpacked .app only (fast dev loop)
+
+appId: com.arthur-debert.simple-gal-ui
+productName: simple-gal-ui
+copyright: Copyright © 2026 Arthur Debert
+
+directories:
+  output: release
+  buildResources: resources
+
+# Ship only what the runtime actually needs.
+files:
+  - dist/**/*
+  - dist-electron/**/*
+  - package.json
+  - '!**/*.map'
+  - '!node_modules/**/*' # pnpm handles deps via the asar; electron-builder picks them up automatically
+
+# The bundled simple-gal binary lives outside the asar so it can be executed
+# directly. electron/binPath.ts resolves it via process.resourcesPath/bin/...
+extraResources:
+  - from: resources/bin
+    to: bin
+    filter: ['**/*']
+
+mac:
+  category: public.app-category.photography
+  icon: resources/icon.png
+  identity: null # unsigned for this round
+  target:
+    - target: dmg
+      arch: [arm64]
+  artifactName: ${productName}-${version}-${arch}.${ext}
+
+dmg:
+  writeUpdateInfo: false
+  sign: false

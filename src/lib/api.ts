@@ -7,6 +7,13 @@
  */
 import type { SimpleGalResult, ScanData } from './types/manifest';
 
+export interface PaneState {
+	leftWidth: number;
+	rightWidth: number;
+	leftCollapsed: boolean;
+	rightCollapsed: boolean;
+}
+
 export interface BuildRunResult {
 	ok: boolean;
 	distPath: string;
@@ -171,9 +178,26 @@ export interface FindPageFileResult {
 	filename: string | null;
 }
 
+export interface SetAlbumThumbnailArgs {
+	home: string;
+	albumPath: string;
+	imageSourcePath: string;
+}
+
+export interface SetAlbumThumbnailResult {
+	ok: boolean;
+	previousThumb: { old: string; new: string } | null;
+	newThumb: { old: string; new: string };
+	noOp: boolean;
+}
+
 export const api = {
 	app: {
-		version: () => window.api.app.version()
+		version: () => window.api.app.version(),
+		getPaneState: (id: string): Promise<PaneState | null> =>
+			window.api.app.getPaneState(id) as Promise<PaneState | null>,
+		setPaneState: (id: string, state: PaneState): Promise<void> =>
+			window.api.app.setPaneState(id, state)
 	},
 	get platform(): 'darwin' | 'linux' | 'win32' {
 		return window.api.platform;
@@ -193,6 +217,7 @@ export const api = {
 		build: (home: string): Promise<BuildRunResult> =>
 			window.api.preview.build(home) as Promise<BuildRunResult>,
 		stop: (): Promise<void> => window.api.preview.stop(),
+		cancel: (): Promise<boolean> => window.api.preview.cancel(),
 		onReady: (cb: (payload: { url: string; token: number }) => void): (() => void) =>
 			window.api.preview.onReady(cb)
 	},
@@ -223,6 +248,8 @@ export const api = {
 			window.api.fs.reorderTreeEntries(args) as Promise<ReorderTreeEntriesResult>,
 		findPageFile: (args: FindPageFileArgs): Promise<FindPageFileResult> =>
 			window.api.fs.findPageFile(args) as Promise<FindPageFileResult>,
+		setAlbumThumbnail: (args: SetAlbumThumbnailArgs): Promise<SetAlbumThumbnailResult> =>
+			window.api.fs.setAlbumThumbnail(args) as Promise<SetAlbumThumbnailResult>,
 		getPathForFile: (file: File): string => window.api.fs.getPathForFile(file)
 	},
 	watch: {

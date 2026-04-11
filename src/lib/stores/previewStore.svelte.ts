@@ -96,6 +96,11 @@ export async function runBuild(): Promise<void> {
 			state.status = 'ready';
 			state.counts = (result.envelope.data.counts as PreviewState['counts']) ?? null;
 			state.cache = (result.envelope.data.cache as PreviewState['cache']) ?? null;
+		} else if (result.envelope.kind === 'cancelled') {
+			// User-initiated cancel — return cleanly to whatever the previous
+			// post-build state was (ready if we had a preview, idle otherwise).
+			state.status = state.url ? 'ready' : 'idle';
+			showToast({ kind: 'info', title: 'Build cancelled' });
 		} else {
 			state.status = 'error';
 			state.lastError = result.envelope.message;
@@ -117,4 +122,11 @@ export async function runBuild(): Promise<void> {
 		state.lastError = (err as Error).message;
 		showToast({ kind: 'error', title: 'build failed', body: (err as Error).message });
 	}
+}
+
+export async function cancelBuild(): Promise<void> {
+	if (state.status !== 'building') return;
+	await api.preview.cancel();
+	// The in-flight runBuild() will transition status via the cancelled
+	// envelope branch; no need to mutate state here.
 }
