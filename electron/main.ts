@@ -89,17 +89,29 @@ function handleFatal(label: string, err: unknown): void {
 			// ignore — the Electron runtime may be too broken to show a dialog
 		}
 	}
-	// Use Electron's app.exit when available (emits some cleanup events),
-	// but fall through to Node's process.exit unconditionally. On Linux
-	// and Windows, app.exit(1) doesn't reliably terminate the process
-	// when called very early (before app.whenReady), so we need the
-	// hard stop.
+	// Belt and suspenders termination:
+	//   1. `app.exit(1)` is the "nice" Electron-aware exit (may no-op
+	//      before app.whenReady on Linux/Windows).
+	//   2. `process.exit(1)` is Node-level but can be blocked by
+	//      Electron's C++ event loop on Linux.
+	//   3. `process.kill(process.pid, 'SIGKILL')` is a kernel-level
+	//      hard stop — the OS terminates the process unconditionally,
+	//      signal-handlers can't intercept it. This always works.
 	try {
 		app.exit(1);
 	} catch {
 		// ignore — app module may not be ready yet
 	}
-	process.exit(1);
+	try {
+		process.exit(1);
+	} catch {
+		// ignore
+	}
+	try {
+		process.kill(process.pid, 'SIGKILL');
+	} catch {
+		// nothing more we can do
+	}
 }
 
 process.on('uncaughtException', (err) => handleFatal('uncaughtException', err));

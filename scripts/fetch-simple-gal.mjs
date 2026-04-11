@@ -124,18 +124,27 @@ try {
 	softExit(`download error: ${err.message}`);
 }
 
-// Extract. On every supported platform `tar` handles .tar.gz; Windows 10+
-// also ships a `tar.exe` that understands .zip via libarchive.
-console.log(`[fetch-simple-gal] extracting ${archivePath}`);
+// Extract. `tar` handles both .tar.gz and .zip (bsdtar / Windows 10+ tar.exe).
+//
+// On Windows, GitHub Actions runs this step under `shell: bash` which puts
+// Git-for-Windows' MSYS tar first on PATH. That tar interprets `C:\...` as
+// an SSH hostname ("Cannot connect to C: resolve failed") instead of a
+// Windows path. Work around it by invoking the built-in Windows tar via
+// its absolute path — Windows 10+ always has one at System32\tar.exe.
+const tarBin =
+	process.platform === 'win32'
+		? `${process.env.SystemRoot ?? 'C:\\Windows'}\\System32\\tar.exe`
+		: 'tar';
+
+console.log(`[fetch-simple-gal] extracting ${archivePath} with ${tarBin}`);
 try {
-	if (assetName.endsWith('.tar.gz')) {
-		execFileSync('tar', ['-xzf', archivePath, '-C', scratch], { stdio: 'inherit' });
-	} else if (assetName.endsWith('.zip')) {
-		// `tar -xf <zip>` works on macOS / Linux (bsdtar) and Windows 10+ tar.exe.
-		execFileSync('tar', ['-xf', archivePath, '-C', scratch], { stdio: 'inherit' });
-	} else {
+	const tarArgs = assetName.endsWith('.tar.gz')
+		? ['-xzf', archivePath, '-C', scratch]
+		: ['-xf', archivePath, '-C', scratch];
+	if (!assetName.endsWith('.tar.gz') && !assetName.endsWith('.zip')) {
 		softExit(`unknown archive type for ${assetName}`);
 	}
+	execFileSync(tarBin, tarArgs, { stdio: 'inherit' });
 } catch (err) {
 	softExit(`extraction failed: ${err.message}`);
 }
