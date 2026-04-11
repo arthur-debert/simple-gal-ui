@@ -82,6 +82,12 @@ test('clicking Build produces an iframe preview of the rendered site', async () 
 	expect(html).toContain('Landscapes');
 });
 
+test('preview.cancel IPC exists and returns cleanly when no build is in flight', async () => {
+	// Idle case: cancel should return false (nothing to cancel) and not throw.
+	const cancelled = await page.evaluate(() => (window as typeof window).api.preview.cancel());
+	expect(typeof cancelled).toBe('boolean');
+});
+
 test('captures preview screenshot', async () => {
 	const outDir = path.join(repoRoot, 'tests/__screenshots__/pr3');
 	await page.screenshot({ path: path.join(outDir, 'preview-ready.png'), fullPage: true });

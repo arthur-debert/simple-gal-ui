@@ -73,6 +73,7 @@ const api = {
 	preview: {
 		build: (home: string): Promise<BuildRunResult> => ipcRenderer.invoke('preview:build', home),
 		stop: (): Promise<void> => ipcRenderer.invoke('preview:stop'),
+		cancel: (): Promise<boolean> => ipcRenderer.invoke('preview:cancel'),
 		onReady: (cb: (payload: { url: string; token: number }) => void): (() => void) => {
 			const handler = (_ev: Electron.IpcRendererEvent, p: { url: string; token: number }) => cb(p);
 			ipcRenderer.on('preview:ready', handler);

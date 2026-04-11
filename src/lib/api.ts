@@ -217,6 +217,7 @@ export const api = {
 		build: (home: string): Promise<BuildRunResult> =>
 			window.api.preview.build(home) as Promise<BuildRunResult>,
 		stop: (): Promise<void> => window.api.preview.stop(),
+		cancel: (): Promise<boolean> => window.api.preview.cancel(),
 		onReady: (cb: (payload: { url: string; token: number }) => void): (() => void) =>
 			window.api.preview.onReady(cb)
 	},

@@ -11,7 +11,7 @@ import {
 	setPaneState,
 	type PaneState
 } from './store.js';
-import { build, type BuildRunResult } from './build.js';
+import { build, cancelBuild, type BuildRunResult } from './build.js';
 import { ensureServer, stopServer } from './previewServer.js';
 import {
 	writeSidecar,
@@ -193,6 +193,10 @@ function registerIpcHandlers(): void {
 
 	ipcMain.handle('preview:stop', async () => {
 		await stopServer();
+	});
+
+	ipcMain.handle('preview:cancel', () => {
+		return cancelBuild();
 	});
 
 	ipcMain.handle(
