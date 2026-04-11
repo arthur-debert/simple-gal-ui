@@ -1,29 +1,24 @@
 node_modules/
-build/
-.svelte-kit/
-
-# Tauri
-src-tauri/target/
-src-tauri/gen/
-src-tauri/mirrors-wasm/pkg/
+dist/
+dist-electron/
 
 # Playwright
 test-results/
 playwright-report/
+tests/__screenshots__/
+
+# Bundled simple-gal binaries (downloaded at build time)
+resources/bin/
 
 # Env
 .env
 .env.*
 !.env.example
-.padz
 .DS_Store
-.todos.db
+.padz
 
-# ML models (downloaded by scripts/fetch-segformer-model.sh)
-static/models/
-static/ort-wasm/
-static/sample-images/
-docs/wip
-.git-trees
+# Fixture scratch
+tests/.tmp/
 
-content
+# Local gallery content (user photos — not for version control)
+content/
