@@ -64,7 +64,7 @@ test('selecting a thumbnail shows the image detail view', async () => {
 	const landscapes = page.getByTestId('tree-album').filter({ hasText: 'Landscapes' });
 	await landscapes.click();
 	await page.getByTestId('album-thumb').first().click();
-	await expect(page.getByTestId('image-detail')).toBeVisible();
+	await expect(page.getByTestId('image-detail-editor')).toBeVisible();
 });
 
 test('selecting a page shows the page view', async () => {

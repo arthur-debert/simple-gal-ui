@@ -50,6 +50,7 @@
 	"dependencies": {
 		"@iconify-json/lucide": "^1.2.20",
 		"bits-ui": "^1.0.0-next.78",
+		"chokidar": "^5.0.0",
 		"clsx": "^2.1.1",
 		"electron-store": "^10.0.1",
 		"serve-handler": "^6.1.7",

@@ -10,8 +10,8 @@ In active development. Delivered as a series of stacked PRs that each leave the 
 
 - PR1 — Foundation: Electron shell, three-pane layout, shadcn-svelte primitives, simple-gal binary resolver, Playwright smoke test.
 - PR2 — Read-only gallery browse: Open a gallery home, scan via `simple-gal scan --format json`, render the site tree (albums + pages), and browse albums / images / pages read-only.
-- **PR3 — Preview pipeline** *(current)*: Click Build, run `simple-gal build --format json` into a per-home tmp dir, serve the rendered dist over a local HTTP server, and show it in an iframe in the right pane with a phase-aware status bar and config-error overlay.
-- PR4 — Image title & caption editing
+- PR3 — Preview pipeline: Click Build, run `simple-gal build --format json` into a per-home tmp dir, serve the rendered dist over a local HTTP server, and show it in an iframe in the right pane with a phase-aware status bar and config-error overlay.
+- **PR4 — Image title & caption editing** *(current)*: Editable title + caption form that writes sidecar `.txt` files and renames image files while preserving `NNN-` prefixes. Chokidar watches the gallery home and triggers debounced auto-build so the preview follows changes.
 - PR5 — Image management within an album
 - PR6 — Site structure editing
 
