@@ -165,6 +165,16 @@
 		</div>
 
 		<div class="border-border border-t px-4 py-4">
+			<p
+				class="text-text-faint mb-3 text-[length:var(--text-micro)] leading-relaxed"
+				data-testid="image-metadata-note"
+			>
+				Title edits rename the file (preserving the <code class="bg-surface-2 rounded px-1"
+					>NNN-</code
+				>
+				prefix). Caption edits write a <code class="bg-surface-2 rounded px-1">.txt</code> sidecar next
+				to the image. Any IPTC metadata inside the image file is left untouched.
+			</p>
 			<form
 				class="flex flex-col gap-3"
 				onsubmit={(e) => {
