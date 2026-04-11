@@ -52,6 +52,7 @@
 		"bits-ui": "^1.0.0-next.78",
 		"clsx": "^2.1.1",
 		"electron-store": "^10.0.1",
+		"serve-handler": "^6.1.7",
 		"tailwind-merge": "^2.6.0",
 		"tailwind-variants": "^0.3.0"
 	}

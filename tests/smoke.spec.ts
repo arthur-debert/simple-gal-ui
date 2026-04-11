@@ -37,7 +37,7 @@ test('window opens and renders three panes', async () => {
 	await expect(page.getByTestId('pane-left')).toBeVisible();
 	await expect(page.getByTestId('pane-center')).toBeVisible();
 	await expect(page.getByTestId('pane-right')).toBeVisible();
-	await expect(page.getByTestId('app-footer')).toBeVisible();
+	await expect(page.getByTestId('status-bar')).toBeVisible();
 });
 
 test('welcome message is present', async () => {
