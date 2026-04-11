@@ -17,6 +17,7 @@ import {
 	type Page
 } from '@playwright/test';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -72,4 +73,49 @@ test('packaged app captures a screenshot of its initial state', async () => {
 	const outDir = path.join(repoRoot, 'tests/__screenshots__/fb2');
 	fs.mkdirSync(outDir, { recursive: true });
 	await page.screenshot({ path: path.join(outDir, 'packaged-initial.png'), fullPage: true });
+});
+
+test('bootstrap handler writes a log file and exits cleanly on startup error', async () => {
+	// Don't use `electron.launch()` here — when we force a startup error,
+	// no window ever opens and Playwright's launcher hangs waiting. Spawn
+	// the binary directly via Node instead and wait for it to exit.
+	const { spawn } = await import('node:child_process');
+	const logDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sgui-crash-'));
+	try {
+		const proc = spawn(appPath, [], {
+			env: {
+				...process.env,
+				SIMPLE_GAL_PATH: '',
+				SGUI_STARTUP_LOG: logDir,
+				SGUI_FORCE_STARTUP_ERROR: 'synthetic startup failure for tests'
+			},
+			stdio: 'ignore'
+		});
+
+		const exitCode = await new Promise<number | null>((resolve) => {
+			const t = setTimeout(() => {
+				proc.kill('SIGKILL');
+				resolve(null);
+			}, 10_000);
+			proc.on('exit', (code) => {
+				clearTimeout(t);
+				resolve(code);
+			});
+		});
+
+		expect(exitCode).toBe(1); // app.exit(1) from handleFatal
+
+		const logPath = path.join(logDir, 'last-error.log');
+		expect(fs.existsSync(logPath)).toBe(true);
+		const contents = fs.readFileSync(logPath, 'utf8');
+		expect(contents).toContain('bootstrap-failed');
+		expect(contents).toContain('synthetic startup failure for tests');
+		expect(contents).toMatch(/versions:/); // sanity — full metadata present
+	} finally {
+		try {
+			fs.rmSync(logDir, { recursive: true });
+		} catch {
+			// ignore
+		}
+	}
 });

@@ -17,7 +17,13 @@ export default defineConfig({
 					build: {
 						outDir: 'dist-electron',
 						rollupOptions: {
-							external: ['electron', 'electron-store', 'conf', 'serve-handler', 'chokidar']
+							// Only externalize `electron` (always provided by the runtime)
+							// and `fsevents` (a macOS-only native addon chokidar loads
+							// optionally and that Vite can't bundle). Everything else —
+							// electron-store, chokidar, serve-handler — gets inlined into
+							// main.js so we don't rely on electron-builder's dependency
+							// walker to find transitive deps inside pnpm's node_modules.
+							external: ['electron', 'fsevents']
 						}
 					}
 				}

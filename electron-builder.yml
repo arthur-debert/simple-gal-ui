@@ -15,13 +15,18 @@ directories:
   output: release
   buildResources: resources
 
-# Ship only what the runtime actually needs.
+# File inclusion. Since vite.config.ts bundles every main-process runtime
+# dependency (electron-store, chokidar, serve-handler, etc.) directly into
+# dist-electron/main.js, the packaged app doesn't need anything from
+# node_modules at runtime — `electron` is the only import we leave
+# external and it's supplied by Electron's runtime, not by node_modules.
+# So we ship ONLY the compiled bundles + package.json + the bundled
+# simple-gal binary (via extraResources below).
 files:
   - dist/**/*
   - dist-electron/**/*
   - package.json
   - '!**/*.map'
-  - '!node_modules/**/*' # pnpm handles deps via the asar; electron-builder picks them up automatically
 
 # The bundled simple-gal binary lives outside the asar so it can be executed
 # directly. electron/binPath.ts resolves it via process.resourcesPath/bin/...
