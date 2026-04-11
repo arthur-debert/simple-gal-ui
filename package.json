@@ -15,8 +15,11 @@
 		"format": "prettier --write .",
 		"format:check": "prettier --check .",
 		"test:e2e": "playwright test",
-		"package": "node scripts/fetch-simple-gal.mjs && pnpm run build && electron-builder --mac --arm64",
-		"package:dir": "node scripts/fetch-simple-gal.mjs && pnpm run build && electron-builder --mac --arm64 --dir",
+		"package": "node scripts/fetch-simple-gal.mjs && pnpm run build && electron-builder",
+		"package:dir": "node scripts/fetch-simple-gal.mjs && pnpm run build && electron-builder --dir",
+		"package:mac": "node scripts/fetch-simple-gal.mjs && pnpm run build && electron-builder --mac --arm64",
+		"package:linux": "node scripts/fetch-simple-gal.mjs && pnpm run build && electron-builder --linux --x64",
+		"package:win": "node scripts/fetch-simple-gal.mjs && pnpm run build && electron-builder --win --x64",
 		"prepare": "lefthook install || true",
 		"postinstall": "node scripts/fetch-simple-gal.mjs || true"
 	},

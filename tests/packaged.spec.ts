@@ -1,8 +1,17 @@
 /**
- * Smoke test for the packaged .app. NOT run by default `pnpm run test:e2e`
- * because it requires `pnpm run package:dir` to have produced an unpacked
- * build at `release/mac-arm64/simple-gal-ui.app`. CI's release workflow
- * runs this spec explicitly after packaging.
+ * Smoke test for the packaged binary. NOT run by default `pnpm run test:e2e`
+ * — only via the `packaged` Playwright project, and only after the binary
+ * has been produced by electron-builder.
+ *
+ * The binary path differs per platform. Default layout (from
+ * `pnpm run package:dir` on macOS arm64) is
+ * `release/mac-arm64/simple-gal-ui.app/Contents/MacOS/simple-gal-ui`.
+ * CI's release workflow passes `PACKAGED_APP_PATH` to point at the
+ * platform-specific unpacked binary:
+ *
+ *   - macOS:  release/mac-arm64/simple-gal-ui.app/Contents/MacOS/simple-gal-ui
+ *   - Linux:  release/linux-unpacked/simple-gal-ui
+ *   - Windows: release/win-unpacked/simple-gal-ui.exe
  *
  * The point is to catch coarse failures: binPath resolution, preload load,
  * renderer mount, simple-gal bundling. It does NOT drive any UI flow
@@ -23,10 +32,27 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '..');
-const appPath = path.join(
-	repoRoot,
-	'release/mac-arm64/simple-gal-ui.app/Contents/MacOS/simple-gal-ui'
-);
+
+/**
+ * Resolve the packaged binary path. Honor `PACKAGED_APP_PATH` if set
+ * (CI matrix passes it per-platform); otherwise default to the macOS
+ * arm64 layout for local runs after `pnpm run package:dir`.
+ */
+function resolveAppPath(): string {
+	const override = process.env.PACKAGED_APP_PATH;
+	if (override) {
+		return path.isAbsolute(override) ? override : path.join(repoRoot, override);
+	}
+	if (process.platform === 'linux') {
+		return path.join(repoRoot, 'release/linux-unpacked/simple-gal-ui');
+	}
+	if (process.platform === 'win32') {
+		return path.join(repoRoot, 'release/win-unpacked/simple-gal-ui.exe');
+	}
+	return path.join(repoRoot, 'release/mac-arm64/simple-gal-ui.app/Contents/MacOS/simple-gal-ui');
+}
+
+const appPath = resolveAppPath();
 
 test.skip(
 	!fs.existsSync(appPath),

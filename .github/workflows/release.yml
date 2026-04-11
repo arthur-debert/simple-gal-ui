@@ -1,17 +1,17 @@
 name: Release
 
-# Triggered by pushing a `v*.*.*` tag. Produces an unsigned macOS arm64
-# .dmg, smoke-tests the packaged .app, and creates a draft GitHub Release
-# with the artifact attached. You manually promote the draft to published
-# once the release notes are in place.
+# Triggered by pushing a `v*.*.*` tag. Produces unsigned installers for
+# macOS arm64 (.dmg), Linux x64 (AppImage), and Windows x64 (NSIS .exe),
+# smoke-tests each packaged binary on its own runner, then creates a
+# single draft GitHub Release with all three artifacts attached.
 #
 # Usage:
-#   1. Bump `version` in package.json (and `simpleGalVersion` if pinned to a
-#      newer simple-gal).
+#   1. Bump `version` in package.json (and `simpleGalVersion` if pinning
+#      a newer simple-gal).
 #   2. Commit and tag: `git tag v0.1.0 && git push --tags`
 #   3. Watch https://github.com/arthur-debert/simple-gal-ui/actions
-#   4. On success, a draft release appears at /releases; edit the notes and
-#      hit Publish.
+#   4. On success, a draft release appears at /releases; edit the notes
+#      and click Publish.
 
 on:
   push:
@@ -22,9 +22,40 @@ permissions:
   contents: write
 
 jobs:
-  release:
-    runs-on: macos-latest
+  package:
+    name: ${{ matrix.label }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: macOS arm64
+            os: macos-latest
+            target: mac
+            builder_args: --mac --arm64
+            packaged_app_path: release/mac-arm64/simple-gal-ui.app/Contents/MacOS/simple-gal-ui
+            smoke_prefix: '' # runs directly
+            artifact_glob: release/*.dmg
+            artifact_name: dist-mac-arm64
+          - label: Linux x64
+            os: ubuntu-latest
+            target: linux
+            builder_args: --linux --x64
+            packaged_app_path: release/linux-unpacked/simple-gal-ui
+            smoke_prefix: 'xvfb-run -a' # headless display wrapper
+            artifact_glob: release/*.AppImage
+            artifact_name: dist-linux-x64
+          - label: Windows x64
+            os: windows-latest
+            target: win
+            builder_args: --win --x64
+            packaged_app_path: release\win-unpacked\simple-gal-ui.exe
+            smoke_prefix: '' # runs directly
+            artifact_glob: release/*.exe
+            artifact_name: dist-win-x64
+
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 30
+
     steps:
       - uses: actions/checkout@v4
         with:
@@ -40,47 +71,92 @@ jobs:
           cache: pnpm
 
       - name: Install dependencies
+        shell: bash
         env:
           SIMPLE_GAL_PATH: ''
         run: pnpm install --frozen-lockfile
 
       - name: Download simple-gal release binary
-        # This is also run by `pnpm run package`, but we call it separately so
-        # any failure surfaces as its own step in the UI.
+        shell: bash
         run: node scripts/fetch-simple-gal.mjs
 
-      - name: Package macOS arm64 .dmg
-        run: pnpm run package
+      - name: Build renderer + main
+        shell: bash
+        run: pnpm run build
+
+      - name: Package (${{ matrix.label }})
+        shell: bash
+        run: pnpm exec electron-builder ${{ matrix.builder_args }} --publish never
 
       - name: List release artifacts
-        run: ls -la release/
+        shell: bash
+        run: ls -la release/ || dir release
 
-      - name: Smoke-test the packaged .app
-        # The packaged smoke spec is excluded from the default test:e2e glob
-        # (see playwright.config.ts `testIgnore`), so run it explicitly here
-        # against the unpacked .app that electron-builder produces alongside
-        # the .dmg in release/mac-arm64/.
-        run: pnpm exec playwright test tests/packaged.spec.ts
+      - name: Smoke-test the packaged binary
+        shell: bash
+        env:
+          PACKAGED_APP_PATH: ${{ matrix.packaged_app_path }}
+        run: ${{ matrix.smoke_prefix }} pnpm exec playwright test --project=packaged
 
-      - name: Upload packaged app screenshot
+      - name: Upload packaged screenshot
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: packaged-screenshot
+          name: packaged-screenshot-${{ matrix.target }}
           path: tests/__screenshots__/fb2/
           if-no-files-found: ignore
 
-      - name: Create draft GitHub Release with the DMG
+      - name: Upload startup error logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: startup-error-logs-${{ matrix.target }}
+          path: ~/.config/simple-gal-ui/logs/
+          if-no-files-found: ignore
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.artifact_glob }}
+          if-no-files-found: error
+
+  release:
+    name: Draft GitHub Release
+    needs: package
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download all platform artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts/
+          pattern: dist-*
+          merge-multiple: false
+
+      - name: Show collected artifacts
+        run: |
+          find release-artifacts -type f -name '*.dmg' -o -name '*.AppImage' -o -name '*.exe' \
+            | tee /tmp/artifact-list.txt
+
+      - name: Create draft GitHub Release with all artifacts
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="${GITHUB_REF#refs/tags/}"
-          DMG=$(ls release/*.dmg | head -1)
-          if [ -z "$DMG" ]; then
-            echo "No .dmg found in release/"
+          FILES=$(find release-artifacts -type f \
+            \( -name '*.dmg' -o -name '*.AppImage' -o -name '*.exe' \))
+          if [ -z "$FILES" ]; then
+            echo "No installer artifacts collected — aborting."
             exit 1
           fi
-          gh release create "$TAG" "$DMG" \
+          # shellcheck disable=SC2086
+          gh release create "$TAG" $FILES \
             --draft \
             --title "$TAG" \
             --generate-notes
