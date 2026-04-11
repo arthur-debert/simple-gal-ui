@@ -19,7 +19,10 @@ test('pane collapse toggles and width persists across relaunches', async () => {
 	fs.cpSync(fixtureSrc, fixtureCopy, { recursive: true });
 	const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sgui-userdata-'));
 
-	const launchArgs = [path.join(repoRoot, 'dist-electron/main.js'), `--user-data-dir=${userDataDir}`];
+	const launchArgs = [
+		path.join(repoRoot, 'dist-electron/main.js'),
+		`--user-data-dir=${userDataDir}`
+	];
 	const env = {
 		...process.env,
 		NODE_ENV: 'production',
