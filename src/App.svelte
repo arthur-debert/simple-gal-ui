@@ -180,7 +180,7 @@
 			<PreviewPane />
 		{/snippet}
 
-		<ResizablePanes {left} {center} {right} />
+		<ResizablePanes id="main" {left} {center} {right} />
 	</div>
 
 	<StatusBar />

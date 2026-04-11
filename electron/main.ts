@@ -3,7 +3,14 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { resolveSimpleGalBin, getSimpleGalVersion } from './binPath.js';
 import { scan, type SimpleGalResult, type ScanData } from './simpleGal.js';
-import { getLastGalleryHome, getRecentGalleryHomes, recordGalleryHome } from './store.js';
+import {
+	getLastGalleryHome,
+	getRecentGalleryHomes,
+	recordGalleryHome,
+	getPaneState,
+	setPaneState,
+	type PaneState
+} from './store.js';
 import { build, type BuildRunResult } from './build.js';
 import { ensureServer, stopServer } from './previewServer.js';
 import {
@@ -161,6 +168,11 @@ function registerIpcHandlers(): void {
 
 	ipcMain.handle('gallery:last', () => getLastGalleryHome() ?? null);
 	ipcMain.handle('gallery:recent', () => getRecentGalleryHomes());
+
+	ipcMain.handle('app:getPaneState', (_ev, id: string) => getPaneState(id));
+	ipcMain.handle('app:setPaneState', (_ev, id: string, state: PaneState) => {
+		setPaneState(id, state);
+	});
 
 	ipcMain.handle('gallery:scan', async (_ev, home: string): Promise<SimpleGalResult<ScanData>> => {
 		return scan(home);

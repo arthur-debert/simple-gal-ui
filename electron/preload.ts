@@ -39,9 +39,20 @@ export interface SimpleGalVersionResult {
 	error?: string;
 }
 
+interface PaneState {
+	leftWidth: number;
+	rightWidth: number;
+	leftCollapsed: boolean;
+	rightCollapsed: boolean;
+}
+
 const api = {
 	app: {
-		version: (): Promise<string> => ipcRenderer.invoke('app:version')
+		version: (): Promise<string> => ipcRenderer.invoke('app:version'),
+		getPaneState: (id: string): Promise<PaneState | null> =>
+			ipcRenderer.invoke('app:getPaneState', id),
+		setPaneState: (id: string, state: PaneState): Promise<void> =>
+			ipcRenderer.invoke('app:setPaneState', id, state)
 	},
 	platform: process.platform as 'darwin' | 'linux' | 'win32',
 	simpleGal: {

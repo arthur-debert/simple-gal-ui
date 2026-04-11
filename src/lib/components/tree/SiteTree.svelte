@@ -30,6 +30,13 @@
 	// plain Sets in $state() don't track .has() reads for re-rendering.
 	let collapsedGroups = $state<Set<string>>(new Set());
 
+	// Focus management for keyboard navigation. The tree container owns
+	// tabindex=0 and handles Arrow/Enter/Home/End. `focusedKey` is the path
+	// of the currently-navigable row (album or group); selection follows
+	// focus on Enter.
+	let treeHost = $state<HTMLDivElement>();
+	let focusedKey = $state<string | null>(null);
+
 	type MenuTarget =
 		| { kind: 'album'; path: string; title: string; sourceDir: string }
 		| { kind: 'page'; slug: string; title: string; filename: string };
@@ -90,6 +97,105 @@
 
 	function isCollapsed(path: string): boolean {
 		return collapsedGroups.has(path);
+	}
+
+	// --- Keyboard navigation helpers ------------------------------------
+
+	interface FlatRow {
+		path: string;
+		kind: 'group' | 'album';
+		parentPath: string | null;
+	}
+
+	/** Flatten the visible tree (respecting collapsed groups) into a linear list. */
+	function flattenVisible(): FlatRow[] {
+		const out: FlatRow[] = [];
+		if (!manifest) return out;
+		function walk(items: ManifestNavItem[], parent: string | null): void {
+			for (const item of items) {
+				const kind: FlatRow['kind'] = isGroup(item) ? 'group' : 'album';
+				out.push({ path: item.path, kind, parentPath: parent });
+				if (isGroup(item) && !isCollapsed(item.path)) {
+					walk(item.children!, item.path);
+				}
+			}
+		}
+		walk(manifest.navigation, null);
+		return out;
+	}
+
+	function moveFocus(delta: number): void {
+		const rows = flattenVisible();
+		if (rows.length === 0) return;
+		const currentIdx = focusedKey ? rows.findIndex((r) => r.path === focusedKey) : -1;
+		const nextIdx =
+			currentIdx === -1
+				? delta > 0
+					? 0
+					: rows.length - 1
+				: Math.max(0, Math.min(rows.length - 1, currentIdx + delta));
+		focusedKey = rows[nextIdx].path;
+	}
+
+	function activateFocused(): void {
+		if (!focusedKey || !manifest) return;
+		const rows = flattenVisible();
+		const row = rows.find((r) => r.path === focusedKey);
+		if (!row) return;
+		if (row.kind === 'group') {
+			toggleGroup(row.path);
+		} else {
+			site.selection = { kind: 'album', albumPath: row.path };
+		}
+	}
+
+	function onTreeKeydown(e: KeyboardEvent): void {
+		// Ignore if an input inside the tree has focus
+		const tag = (e.target as HTMLElement | null)?.tagName;
+		if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+		if (!manifest) return;
+
+		if (e.key === 'ArrowDown') {
+			e.preventDefault();
+			moveFocus(+1);
+		} else if (e.key === 'ArrowUp') {
+			e.preventDefault();
+			moveFocus(-1);
+		} else if (e.key === 'ArrowRight') {
+			if (!focusedKey) return;
+			const rows = flattenVisible();
+			const row = rows.find((r) => r.path === focusedKey);
+			if (row?.kind === 'group' && isCollapsed(row.path)) {
+				e.preventDefault();
+				toggleGroup(row.path);
+			}
+		} else if (e.key === 'ArrowLeft') {
+			if (!focusedKey) return;
+			const rows = flattenVisible();
+			const row = rows.find((r) => r.path === focusedKey);
+			if (row?.kind === 'group' && !isCollapsed(row.path)) {
+				e.preventDefault();
+				toggleGroup(row.path);
+			} else if (row?.parentPath) {
+				e.preventDefault();
+				focusedKey = row.parentPath;
+			}
+		} else if (e.key === 'Enter') {
+			e.preventDefault();
+			activateFocused();
+		} else if (e.key === 'Home') {
+			e.preventDefault();
+			const rows = flattenVisible();
+			if (rows.length > 0) focusedKey = rows[0].path;
+		} else if (e.key === 'End') {
+			e.preventDefault();
+			const rows = flattenVisible();
+			if (rows.length > 0) focusedKey = rows[rows.length - 1].path;
+		}
+	}
+
+	function isFocused(path: string): boolean {
+		return focusedKey === path;
 	}
 
 	// --- Context menu ----------------------------------------------------
@@ -335,6 +441,7 @@
 		{@const isRenaming = renamingKey === item.path}
 		{@const collapsed = isCollapsed(item.path)}
 		{@const isRootLevel = depth === 0}
+		{@const focused = isFocused(item.path)}
 
 		<!-- Root-level only: drop-gap before row i -->
 		{#if isRootLevel}
@@ -383,10 +490,14 @@
 				<button
 					type="button"
 					class={cn(
-						'text-text-secondary hover:bg-surface-2 flex w-full items-center gap-1 rounded-sm py-1 pr-2 text-left text-[length:var(--text-body)]'
+						'text-text-secondary hover:bg-surface-2 flex w-full items-center gap-1 rounded-sm py-1 pr-2 text-left text-[length:var(--text-body)]',
+						focused ? 'ring-accent ring-1 ring-inset' : null
 					)}
 					style:padding-left="{0.5 + depth * 0.75}rem"
-					onclick={() => toggleGroup(item.path)}
+					onclick={() => {
+						focusedKey = item.path;
+						toggleGroup(item.path);
+					}}
 					oncontextmenu={(e) =>
 						openAlbumMenu(e, item.path, item.title, albumSourceDirFor(item.path))}
 					data-testid="tree-group-row"
@@ -412,13 +523,17 @@
 						isSelected(site.selection, albumSel)
 							? 'bg-selected text-selected-text'
 							: 'text-text-secondary hover:bg-surface-2',
-						isRootLevel && dragIndex === i && dragKind === 'album' ? 'opacity-40' : null
+						isRootLevel && dragIndex === i && dragKind === 'album' ? 'opacity-40' : null,
+						focused ? 'ring-accent ring-1 ring-inset' : null
 					)}
 					style:padding-left="{0.5 + depth * 0.75}rem"
 					draggable={isRootLevel ? 'true' : 'false'}
 					ondragstart={(e) => isRootLevel && onDragStart('album', i, e)}
 					ondragend={onDragEnd}
-					onclick={() => select(albumSel)}
+					onclick={() => {
+						focusedKey = item.path;
+						select(albumSel);
+					}}
 					oncontextmenu={(e) =>
 						openAlbumMenu(e, item.path, item.title, albumSourceDirFor(item.path))}
 					data-testid="tree-album"
@@ -467,7 +582,14 @@
 			No gallery open
 		</div>
 	{:else}
-		<div class="flex-1 overflow-y-auto px-1" data-testid="site-tree">
+		<div
+			bind:this={treeHost}
+			class="flex-1 overflow-y-auto px-1 focus:outline-none"
+			data-testid="site-tree"
+			tabindex="0"
+			role="tree"
+			onkeydown={onTreeKeydown}
+		>
 			<!-- Albums section -->
 			<section data-testid="tree-section-albums">
 				<div

@@ -7,6 +7,13 @@
  */
 import type { SimpleGalResult, ScanData } from './types/manifest';
 
+export interface PaneState {
+	leftWidth: number;
+	rightWidth: number;
+	leftCollapsed: boolean;
+	rightCollapsed: boolean;
+}
+
 export interface BuildRunResult {
 	ok: boolean;
 	distPath: string;
@@ -186,7 +193,11 @@ export interface SetAlbumThumbnailResult {
 
 export const api = {
 	app: {
-		version: () => window.api.app.version()
+		version: () => window.api.app.version(),
+		getPaneState: (id: string): Promise<PaneState | null> =>
+			window.api.app.getPaneState(id) as Promise<PaneState | null>,
+		setPaneState: (id: string, state: PaneState): Promise<void> =>
+			window.api.app.setPaneState(id, state)
 	},
 	get platform(): 'darwin' | 'linux' | 'win32' {
 		return window.api.platform;
