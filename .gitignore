@@ -26,3 +26,6 @@ tests/.tmp/
 
 # Local gallery content (user photos — not for version control)
 content/
+
+# Claude Code working state
+.claude/
