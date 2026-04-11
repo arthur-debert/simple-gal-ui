@@ -6,7 +6,7 @@
 	import SiteTree from '$lib/components/tree/SiteTree.svelte';
 	import AlbumView from '$lib/components/gallery/AlbumView.svelte';
 	import ImageDetailEditor from '$lib/components/gallery/ImageDetailEditor.svelte';
-	import PageView from '$lib/components/pages/PageView.svelte';
+	import PageEditor from '$lib/components/pages/PageEditor.svelte';
 	import PreviewPane from '$lib/components/preview/PreviewPane.svelte';
 	import StatusBar from '$lib/components/status/StatusBar.svelte';
 	import ConfigErrorModal from '$lib/components/dialogs/ConfigErrorModal.svelte';
@@ -122,7 +122,7 @@
 			{:else if site.selection.kind === 'album' && selectedAlbum}
 				<AlbumView album={selectedAlbum} />
 			{:else if site.selection.kind === 'page' && selectedPage}
-				<PageView page={selectedPage} />
+				<PageEditor page={selectedPage} />
 			{:else}
 				<div
 					class="text-text-faint flex h-full items-center justify-center text-[length:var(--text-caption)]"

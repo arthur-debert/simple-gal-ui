@@ -13,7 +13,17 @@ import type {
 	ReorderImagesArgs,
 	ReorderImagesResult,
 	WriteDescriptionArgs,
-	WriteDescriptionResult
+	WriteDescriptionResult,
+	CreateAlbumArgs,
+	CreateAlbumResult,
+	CreatePageArgs,
+	CreatePageResult,
+	RenameEntryArgs,
+	RenameEntryResult,
+	DeleteEntryArgs,
+	DeleteEntryResult,
+	WritePageArgs,
+	WritePageResult
 } from './fs.js';
 
 export interface SimpleGalVersionResult {
@@ -64,6 +74,16 @@ const api = {
 			ipcRenderer.invoke('fs:reorderImages', args),
 		writeDescription: (args: WriteDescriptionArgs): Promise<WriteDescriptionResult> =>
 			ipcRenderer.invoke('fs:writeDescription', args),
+		createAlbum: (args: CreateAlbumArgs): Promise<CreateAlbumResult> =>
+			ipcRenderer.invoke('fs:createAlbum', args),
+		createPage: (args: CreatePageArgs): Promise<CreatePageResult> =>
+			ipcRenderer.invoke('fs:createPage', args),
+		renameEntry: (args: RenameEntryArgs): Promise<RenameEntryResult> =>
+			ipcRenderer.invoke('fs:renameEntry', args),
+		deleteEntry: (args: DeleteEntryArgs): Promise<DeleteEntryResult> =>
+			ipcRenderer.invoke('fs:deleteEntry', args),
+		writePage: (args: WritePageArgs): Promise<WritePageResult> =>
+			ipcRenderer.invoke('fs:writePage', args),
 		getPathForFile: (file: File): string => webUtils.getPathForFile(file)
 	},
 	watch: {

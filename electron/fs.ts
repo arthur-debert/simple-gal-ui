@@ -396,3 +396,156 @@ export async function writeDescription(
 
 	return { ok: true, writtenPath: target, removedPaths: removed };
 }
+
+// --- Site structure: albums, groups, pages --------------------------------
+
+async function listChildPrefixes(dirAbs: string, kind: 'dir' | 'file'): Promise<number[]> {
+	const entries = await fs.readdir(dirAbs, { withFileTypes: true }).catch(() => []);
+	const nums: number[] = [];
+	for (const e of entries) {
+		if (kind === 'dir' && !e.isDirectory()) continue;
+		if (kind === 'file' && !e.isFile()) continue;
+		const m = e.name.match(/^(\d+)[-.]/);
+		if (m) nums.push(parseInt(m[1], 10));
+	}
+	return nums;
+}
+
+function titleSlugForDir(title: string): string {
+	return title.trim().replace(/\s+/g, ' ').replace(/\//g, '-');
+}
+
+function titleSlugForFile(title: string): string {
+	return title
+		.trim()
+		.replace(/\s+/g, '-')
+		.replace(/[^\w.-]/g, '');
+}
+
+export interface CreateAlbumArgs {
+	home: string;
+	parentPath: string; // "" for root, or a group source_dir like "020-Travel"
+	title: string;
+}
+
+export interface CreateAlbumResult {
+	ok: boolean;
+	albumPath: string; // relative to home
+	dirName: string;
+}
+
+export async function createAlbum(args: CreateAlbumArgs): Promise<CreateAlbumResult> {
+	const parentAbs = path.join(args.home, args.parentPath);
+	const existing = await listChildPrefixes(parentAbs, 'dir');
+	const nextNum = nextNumberAfter(existing);
+	const prefix = String(nextNum).padStart(3, '0');
+	const dirName = `${prefix}-${titleSlugForDir(args.title)}`;
+	const abs = path.join(parentAbs, dirName);
+	markSelfWrite(abs);
+	await fs.mkdir(abs, { recursive: false });
+	return {
+		ok: true,
+		albumPath: path.posix.join(args.parentPath, dirName),
+		dirName
+	};
+}
+
+export interface CreatePageArgs {
+	home: string;
+	title: string;
+	body?: string;
+}
+
+export interface CreatePageResult {
+	ok: boolean;
+	pagePath: string;
+	fileName: string;
+}
+
+export async function createPage(args: CreatePageArgs): Promise<CreatePageResult> {
+	const existing = await listChildPrefixes(args.home, 'file');
+	const nextNum = nextNumberAfter(existing);
+	const prefix = String(nextNum).padStart(3, '0');
+	const fileName = `${prefix}-${titleSlugForFile(args.title)}.md`;
+	const abs = path.join(args.home, fileName);
+	const body = args.body ?? `# ${args.title}\n\n`;
+	markSelfWrite(abs);
+	await fs.writeFile(abs, body, 'utf8');
+	return { ok: true, pagePath: fileName, fileName };
+}
+
+export interface RenameEntryArgs {
+	home: string;
+	entryPath: string; // dir or file, relative to home
+	newTitle: string;
+}
+
+export interface RenameEntryResult {
+	ok: boolean;
+	oldPath: string;
+	newPath: string;
+	newName: string;
+}
+
+export async function renameEntry(args: RenameEntryArgs): Promise<RenameEntryResult> {
+	const oldAbs = path.join(args.home, args.entryPath);
+	const parent = path.dirname(oldAbs);
+	const oldName = path.basename(oldAbs);
+	const stat = await fs.stat(oldAbs);
+	const isDir = stat.isDirectory();
+
+	const prefixMatch = oldName.match(/^(\d+)(?:[-.]|$)/);
+	const prefix = prefixMatch ? prefixMatch[1] : null;
+
+	let newName: string;
+	if (isDir) {
+		const slug = titleSlugForDir(args.newTitle);
+		newName = prefix ? `${prefix}-${slug}` : slug;
+	} else {
+		const ext = path.extname(oldName);
+		const slug = titleSlugForFile(args.newTitle);
+		newName = prefix ? `${prefix}-${slug}${ext}` : `${slug}${ext}`;
+	}
+
+	const newAbs = path.join(parent, newName);
+	if (newAbs === oldAbs) {
+		return { ok: true, oldPath: oldAbs, newPath: newAbs, newName };
+	}
+	markSelfWrite(oldAbs);
+	markSelfWrite(newAbs);
+	await fs.rename(oldAbs, newAbs);
+	return { ok: true, oldPath: oldAbs, newPath: newAbs, newName };
+}
+
+export interface DeleteEntryArgs {
+	home: string;
+	entryPath: string;
+}
+
+export interface DeleteEntryResult {
+	ok: boolean;
+}
+
+export async function deleteEntry(args: DeleteEntryArgs): Promise<DeleteEntryResult> {
+	const abs = path.join(args.home, args.entryPath);
+	markSelfWrite(abs);
+	await shell.trashItem(abs);
+	return { ok: true };
+}
+
+export interface WritePageArgs {
+	home: string;
+	pagePath: string; // relative to home, e.g. "040-about.md"
+	body: string;
+}
+
+export interface WritePageResult {
+	ok: boolean;
+}
+
+export async function writePage(args: WritePageArgs): Promise<WritePageResult> {
+	const abs = path.join(args.home, args.pagePath);
+	markSelfWrite(abs);
+	await fs.writeFile(abs, args.body.replace(/\s+$/, '') + '\n', 'utf8');
+	return { ok: true };
+}
