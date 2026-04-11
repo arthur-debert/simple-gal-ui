@@ -7,12 +7,16 @@
 	import AlbumView from '$lib/components/gallery/AlbumView.svelte';
 	import ImageDetailReadOnly from '$lib/components/gallery/ImageDetailReadOnly.svelte';
 	import PageView from '$lib/components/pages/PageView.svelte';
+	import PreviewPane from '$lib/components/preview/PreviewPane.svelte';
+	import StatusBar from '$lib/components/status/StatusBar.svelte';
+	import ConfigErrorModal from '$lib/components/dialogs/ConfigErrorModal.svelte';
 	import {
 		site,
 		openGalleryHomeDialog,
 		restoreLastGalleryHome,
 		loadGalleryHome
 	} from '$lib/stores/siteStore.svelte';
+	import { initPreviewStore } from '$lib/stores/previewStore.svelte';
 	import { api } from '$lib/api';
 
 	let version = $state<string>('…');
@@ -54,8 +58,12 @@
 		} else {
 			restoreLastGalleryHome();
 		}
-		const unsubscribe = api.gallery.onHomeChanged((p) => loadGalleryHome(p));
-		return unsubscribe;
+		const unsubHome = api.gallery.onHomeChanged((p) => loadGalleryHome(p));
+		const unsubPreview = initPreviewStore();
+		return () => {
+			unsubHome();
+			unsubPreview();
+		};
 	});
 </script>
 
@@ -122,37 +130,13 @@
 		{/snippet}
 
 		{#snippet right()}
-			<div class="flex h-full flex-col p-3">
-				<div
-					class="text-text-muted mb-2 text-[length:var(--text-micro)] font-semibold tracking-wider uppercase"
-				>
-					Preview
-				</div>
-				<div
-					class="border-border text-text-faint flex flex-1 items-center justify-center rounded-md border border-dashed px-4 text-center text-[length:var(--text-caption)]"
-				>
-					Preview will appear here once the build pipeline lands (PR3)
-				</div>
-			</div>
+			<PreviewPane />
 		{/snippet}
 
 		<ResizablePanes {left} {center} {right} />
 	</div>
 
-	<footer
-		class="border-border bg-surface-1 text-text-faint flex h-6 shrink-0 items-center gap-3 border-t px-3 text-[length:var(--text-micro)]"
-		data-testid="app-footer"
-	>
-		{#if site.manifest}
-			<span data-testid="footer-counts">
-				{site.manifest.albums.length} album{site.manifest.albums.length === 1 ? '' : 's'},
-				{site.manifest.albums.reduce((n, a) => n + a.images.length, 0)} images,
-				{site.manifest.pages.length} page{site.manifest.pages.length === 1 ? '' : 's'}
-			</span>
-		{:else}
-			<span>ready</span>
-		{/if}
-	</footer>
-
+	<StatusBar />
+	<ConfigErrorModal />
 	<Toast />
 </div>

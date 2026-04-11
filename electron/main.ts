@@ -4,6 +4,8 @@ import { fileURLToPath } from 'node:url';
 import { resolveSimpleGalBin, getSimpleGalVersion } from './binPath.js';
 import { scan, type SimpleGalResult, type ScanData } from './simpleGal.js';
 import { getLastGalleryHome, getRecentGalleryHomes, recordGalleryHome } from './store.js';
+import { build, type BuildRunResult } from './build.js';
+import { ensureServer, stopServer } from './previewServer.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -117,6 +119,23 @@ function registerIpcHandlers(): void {
 	ipcMain.handle('gallery:scan', async (_ev, home: string): Promise<SimpleGalResult<ScanData>> => {
 		return scan(home);
 	});
+
+	ipcMain.handle('preview:build', async (ev, home: string): Promise<BuildRunResult> => {
+		const result = await build(home);
+		if (result.ok) {
+			const url = await ensureServer(result.distPath);
+			ev.sender.send('preview:ready', { url, token: Date.now() });
+		}
+		return result;
+	});
+
+	ipcMain.handle('preview:url', async (): Promise<string | null> => {
+		return null; // url is delivered via preview:ready event; renderer tracks it
+	});
+
+	ipcMain.handle('preview:stop', async () => {
+		await stopServer();
+	});
 }
 
 app.whenReady().then(() => {
@@ -131,4 +150,14 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
 	if (process.platform !== 'darwin') app.quit();
+});
+
+app.on('before-quit', async (e) => {
+	try {
+		e.preventDefault();
+	} catch {
+		// ignore
+	}
+	await stopServer();
+	app.exit(0);
 });
