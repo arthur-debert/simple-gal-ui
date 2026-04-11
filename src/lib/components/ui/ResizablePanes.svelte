@@ -75,8 +75,9 @@
 	<div
 		role="separator"
 		aria-orientation="vertical"
-		class="hover:bg-accent w-px shrink-0 cursor-col-resize"
+		class="bg-border-strong hover:bg-accent w-1 shrink-0 cursor-col-resize transition-colors"
 		onpointerdown={(e) => startDrag('left', e)}
+		data-testid="divider-left"
 	></div>
 	<main class="bg-surface-0 min-w-0 flex-1 overflow-hidden" data-testid="pane-center">
 		{@render props.center()}
@@ -84,8 +85,9 @@
 	<div
 		role="separator"
 		aria-orientation="vertical"
-		class="hover:bg-accent w-px shrink-0 cursor-col-resize"
+		class="bg-border-strong hover:bg-accent w-1 shrink-0 cursor-col-resize transition-colors"
 		onpointerdown={(e) => startDrag('right', e)}
+		data-testid="divider-right"
 	></div>
 	<aside
 		class="border-border bg-surface-1 shrink-0 overflow-hidden border-l"

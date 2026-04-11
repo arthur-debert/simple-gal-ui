@@ -16,7 +16,7 @@
 		restoreLastGalleryHome,
 		loadGalleryHome
 	} from '$lib/stores/siteStore.svelte';
-	import { initPreviewStore } from '$lib/stores/previewStore.svelte';
+	import { initPreviewStore, preview, runBuild } from '$lib/stores/previewStore.svelte';
 	import { initWatchStore } from '$lib/stores/watchStore.svelte';
 	import { api } from '$lib/api';
 
@@ -96,6 +96,15 @@
 		{/if}
 		<div class="flex-1"></div>
 		<Button variant="outline" size="sm" onclick={openGalleryHomeDialog}>Open gallery home…</Button>
+		<Button
+			variant="default"
+			size="sm"
+			disabled={!site.home || preview.status === 'building'}
+			onclick={runBuild}
+			data-testid="preview-build-btn"
+		>
+			{preview.status === 'building' ? 'Building…' : 'Build'}
+		</Button>
 		<div
 			class={simpleGalMissing
 				? 'text-danger text-[length:var(--text-caption)]'
