@@ -165,6 +165,9 @@ export const api = {
 	app: {
 		version: () => window.api.app.version()
 	},
+	get platform(): 'darwin' | 'linux' | 'win32' {
+		return window.api.platform;
+	},
 	simpleGal: {
 		version: () => window.api.simpleGal.version()
 	},

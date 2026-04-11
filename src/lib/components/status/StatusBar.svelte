@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { site } from '$lib/stores/siteStore.svelte';
 	import { preview } from '$lib/stores/previewStore.svelte';
+	import { appInfo } from '$lib/stores/appInfoStore.svelte';
 	import { cn } from '$lib/utils';
 
 	const statusLabel = $derived.by(() => {
@@ -58,6 +59,24 @@
 	{#if preview.lastError && preview.status === 'error'}
 		<span class="text-danger max-w-md truncate" data-testid="footer-error">
 			{preview.lastError}
+		</span>
+		<span class="text-text-faint">·</span>
+	{/if}
+
+	<!-- Right-aligned chrome info: app version, current home, simple-gal version -->
+	{#if appInfo.appVersion}
+		<span data-testid="footer-app-version">v{appInfo.appVersion}</span>
+	{/if}
+	{#if site.home}
+		<span class="text-text-faint">·</span>
+		<span class="max-w-sm truncate" data-testid="footer-home-path" title={site.home}>
+			{site.home}
+		</span>
+	{/if}
+	{#if appInfo.simpleGalVersion}
+		<span class="text-text-faint">·</span>
+		<span class={appInfo.simpleGalMissing ? 'text-danger' : ''} data-testid="footer-sg-version">
+			{appInfo.simpleGalVersion}
 		</span>
 	{/if}
 </footer>

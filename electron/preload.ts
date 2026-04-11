@@ -39,6 +39,7 @@ const api = {
 	app: {
 		version: (): Promise<string> => ipcRenderer.invoke('app:version')
 	},
+	platform: process.platform as 'darwin' | 'linux' | 'win32',
 	simpleGal: {
 		version: (): Promise<SimpleGalVersionResult> => ipcRenderer.invoke('simpleGal:version')
 	},

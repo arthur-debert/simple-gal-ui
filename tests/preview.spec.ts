@@ -51,9 +51,7 @@ test('preview pane shows build button before first build', async () => {
 	const header = page.getByTestId('app-header');
 	await expect(header.getByTestId('preview-build-btn')).toBeVisible();
 	// The preview pane itself no longer has its own build button.
-	await expect(
-		page.getByTestId('preview-pane').getByTestId('preview-build-btn')
-	).toHaveCount(0);
+	await expect(page.getByTestId('preview-pane').getByTestId('preview-build-btn')).toHaveCount(0);
 });
 
 test('status bar starts in ready/idle state', async () => {

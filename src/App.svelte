@@ -1,7 +1,6 @@
 <script lang="ts">
 	import ResizablePanes from '$lib/components/ui/ResizablePanes.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
-	import Separator from '$lib/components/ui/Separator.svelte';
 	import Toast from '$lib/components/ui/Toast.svelte';
 	import SiteTree from '$lib/components/tree/SiteTree.svelte';
 	import AlbumView from '$lib/components/gallery/AlbumView.svelte';
@@ -18,11 +17,19 @@
 	} from '$lib/stores/siteStore.svelte';
 	import { initPreviewStore, preview, runBuild } from '$lib/stores/previewStore.svelte';
 	import { initWatchStore } from '$lib/stores/watchStore.svelte';
+	import {
+		appInfo,
+		setAppVersion,
+		setSimpleGalVersion,
+		setPlatform
+	} from '$lib/stores/appInfoStore.svelte';
 	import { api } from '$lib/api';
 
-	let version = $state<string>('…');
-	let simpleGalInfo = $state<string>('…');
-	let simpleGalMissing = $state<string | null>(null);
+	// macOS hiddenInset leaves room for traffic-light buttons on the left,
+	// so push header content over on that platform.
+	const isMac = $derived(appInfo.platform === 'darwin');
+	const headerDragStyle = 'app-region: drag; -webkit-app-region: drag';
+	const noDragStyle = 'app-region: no-drag; -webkit-app-region: no-drag';
 
 	const selectedAlbum = $derived.by(() => {
 		const sel = site.selection;
@@ -50,14 +57,13 @@
 	});
 
 	$effect(() => {
-		api.app.version().then((v) => (version = v));
+		setPlatform(api.platform);
+		api.app.version().then((v) => setAppVersion(v));
 		api.simpleGal.version().then((r) => {
 			if (r.ok) {
-				simpleGalInfo = r.version ?? '';
-				simpleGalMissing = null;
+				setSimpleGalVersion(r.version ?? '', null);
 			} else {
-				simpleGalInfo = 'not found';
-				simpleGalMissing = r.error ?? 'simple-gal binary not found';
+				setSimpleGalVersion('not found', r.error ?? 'simple-gal binary not found');
 			}
 		});
 		const envHome = new URLSearchParams(window.location.search).get('home');
@@ -79,42 +85,34 @@
 
 <div class="flex h-full w-full flex-col">
 	<header
-		class="border-border bg-surface-header flex h-10 shrink-0 items-center gap-3 border-b px-3 backdrop-blur"
+		class={[
+			'border-border bg-surface-header flex h-10 shrink-0 items-center gap-3 border-b px-3 backdrop-blur',
+			isMac ? 'pl-20' : ''
+		].join(' ')}
+		style={headerDragStyle}
 		data-testid="app-header"
 	>
 		<div class="text-text-primary text-[length:var(--text-label)] font-semibold">simple-gal-ui</div>
-		<Separator orientation="vertical" class="h-4" />
-		<div class="text-text-muted text-[length:var(--text-caption)]">v{version}</div>
-		{#if site.home}
-			<Separator orientation="vertical" class="h-4" />
-			<div
-				class="text-text-muted truncate text-[length:var(--text-caption)]"
-				data-testid="current-home"
-			>
-				{site.home}
-			</div>
-		{/if}
 		<div class="flex-1"></div>
-		<Button variant="outline" size="sm" onclick={openGalleryHomeDialog}>Open gallery home…</Button>
-		<Button
-			variant="default"
-			size="sm"
-			disabled={!site.home || preview.status === 'building'}
-			onclick={runBuild}
-			data-testid="preview-build-btn"
-		>
-			{preview.status === 'building' ? 'Building…' : 'Build'}
-		</Button>
-		<div
-			class={simpleGalMissing
-				? 'text-danger text-[length:var(--text-caption)]'
-				: 'text-text-faint text-[length:var(--text-caption)]'}
-		>
-			sg: {simpleGalInfo}
+		<div style={noDragStyle}>
+			<Button variant="outline" size="sm" onclick={openGalleryHomeDialog}>
+				Open gallery home…
+			</Button>
+		</div>
+		<div style={noDragStyle}>
+			<Button
+				variant="default"
+				size="sm"
+				disabled={!site.home || preview.status === 'building'}
+				onclick={runBuild}
+				data-testid="preview-build-btn"
+			>
+				{preview.status === 'building' ? 'Building…' : 'Build'}
+			</Button>
 		</div>
 	</header>
 
-	{#if simpleGalMissing}
+	{#if appInfo.simpleGalMissing}
 		<div
 			class="border-danger/60 bg-danger/10 text-text-primary flex shrink-0 items-start gap-3 border-b px-4 py-3"
 			data-testid="simple-gal-missing-banner"
@@ -123,7 +121,7 @@
 			<div class="min-w-0 flex-1">
 				<div class="text-[length:var(--text-label)] font-semibold">simple-gal binary not found</div>
 				<div class="text-text-muted mt-1 text-[length:var(--text-caption)]">
-					{simpleGalMissing}
+					{appInfo.simpleGalMissing}
 				</div>
 				<div class="text-text-muted mt-2 text-[length:var(--text-caption)]">
 					Install it with
