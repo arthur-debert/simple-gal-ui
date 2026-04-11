@@ -1,0 +1,10 @@
+node_modules/
+dist/
+dist-electron/
+content/
+resources/bin/
+tests/__screenshots__/
+test-results/
+playwright-report/
+pnpm-lock.yaml
+*.md
