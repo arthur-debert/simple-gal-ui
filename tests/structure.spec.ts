@@ -82,6 +82,37 @@ test('+ page button reveals inline input and creates the markdown file on Enter'
 		.toBe(true);
 });
 
+test('Travel renders as a group with Japan and Italy nested inside', async () => {
+	const travel = page.getByTestId('tree-group-row').filter({ hasText: 'Travel' });
+	await expect(travel).toBeVisible();
+	await expect(page.getByTestId('tree-album').filter({ hasText: 'Japan' })).toBeVisible();
+	await expect(page.getByTestId('tree-album').filter({ hasText: 'Italy' })).toBeVisible();
+});
+
+test('clicking the Travel group caret collapses and expands its children', async () => {
+	const travel = page.getByTestId('tree-group-row').filter({ hasText: 'Travel' });
+	const japan = page.getByTestId('tree-album').filter({ hasText: 'Japan' });
+
+	await expect(japan).toBeVisible();
+	await expect(travel).toHaveAttribute('data-collapsed', 'false');
+
+	await travel.click();
+	await expect(travel).toHaveAttribute('data-collapsed', 'true');
+	await expect(japan).toHaveCount(0);
+
+	await travel.click();
+	await expect(travel).toHaveAttribute('data-collapsed', 'false');
+	await expect(japan).toBeVisible();
+});
+
+test('unnumbered albums render in the Hidden section', async () => {
+	const hidden = page.getByTestId('tree-section-hidden');
+	await expect(hidden).toBeVisible();
+	await expect(
+		hidden.getByTestId('tree-album-hidden').filter({ hasText: 'wip-drafts' })
+	).toBeVisible();
+});
+
 test('create → edit → delete a page through the page editor', async () => {
 	// Stub confirm so the delete confirmation auto-accepts.
 	await page.evaluate(() => {
@@ -100,9 +131,7 @@ test('create → edit → delete a page through the page editor', async () => {
 	await expect
 		.poll(
 			() => {
-				const match = fs
-					.readdirSync(fixtureCopy)
-					.find((f) => /^\d+-My-Images\.md$/.test(f));
+				const match = fs.readdirSync(fixtureCopy).find((f) => /^\d+-My-Images\.md$/.test(f));
 				if (match) createdFilename = match;
 				return !!match;
 			},

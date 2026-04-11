@@ -39,6 +39,8 @@ export interface ManifestNavItem {
 	title: string;
 	path: string;
 	source_dir: string;
+	/** Present on group nodes. Nested groups are possible (arbitrary depth). */
+	children?: ManifestNavItem[];
 }
 
 export interface ManifestPage {
