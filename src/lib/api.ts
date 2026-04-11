@@ -47,6 +47,52 @@ export interface RenameImageResult {
 	renamedSidecar: boolean;
 }
 
+export interface ImportImagesArgs {
+	home: string;
+	albumPath: string;
+	sourcePaths: string[];
+}
+
+export interface ImportImagesResult {
+	ok: boolean;
+	imported: { source: string; dest: string; filename: string }[];
+	skipped: { source: string; reason: string }[];
+}
+
+export interface DeleteImageArgs {
+	home: string;
+	imageSourcePath: string;
+}
+
+export interface DeleteImageResult {
+	ok: boolean;
+	trashedSidecar: boolean;
+}
+
+export interface ReorderImagesArgs {
+	home: string;
+	albumPath: string;
+	orderedSourcePaths: string[];
+}
+
+export interface ReorderImagesResult {
+	ok: boolean;
+	renames: { old: string; new: string }[];
+}
+
+export interface WriteDescriptionArgs {
+	home: string;
+	albumPath: string;
+	body: string;
+	preferMarkdown?: boolean;
+}
+
+export interface WriteDescriptionResult {
+	ok: boolean;
+	writtenPath: string | null;
+	removedPaths: string[];
+}
+
 export const api = {
 	app: {
 		version: () => window.api.app.version()
@@ -73,7 +119,16 @@ export const api = {
 		writeSidecar: (args: WriteSidecarArgs): Promise<WriteSidecarResult> =>
 			window.api.fs.writeSidecar(args) as Promise<WriteSidecarResult>,
 		renameImage: (args: RenameImageArgs): Promise<RenameImageResult> =>
-			window.api.fs.renameImage(args) as Promise<RenameImageResult>
+			window.api.fs.renameImage(args) as Promise<RenameImageResult>,
+		importImages: (args: ImportImagesArgs): Promise<ImportImagesResult> =>
+			window.api.fs.importImages(args) as Promise<ImportImagesResult>,
+		deleteImage: (args: DeleteImageArgs): Promise<DeleteImageResult> =>
+			window.api.fs.deleteImage(args) as Promise<DeleteImageResult>,
+		reorderImages: (args: ReorderImagesArgs): Promise<ReorderImagesResult> =>
+			window.api.fs.reorderImages(args) as Promise<ReorderImagesResult>,
+		writeDescription: (args: WriteDescriptionArgs): Promise<WriteDescriptionResult> =>
+			window.api.fs.writeDescription(args) as Promise<WriteDescriptionResult>,
+		getPathForFile: (file: File): string => window.api.fs.getPathForFile(file)
 	},
 	watch: {
 		start: (home: string): Promise<void> => window.api.watch.start(home),

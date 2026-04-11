@@ -9,10 +9,22 @@ import { ensureServer, stopServer } from './previewServer.js';
 import {
 	writeSidecar,
 	renameImage,
+	importImages,
+	deleteImage,
+	reorderImages,
+	writeDescription,
 	type WriteSidecarArgs,
 	type WriteSidecarResult,
 	type RenameImageArgs,
-	type RenameImageResult
+	type RenameImageResult,
+	type ImportImagesArgs,
+	type ImportImagesResult,
+	type DeleteImageArgs,
+	type DeleteImageResult,
+	type ReorderImagesArgs,
+	type ReorderImagesResult,
+	type WriteDescriptionArgs,
+	type WriteDescriptionResult
 } from './fs.js';
 import { watchHome, stopWatching } from './watch.js';
 
@@ -170,6 +182,34 @@ function registerIpcHandlers(): void {
 	ipcMain.handle('watch:stop', async () => {
 		await stopWatching();
 	});
+
+	ipcMain.handle(
+		'fs:importImages',
+		async (_ev, args: ImportImagesArgs): Promise<ImportImagesResult> => {
+			return importImages(args);
+		}
+	);
+
+	ipcMain.handle(
+		'fs:deleteImage',
+		async (_ev, args: DeleteImageArgs): Promise<DeleteImageResult> => {
+			return deleteImage(args);
+		}
+	);
+
+	ipcMain.handle(
+		'fs:reorderImages',
+		async (_ev, args: ReorderImagesArgs): Promise<ReorderImagesResult> => {
+			return reorderImages(args);
+		}
+	);
+
+	ipcMain.handle(
+		'fs:writeDescription',
+		async (_ev, args: WriteDescriptionArgs): Promise<WriteDescriptionResult> => {
+			return writeDescription(args);
+		}
+	);
 }
 
 app.whenReady().then(() => {
