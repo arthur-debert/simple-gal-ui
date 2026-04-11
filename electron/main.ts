@@ -89,7 +89,17 @@ function handleFatal(label: string, err: unknown): void {
 			// ignore — the Electron runtime may be too broken to show a dialog
 		}
 	}
-	app.exit(1);
+	// Use Electron's app.exit when available (emits some cleanup events),
+	// but fall through to Node's process.exit unconditionally. On Linux
+	// and Windows, app.exit(1) doesn't reliably terminate the process
+	// when called very early (before app.whenReady), so we need the
+	// hard stop.
+	try {
+		app.exit(1);
+	} catch {
+		// ignore — app module may not be ready yet
+	}
+	process.exit(1);
 }
 
 process.on('uncaughtException', (err) => handleFatal('uncaughtException', err));
