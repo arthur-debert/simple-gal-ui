@@ -22,6 +22,7 @@
 
 	let version = $state<string>('…');
 	let simpleGalInfo = $state<string>('…');
+	let simpleGalMissing = $state<string | null>(null);
 
 	const selectedAlbum = $derived.by(() => {
 		const sel = site.selection;
@@ -51,7 +52,13 @@
 	$effect(() => {
 		api.app.version().then((v) => (version = v));
 		api.simpleGal.version().then((r) => {
-			simpleGalInfo = r.ok ? `${r.version}` : `not found`;
+			if (r.ok) {
+				simpleGalInfo = r.version ?? '';
+				simpleGalMissing = null;
+			} else {
+				simpleGalInfo = 'not found';
+				simpleGalMissing = r.error ?? 'simple-gal binary not found';
+			}
 		});
 		const envHome = new URLSearchParams(window.location.search).get('home');
 		if (envHome) {
@@ -89,8 +96,38 @@
 		{/if}
 		<div class="flex-1"></div>
 		<Button variant="outline" size="sm" onclick={openGalleryHomeDialog}>Open gallery home…</Button>
-		<div class="text-text-faint text-[length:var(--text-caption)]">sg: {simpleGalInfo}</div>
+		<div
+			class={simpleGalMissing
+				? 'text-danger text-[length:var(--text-caption)]'
+				: 'text-text-faint text-[length:var(--text-caption)]'}
+		>
+			sg: {simpleGalInfo}
+		</div>
 	</header>
+
+	{#if simpleGalMissing}
+		<div
+			class="border-danger/60 bg-danger/10 text-text-primary flex shrink-0 items-start gap-3 border-b px-4 py-3"
+			data-testid="simple-gal-missing-banner"
+		>
+			<div class="text-danger text-[length:var(--text-label)] font-semibold">⚠</div>
+			<div class="min-w-0 flex-1">
+				<div class="text-[length:var(--text-label)] font-semibold">simple-gal binary not found</div>
+				<div class="text-text-muted mt-1 text-[length:var(--text-caption)]">
+					{simpleGalMissing}
+				</div>
+				<div class="text-text-muted mt-2 text-[length:var(--text-caption)]">
+					Install it with
+					<code class="bg-surface-2 rounded px-1 font-mono"
+						>cargo install --git https://github.com/arthur-debert/simple-gal.git simple-gal</code
+					>
+					or set
+					<code class="bg-surface-2 rounded px-1 font-mono">SIMPLE_GAL_PATH</code>
+					before launching.
+				</div>
+			</div>
+		</div>
+	{/if}
 
 	<div class="min-h-0 flex-1">
 		{#snippet left()}
