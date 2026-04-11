@@ -5,7 +5,7 @@
 	import Toast from '$lib/components/ui/Toast.svelte';
 	import SiteTree from '$lib/components/tree/SiteTree.svelte';
 	import AlbumView from '$lib/components/gallery/AlbumView.svelte';
-	import ImageDetailReadOnly from '$lib/components/gallery/ImageDetailReadOnly.svelte';
+	import ImageDetailEditor from '$lib/components/gallery/ImageDetailEditor.svelte';
 	import PageView from '$lib/components/pages/PageView.svelte';
 	import PreviewPane from '$lib/components/preview/PreviewPane.svelte';
 	import StatusBar from '$lib/components/status/StatusBar.svelte';
@@ -17,6 +17,7 @@
 		loadGalleryHome
 	} from '$lib/stores/siteStore.svelte';
 	import { initPreviewStore } from '$lib/stores/previewStore.svelte';
+	import { initWatchStore } from '$lib/stores/watchStore.svelte';
 	import { api } from '$lib/api';
 
 	let version = $state<string>('…');
@@ -60,9 +61,11 @@
 		}
 		const unsubHome = api.gallery.onHomeChanged((p) => loadGalleryHome(p));
 		const unsubPreview = initPreviewStore();
+		const unsubWatch = initWatchStore();
 		return () => {
 			unsubHome();
 			unsubPreview();
+			unsubWatch();
 		};
 	});
 </script>
@@ -115,7 +118,7 @@
 					</Button>
 				</div>
 			{:else if site.selection.kind === 'image' && selectedImage && selectedAlbum}
-				<ImageDetailReadOnly albumPath={selectedAlbum.path} image={selectedImage} />
+				<ImageDetailEditor albumPath={selectedAlbum.path} image={selectedImage} />
 			{:else if site.selection.kind === 'album' && selectedAlbum}
 				<AlbumView album={selectedAlbum} />
 			{:else if site.selection.kind === 'page' && selectedPage}

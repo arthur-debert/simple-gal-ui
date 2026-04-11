@@ -20,6 +20,33 @@ export interface BuildRunResult {
 	}>;
 }
 
+export interface WriteSidecarArgs {
+	home: string;
+	imageSourcePath: string;
+	caption: string;
+}
+
+export interface WriteSidecarResult {
+	ok: boolean;
+	sidecarPath: string;
+	existed: boolean;
+	deleted: boolean;
+}
+
+export interface RenameImageArgs {
+	home: string;
+	imageSourcePath: string;
+	newTitle: string;
+}
+
+export interface RenameImageResult {
+	ok: boolean;
+	oldPath: string;
+	newPath: string;
+	newFilename: string;
+	renamedSidecar: boolean;
+}
+
 export const api = {
 	app: {
 		version: () => window.api.app.version()
@@ -41,5 +68,17 @@ export const api = {
 		stop: (): Promise<void> => window.api.preview.stop(),
 		onReady: (cb: (payload: { url: string; token: number }) => void): (() => void) =>
 			window.api.preview.onReady(cb)
+	},
+	fs: {
+		writeSidecar: (args: WriteSidecarArgs): Promise<WriteSidecarResult> =>
+			window.api.fs.writeSidecar(args) as Promise<WriteSidecarResult>,
+		renameImage: (args: RenameImageArgs): Promise<RenameImageResult> =>
+			window.api.fs.renameImage(args) as Promise<RenameImageResult>
+	},
+	watch: {
+		start: (home: string): Promise<void> => window.api.watch.start(home),
+		stop: (): Promise<void> => window.api.watch.stop(),
+		onChanged: (cb: (payload: { home: string; paths: string[] }) => void): (() => void) =>
+			window.api.watch.onChanged(cb)
 	}
 };

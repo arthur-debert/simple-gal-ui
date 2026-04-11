@@ -1,6 +1,12 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import type { SimpleGalResult, ScanData } from './simpleGal.js';
 import type { BuildRunResult } from './build.js';
+import type {
+	WriteSidecarArgs,
+	WriteSidecarResult,
+	RenameImageArgs,
+	RenameImageResult
+} from './fs.js';
 
 export interface SimpleGalVersionResult {
 	ok: boolean;
@@ -35,6 +41,22 @@ const api = {
 			const handler = (_ev: Electron.IpcRendererEvent, p: { url: string; token: number }) => cb(p);
 			ipcRenderer.on('preview:ready', handler);
 			return () => ipcRenderer.off('preview:ready', handler);
+		}
+	},
+	fs: {
+		writeSidecar: (args: WriteSidecarArgs): Promise<WriteSidecarResult> =>
+			ipcRenderer.invoke('fs:writeSidecar', args),
+		renameImage: (args: RenameImageArgs): Promise<RenameImageResult> =>
+			ipcRenderer.invoke('fs:renameImage', args)
+	},
+	watch: {
+		start: (home: string): Promise<void> => ipcRenderer.invoke('watch:start', home),
+		stop: (): Promise<void> => ipcRenderer.invoke('watch:stop'),
+		onChanged: (cb: (payload: { home: string; paths: string[] }) => void): (() => void) => {
+			const handler = (_ev: Electron.IpcRendererEvent, p: { home: string; paths: string[] }) =>
+				cb(p);
+			ipcRenderer.on('watch:changed', handler);
+			return () => ipcRenderer.off('watch:changed', handler);
 		}
 	}
 };

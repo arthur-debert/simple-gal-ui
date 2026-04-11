@@ -17,7 +17,7 @@ export default defineConfig({
 					build: {
 						outDir: 'dist-electron',
 						rollupOptions: {
-							external: ['electron', 'electron-store', 'conf', 'serve-handler']
+							external: ['electron', 'electron-store', 'conf', 'serve-handler', 'chokidar']
 						}
 					}
 				}

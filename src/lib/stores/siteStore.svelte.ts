@@ -84,3 +84,17 @@ export async function restoreLastGalleryHome(): Promise<void> {
 	const last = await api.gallery.last();
 	if (last) await loadGalleryHome(last);
 }
+
+/**
+ * Re-scan the currently-loaded gallery home without clearing selection. Used
+ * after local writes (sidecar edit, rename, import) to pick up the new state.
+ */
+export async function rescanCurrentHome(): Promise<void> {
+	if (!state.home) return;
+	const prevSelection = state.selection;
+	const result = await api.gallery.scan(state.home);
+	if (result.ok) {
+		state.manifest = result.data.manifest;
+		state.selection = prevSelection;
+	}
+}

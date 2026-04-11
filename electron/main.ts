@@ -6,6 +6,15 @@ import { scan, type SimpleGalResult, type ScanData } from './simpleGal.js';
 import { getLastGalleryHome, getRecentGalleryHomes, recordGalleryHome } from './store.js';
 import { build, type BuildRunResult } from './build.js';
 import { ensureServer, stopServer } from './previewServer.js';
+import {
+	writeSidecar,
+	renameImage,
+	type WriteSidecarArgs,
+	type WriteSidecarResult,
+	type RenameImageArgs,
+	type RenameImageResult
+} from './fs.js';
+import { watchHome, stopWatching } from './watch.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -90,6 +99,7 @@ async function openGalleryHomeDialog(win: BrowserWindow): Promise<string | null>
 	if (result.canceled || result.filePaths.length === 0) return null;
 	const picked = result.filePaths[0];
 	recordGalleryHome(picked);
+	await watchHome(picked, win);
 	win.webContents.send('gallery:home-changed', picked);
 	return picked;
 }
@@ -136,6 +146,30 @@ function registerIpcHandlers(): void {
 	ipcMain.handle('preview:stop', async () => {
 		await stopServer();
 	});
+
+	ipcMain.handle(
+		'fs:writeSidecar',
+		async (_ev, args: WriteSidecarArgs): Promise<WriteSidecarResult> => {
+			return writeSidecar(args);
+		}
+	);
+
+	ipcMain.handle(
+		'fs:renameImage',
+		async (_ev, args: RenameImageArgs): Promise<RenameImageResult> => {
+			return renameImage(args);
+		}
+	);
+
+	ipcMain.handle('watch:start', async (ev, home: string) => {
+		const win = BrowserWindow.fromWebContents(ev.sender);
+		if (!win) return;
+		await watchHome(home, win);
+	});
+
+	ipcMain.handle('watch:stop', async () => {
+		await stopWatching();
+	});
 }
 
 app.whenReady().then(() => {
@@ -158,6 +192,7 @@ app.on('before-quit', async (e) => {
 	} catch {
 		// ignore
 	}
+	await stopWatching();
 	await stopServer();
 	app.exit(0);
 });
