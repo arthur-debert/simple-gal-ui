@@ -162,3 +162,42 @@ test('captures images screenshot', async () => {
 	await expect(page.getByTestId('album-view')).toBeVisible();
 	await page.screenshot({ path: path.join(outDir, 'album-management.png'), fullPage: true });
 });
+
+test('album header shows a delete button; deleteEntry IPC trashes the directory', async () => {
+	// UI presence: header X button is visible in the album view.
+	await page.getByTestId('tree-album').filter({ hasText: 'Landscapes' }).click();
+	await expect(page.getByTestId('album-view')).toBeVisible();
+	await expect(page.getByTestId('album-delete-btn')).toBeVisible();
+
+	// Backend path: create a throwaway album, call deleteEntry through the
+	// same IPC the button click invokes, assert it's trashed.
+	const home = await page.evaluate(() =>
+		decodeURIComponent(window.location.search.match(/home=([^&]+)/)![1])
+	);
+	const created = await page.evaluate(
+		async ({ home }) =>
+			(window as typeof window).api.fs.createAlbum({
+				home,
+				parentPath: '',
+				title: 'Throwaway'
+			}),
+		{ home }
+	);
+	expect(created.ok).toBe(true);
+	const dirAbs = path.join(fixtureCopy, created.dirName);
+	expect(fs.existsSync(dirAbs)).toBe(true);
+
+	const deleteResult = await page.evaluate(
+		async ({ home, entryPath }) =>
+			(window as typeof window).api.fs.deleteEntry({ home, entryPath }),
+		{ home, entryPath: created.dirName }
+	);
+	expect(deleteResult.ok).toBe(true);
+	expect(fs.existsSync(dirAbs)).toBe(false);
+});
+
+test('page editor shows a delete button', async () => {
+	await page.getByTestId('tree-page').first().click();
+	await expect(page.getByTestId('page-editor')).toBeVisible();
+	await expect(page.getByTestId('page-delete-btn')).toBeVisible();
+});

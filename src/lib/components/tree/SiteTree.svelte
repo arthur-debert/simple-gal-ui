@@ -4,15 +4,41 @@
 	import { showToast } from '$lib/stores/toastStore.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import { cn } from '$lib/utils';
+	import { tick } from 'svelte';
 	import type { Selection } from '$lib/types/manifest';
 
 	const manifest = $derived(site.manifest);
+
+	// Inline create state — Electron's renderer does not support window.prompt(),
+	// so we render an input row at the top of the relevant section instead.
+	let creatingAlbum = $state(false);
+	let creatingAlbumTitle = $state('');
+	let creatingAlbumInput = $state<HTMLInputElement>();
+
+	let creatingPage = $state(false);
+	let creatingPageTitle = $state('');
+	let creatingPageInput = $state<HTMLInputElement>();
+
+	// Inline rename state — same reason, and it's the only way to rename
+	// pages from the tree.
+	let renamingKey = $state<string | null>(null); // album.path or page.slug
+	let renameDraft = $state('');
+	let renameInput = $state<HTMLInputElement>();
 
 	type MenuTarget =
 		| { kind: 'album'; path: string; title: string; sourceDir: string }
 		| { kind: 'page'; slug: string; title: string; filename: string };
 
 	let menu = $state<{ x: number; y: number; target: MenuTarget } | null>(null);
+
+	// Drag-reorder state. `dragKind` gates which section is being reordered so
+	// albums can't drop into pages and vice versa. `dropIndex` is the gap index
+	// where the drop would land (0 = before first, N = after last).
+	let dragKind = $state<'album' | 'page' | null>(null);
+	let dragIndex = $state<number | null>(null);
+	let dropIndex = $state<number | null>(null);
+
+	const TREE_MIME = 'application/x-sgui-tree';
 
 	function isSelected(s: Selection, target: Selection): boolean {
 		if (s.kind !== target.kind) return false;
@@ -39,9 +65,19 @@
 		menu = null;
 	}
 
-	async function onNewAlbum(): Promise<void> {
+	async function startCreateAlbum(): Promise<void> {
 		if (!site.home) return;
-		const title = window.prompt('New album title');
+		creatingAlbum = true;
+		creatingAlbumTitle = '';
+		await tick();
+		creatingAlbumInput?.focus();
+	}
+
+	async function commitCreateAlbum(): Promise<void> {
+		if (!site.home || !creatingAlbum) return;
+		const title = creatingAlbumTitle.trim();
+		creatingAlbum = false;
+		creatingAlbumTitle = '';
 		if (!title) return;
 		try {
 			const result = await api.fs.createAlbum({
@@ -56,9 +92,24 @@
 		}
 	}
 
-	async function onNewPage(): Promise<void> {
+	function cancelCreateAlbum(): void {
+		creatingAlbum = false;
+		creatingAlbumTitle = '';
+	}
+
+	async function startCreatePage(): Promise<void> {
 		if (!site.home) return;
-		const title = window.prompt('New page title');
+		creatingPage = true;
+		creatingPageTitle = '';
+		await tick();
+		creatingPageInput?.focus();
+	}
+
+	async function commitCreatePage(): Promise<void> {
+		if (!site.home || !creatingPage) return;
+		const title = creatingPageTitle.trim();
+		creatingPage = false;
+		creatingPageTitle = '';
 		if (!title) return;
 		try {
 			const result = await api.fs.createPage({ home: site.home, title });
@@ -69,13 +120,30 @@
 		}
 	}
 
+	function cancelCreatePage(): void {
+		creatingPage = false;
+		creatingPageTitle = '';
+	}
+
 	async function onRename(): Promise<void> {
-		if (!menu || !site.home) return;
+		if (!menu) return;
 		const target = menu.target;
-		const current = target.kind === 'album' ? target.title : target.title;
-		const newTitle = window.prompt('New title', current);
+		const key = target.kind === 'album' ? target.path : target.slug;
+		renamingKey = key;
+		renameDraft = target.title;
 		closeMenu();
-		if (!newTitle || newTitle === current) return;
+		await tick();
+		renameInput?.focus();
+		renameInput?.select();
+	}
+
+	async function commitRename(target: MenuTarget): Promise<void> {
+		if (!site.home || renamingKey === null) return;
+		const newTitle = renameDraft.trim();
+		const wasRenaming = renamingKey;
+		renamingKey = null;
+		renameDraft = '';
+		if (!newTitle || newTitle === target.title) return;
 		try {
 			const entryPath = target.kind === 'album' ? target.sourceDir : target.filename;
 			await api.fs.renameEntry({
@@ -87,25 +155,27 @@
 			await rescanCurrentHome();
 		} catch (err) {
 			showToast({ kind: 'error', title: 'Rename failed', body: (err as Error).message });
+			renamingKey = wasRenaming;
 		}
+	}
+
+	function cancelRename(): void {
+		renamingKey = null;
+		renameDraft = '';
 	}
 
 	async function onDelete(): Promise<void> {
 		if (!menu || !site.home) return;
 		const target = menu.target;
 		const label = target.kind === 'album' ? 'album' : 'page';
-		const name = target.kind === 'album' ? target.title : target.title;
+		const name = target.title;
 		closeMenu();
 		if (!window.confirm(`Move ${label} "${name}" to trash?`)) return;
 		try {
 			const entryPath = target.kind === 'album' ? target.sourceDir : target.filename;
 			await api.fs.deleteEntry({ home: site.home, entryPath });
 			showToast({ kind: 'success', title: 'Moved to trash' });
-			if (target.kind === 'album') {
-				site.selection = { kind: 'none' };
-			} else {
-				site.selection = { kind: 'none' };
-			}
+			site.selection = { kind: 'none' };
 			await rescanCurrentHome();
 		} catch (err) {
 			showToast({ kind: 'error', title: 'Delete failed', body: (err as Error).message });
@@ -128,6 +198,71 @@
 		const prefix = page.in_nav ? `${String(page.sort_key).padStart(3, '0')}-` : '';
 		return `${prefix}${page.link_title}.md`;
 	}
+
+	// Drag-reorder handlers ------------------------------------------------
+
+	function onDragStart(kind: 'album' | 'page', index: number, e: DragEvent): void {
+		if (!e.dataTransfer) return;
+		dragKind = kind;
+		dragIndex = index;
+		e.dataTransfer.effectAllowed = 'move';
+		e.dataTransfer.setData(TREE_MIME, `${kind}:${index}`);
+	}
+
+	function onGapDragOver(kind: 'album' | 'page', gap: number, e: DragEvent): void {
+		if (dragKind !== kind || !e.dataTransfer) return;
+		if (!Array.from(e.dataTransfer.types).includes(TREE_MIME)) return;
+		e.preventDefault();
+		e.dataTransfer.dropEffect = 'move';
+		dropIndex = gap;
+	}
+
+	function onDragEnd(): void {
+		dragKind = null;
+		dragIndex = null;
+		dropIndex = null;
+	}
+
+	async function onGapDrop(kind: 'album' | 'page', gap: number, e: DragEvent): Promise<void> {
+		if (dragKind !== kind || dragIndex === null || !site.home || !manifest) return;
+		e.preventDefault();
+		e.stopPropagation();
+
+		const from = dragIndex;
+		// Dropping onto the gap right before or right after the dragged row is a no-op.
+		if (gap === from || gap === from + 1) {
+			onDragEnd();
+			return;
+		}
+
+		const currentNames =
+			kind === 'album'
+				? manifest.albums.map((a) => {
+						const sd = albumSourceDirFor(a.path);
+						// We reorder at the root so only strip to the top-level directory name.
+						return sd.split('/')[0];
+					})
+				: manifest.pages.map((p) => pageFilenameFor(p.slug));
+
+		const [moved] = currentNames.splice(from, 1);
+		const target = gap > from ? gap - 1 : gap;
+		currentNames.splice(target, 0, moved);
+
+		onDragEnd();
+
+		try {
+			await api.fs.reorderTreeEntries({
+				home: site.home,
+				parentPath: '',
+				kind: kind === 'album' ? 'dir' : 'file',
+				orderedNames: currentNames
+			});
+			showToast({ kind: 'success', title: 'Reordered' });
+			await rescanCurrentHome();
+		} catch (err) {
+			showToast({ kind: 'error', title: 'Reorder failed', body: (err as Error).message });
+		}
+	}
 </script>
 
 <svelte:window onclick={closeMenu} />
@@ -137,14 +272,6 @@
 		class="text-text-muted flex items-center gap-2 px-3 pt-3 pb-2 text-[length:var(--text-micro)] font-semibold tracking-wider uppercase"
 	>
 		<span class="flex-1">Site</span>
-		{#if manifest}
-			<Button variant="ghost" size="sm" onclick={onNewAlbum} data-testid="new-album-btn">
-				+ album
-			</Button>
-			<Button variant="ghost" size="sm" onclick={onNewPage} data-testid="new-page-btn">
-				+ page
-			</Button>
-		{/if}
 	</div>
 
 	{#if !manifest}
@@ -154,67 +281,258 @@
 			No gallery open
 		</div>
 	{:else}
-		<ul class="flex-1 overflow-y-auto px-1" data-testid="site-tree">
-			{#if manifest.albums.length > 0}
-				<li class="text-text-faint px-2 pt-1 pb-1 text-[length:var(--text-micro)] uppercase">
-					Albums
-				</li>
-				{#each manifest.albums as album (album.path)}
-					{@const sel = { kind: 'album', albumPath: album.path } satisfies Selection}
-					<li>
-						<button
-							type="button"
+		<div class="flex-1 overflow-y-auto px-1" data-testid="site-tree">
+			<!-- Albums section -->
+			<section data-testid="tree-section-albums">
+				<div
+					class="text-text-faint flex items-center gap-2 px-2 pt-1 pb-1 text-[length:var(--text-micro)] uppercase"
+				>
+					<span class="flex-1">Albums</span>
+					<Button
+						variant="ghost"
+						size="sm"
+						onclick={startCreateAlbum}
+						disabled={creatingAlbum}
+						data-testid="new-album-btn"
+						class="-my-1 h-5 px-1.5"
+					>
+						+ album
+					</Button>
+				</div>
+				<ul>
+					{#if creatingAlbum}
+						<li class="px-2 py-1">
+							<input
+								bind:this={creatingAlbumInput}
+								bind:value={creatingAlbumTitle}
+								placeholder="Album title…"
+								class="bg-surface-0 border-accent text-text-primary w-full rounded-sm border px-2 py-1 text-[length:var(--text-body)] outline-none"
+								data-testid="new-album-input"
+								onkeydown={(e) => {
+									if (e.key === 'Enter') {
+										e.preventDefault();
+										commitCreateAlbum();
+									} else if (e.key === 'Escape') {
+										e.preventDefault();
+										cancelCreateAlbum();
+									}
+								}}
+								onblur={commitCreateAlbum}
+							/>
+						</li>
+					{/if}
+					{#each manifest.albums as album, i (album.path)}
+						{@const sel = { kind: 'album', albumPath: album.path } satisfies Selection}
+						{@const isRenaming = renamingKey === album.path}
+						<!-- Gap before row i -->
+						<li
 							class={cn(
-								'flex w-full items-center justify-between gap-2 rounded-sm px-2 py-1 text-left text-[length:var(--text-body)]',
-								isSelected(site.selection, sel)
-									? 'bg-selected text-selected-text'
-									: 'text-text-secondary hover:bg-surface-2'
+								'h-1.5 transition-colors',
+								dragKind === 'album' && dropIndex === i ? 'bg-drop' : null
 							)}
-							onclick={() => select(sel)}
-							oncontextmenu={(e) =>
-								openAlbumMenu(e, album.path, album.title, albumSourceDirFor(album.path))}
-							data-testid="tree-album"
-							data-album-path={album.path}
-						>
-							<span class="truncate">{album.title}</span>
-							<span class="text-text-faint text-[length:var(--text-micro)]">
-								{album.images.length}
-							</span>
-						</button>
-					</li>
-				{/each}
-			{/if}
-
-			{#if manifest.pages.length > 0}
-				<li class="text-text-faint px-2 pt-3 pb-1 text-[length:var(--text-micro)] uppercase">
-					Pages
-				</li>
-				{#each manifest.pages as page (page.slug)}
-					{@const sel = { kind: 'page', pageSlug: page.slug } satisfies Selection}
-					<li>
-						<button
-							type="button"
-							class={cn(
-								'flex w-full items-center gap-2 rounded-sm px-2 py-1 text-left text-[length:var(--text-body)]',
-								isSelected(site.selection, sel)
-									? 'bg-selected text-selected-text'
-									: 'text-text-secondary hover:bg-surface-2'
-							)}
-							onclick={() => select(sel)}
-							oncontextmenu={(e) =>
-								openPageMenu(e, page.slug, page.title, pageFilenameFor(page.slug))}
-							data-testid="tree-page"
-							data-page-slug={page.slug}
-						>
-							<span class="truncate">{page.title}</span>
-							{#if page.is_link}
-								<span class="text-text-faint text-[length:var(--text-micro)]">link</span>
+							ondragover={(e) => onGapDragOver('album', i, e)}
+							ondrop={(e) => onGapDrop('album', i, e)}
+							data-testid="tree-album-gap"
+							data-gap={i}
+						></li>
+						<li>
+							{#if isRenaming}
+								<input
+									bind:this={renameInput}
+									bind:value={renameDraft}
+									class="bg-surface-0 border-accent text-text-primary mx-1 w-[calc(100%-0.5rem)] rounded-sm border px-2 py-1 text-[length:var(--text-body)] outline-none"
+									data-testid="tree-rename-input"
+									onkeydown={(e) => {
+										if (e.key === 'Enter') {
+											e.preventDefault();
+											commitRename({
+												kind: 'album',
+												path: album.path,
+												title: album.title,
+												sourceDir: albumSourceDirFor(album.path)
+											});
+										} else if (e.key === 'Escape') {
+											e.preventDefault();
+											cancelRename();
+										}
+									}}
+									onblur={() =>
+										commitRename({
+											kind: 'album',
+											path: album.path,
+											title: album.title,
+											sourceDir: albumSourceDirFor(album.path)
+										})}
+								/>
+							{:else}
+								<button
+									type="button"
+									class={cn(
+										'flex w-full items-center justify-between gap-2 rounded-sm px-2 py-1 text-left text-[length:var(--text-body)]',
+										isSelected(site.selection, sel)
+											? 'bg-selected text-selected-text'
+											: 'text-text-secondary hover:bg-surface-2',
+										dragIndex === i && dragKind === 'album' ? 'opacity-40' : null
+									)}
+									draggable="true"
+									ondragstart={(e) => onDragStart('album', i, e)}
+									ondragend={onDragEnd}
+									onclick={() => select(sel)}
+									oncontextmenu={(e) =>
+										openAlbumMenu(e, album.path, album.title, albumSourceDirFor(album.path))}
+									data-testid="tree-album"
+									data-album-path={album.path}
+								>
+									<span class="truncate">{album.title}</span>
+									<span class="text-text-faint text-[length:var(--text-micro)]">
+										{album.images.length}
+									</span>
+								</button>
 							{/if}
-						</button>
-					</li>
-				{/each}
-			{/if}
-		</ul>
+						</li>
+					{/each}
+					<!-- Gap after last album row -->
+					{#if manifest.albums.length > 0}
+						<li
+							class={cn(
+								'h-1.5 transition-colors',
+								dragKind === 'album' && dropIndex === manifest.albums.length ? 'bg-drop' : null
+							)}
+							ondragover={(e) => onGapDragOver('album', manifest.albums.length, e)}
+							ondrop={(e) => onGapDrop('album', manifest.albums.length, e)}
+							data-testid="tree-album-gap"
+							data-gap={manifest.albums.length}
+						></li>
+					{/if}
+				</ul>
+			</section>
+
+			<!-- Thick divider between Albums and Pages -->
+			<div class="border-border-strong my-2 border-t-2" data-testid="tree-section-divider"></div>
+
+			<!-- Pages section -->
+			<section data-testid="tree-section-pages">
+				<div
+					class="text-text-faint flex items-center gap-2 px-2 pt-1 pb-1 text-[length:var(--text-micro)] uppercase"
+				>
+					<span class="flex-1">Pages</span>
+					<Button
+						variant="ghost"
+						size="sm"
+						onclick={startCreatePage}
+						disabled={creatingPage}
+						data-testid="new-page-btn"
+						class="-my-1 h-5 px-1.5"
+					>
+						+ page
+					</Button>
+				</div>
+				<ul>
+					{#if creatingPage}
+						<li class="px-2 py-1">
+							<input
+								bind:this={creatingPageInput}
+								bind:value={creatingPageTitle}
+								placeholder="Page title…"
+								class="bg-surface-0 border-accent text-text-primary w-full rounded-sm border px-2 py-1 text-[length:var(--text-body)] outline-none"
+								data-testid="new-page-input"
+								onkeydown={(e) => {
+									if (e.key === 'Enter') {
+										e.preventDefault();
+										commitCreatePage();
+									} else if (e.key === 'Escape') {
+										e.preventDefault();
+										cancelCreatePage();
+									}
+								}}
+								onblur={commitCreatePage}
+							/>
+						</li>
+					{/if}
+					{#each manifest.pages as page, i (page.slug)}
+						{@const sel = { kind: 'page', pageSlug: page.slug } satisfies Selection}
+						{@const isRenaming = renamingKey === page.slug}
+						<li
+							class={cn(
+								'h-1.5 transition-colors',
+								dragKind === 'page' && dropIndex === i ? 'bg-drop' : null
+							)}
+							ondragover={(e) => onGapDragOver('page', i, e)}
+							ondrop={(e) => onGapDrop('page', i, e)}
+							data-testid="tree-page-gap"
+							data-gap={i}
+						></li>
+						<li>
+							{#if isRenaming}
+								<input
+									bind:this={renameInput}
+									bind:value={renameDraft}
+									class="bg-surface-0 border-accent text-text-primary mx-1 w-[calc(100%-0.5rem)] rounded-sm border px-2 py-1 text-[length:var(--text-body)] outline-none"
+									data-testid="tree-rename-input"
+									onkeydown={(e) => {
+										if (e.key === 'Enter') {
+											e.preventDefault();
+											commitRename({
+												kind: 'page',
+												slug: page.slug,
+												title: page.title,
+												filename: pageFilenameFor(page.slug)
+											});
+										} else if (e.key === 'Escape') {
+											e.preventDefault();
+											cancelRename();
+										}
+									}}
+									onblur={() =>
+										commitRename({
+											kind: 'page',
+											slug: page.slug,
+											title: page.title,
+											filename: pageFilenameFor(page.slug)
+										})}
+								/>
+							{:else}
+								<button
+									type="button"
+									class={cn(
+										'flex w-full items-center gap-2 rounded-sm px-2 py-1 text-left text-[length:var(--text-body)]',
+										isSelected(site.selection, sel)
+											? 'bg-selected text-selected-text'
+											: 'text-text-secondary hover:bg-surface-2',
+										dragIndex === i && dragKind === 'page' ? 'opacity-40' : null
+									)}
+									draggable="true"
+									ondragstart={(e) => onDragStart('page', i, e)}
+									ondragend={onDragEnd}
+									onclick={() => select(sel)}
+									oncontextmenu={(e) =>
+										openPageMenu(e, page.slug, page.title, pageFilenameFor(page.slug))}
+									data-testid="tree-page"
+									data-page-slug={page.slug}
+								>
+									<span class="truncate">{page.title}</span>
+									{#if page.is_link}
+										<span class="text-text-faint text-[length:var(--text-micro)]">link</span>
+									{/if}
+								</button>
+							{/if}
+						</li>
+					{/each}
+					{#if manifest.pages.length > 0}
+						<li
+							class={cn(
+								'h-1.5 transition-colors',
+								dragKind === 'page' && dropIndex === manifest.pages.length ? 'bg-drop' : null
+							)}
+							ondragover={(e) => onGapDragOver('page', manifest.pages.length, e)}
+							ondrop={(e) => onGapDrop('page', manifest.pages.length, e)}
+							data-testid="tree-page-gap"
+							data-gap={manifest.pages.length}
+						></li>
+					{/if}
+				</ul>
+			</section>
+		</div>
 	{/if}
 </div>
 

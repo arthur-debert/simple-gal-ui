@@ -23,7 +23,11 @@ import type {
 	DeleteEntryArgs,
 	DeleteEntryResult,
 	WritePageArgs,
-	WritePageResult
+	WritePageResult,
+	ReorderTreeEntriesArgs,
+	ReorderTreeEntriesResult,
+	FindPageFileArgs,
+	FindPageFileResult
 } from './fs.js';
 
 export interface SimpleGalVersionResult {
@@ -37,6 +41,7 @@ const api = {
 	app: {
 		version: (): Promise<string> => ipcRenderer.invoke('app:version')
 	},
+	platform: process.platform as 'darwin' | 'linux' | 'win32',
 	simpleGal: {
 		version: (): Promise<SimpleGalVersionResult> => ipcRenderer.invoke('simpleGal:version')
 	},
@@ -84,6 +89,10 @@ const api = {
 			ipcRenderer.invoke('fs:deleteEntry', args),
 		writePage: (args: WritePageArgs): Promise<WritePageResult> =>
 			ipcRenderer.invoke('fs:writePage', args),
+		reorderTreeEntries: (args: ReorderTreeEntriesArgs): Promise<ReorderTreeEntriesResult> =>
+			ipcRenderer.invoke('fs:reorderTreeEntries', args),
+		findPageFile: (args: FindPageFileArgs): Promise<FindPageFileResult> =>
+			ipcRenderer.invoke('fs:findPageFile', args),
 		getPathForFile: (file: File): string => webUtils.getPathForFile(file)
 	},
 	watch: {

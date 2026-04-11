@@ -149,9 +149,34 @@ export interface WritePageResult {
 	ok: boolean;
 }
 
+export interface ReorderTreeEntriesArgs {
+	home: string;
+	parentPath: string;
+	kind: 'dir' | 'file';
+	orderedNames: string[];
+}
+
+export interface ReorderTreeEntriesResult {
+	ok: boolean;
+	renames: { old: string; new: string }[];
+}
+
+export interface FindPageFileArgs {
+	home: string;
+	slug: string;
+}
+
+export interface FindPageFileResult {
+	ok: boolean;
+	filename: string | null;
+}
+
 export const api = {
 	app: {
 		version: () => window.api.app.version()
+	},
+	get platform(): 'darwin' | 'linux' | 'win32' {
+		return window.api.platform;
 	},
 	simpleGal: {
 		version: () => window.api.simpleGal.version()
@@ -194,6 +219,10 @@ export const api = {
 			window.api.fs.deleteEntry(args) as Promise<DeleteEntryResult>,
 		writePage: (args: WritePageArgs): Promise<WritePageResult> =>
 			window.api.fs.writePage(args) as Promise<WritePageResult>,
+		reorderTreeEntries: (args: ReorderTreeEntriesArgs): Promise<ReorderTreeEntriesResult> =>
+			window.api.fs.reorderTreeEntries(args) as Promise<ReorderTreeEntriesResult>,
+		findPageFile: (args: FindPageFileArgs): Promise<FindPageFileResult> =>
+			window.api.fs.findPageFile(args) as Promise<FindPageFileResult>,
 		getPathForFile: (file: File): string => window.api.fs.getPathForFile(file)
 	},
 	watch: {

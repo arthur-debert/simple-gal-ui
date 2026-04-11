@@ -49,9 +49,84 @@ test.afterAll(async () => {
 	if (userDataDir && fs.existsSync(userDataDir)) fs.rmSync(userDataDir, { recursive: true });
 });
 
-test('new album buttons exist in tree header', async () => {
-	await expect(page.getByTestId('new-album-btn')).toBeVisible();
-	await expect(page.getByTestId('new-page-btn')).toBeVisible();
+test('new album / new page buttons live inside their own section headers', async () => {
+	const albumsSection = page.getByTestId('tree-section-albums');
+	const pagesSection = page.getByTestId('tree-section-pages');
+	await expect(albumsSection.getByTestId('new-album-btn')).toBeVisible();
+	await expect(pagesSection.getByTestId('new-page-btn')).toBeVisible();
+	await expect(page.getByTestId('tree-section-divider')).toBeVisible();
+});
+
+test('+ album button reveals inline input and creates the directory on Enter', async () => {
+	await page.getByTestId('new-album-btn').click();
+	const input = page.getByTestId('new-album-input');
+	await expect(input).toBeVisible();
+	await input.fill('Button Flow Album');
+	await input.press('Enter');
+	// Give the scan pipeline a tick to settle and the on-disk write to land.
+	await expect
+		.poll(() => fs.existsSync(path.join(fixtureCopy, '040-Button Flow Album')), { timeout: 5000 })
+		.toBe(true);
+});
+
+test('+ page button reveals inline input and creates the markdown file on Enter', async () => {
+	await page.getByTestId('new-page-btn').click();
+	const input = page.getByTestId('new-page-input');
+	await expect(input).toBeVisible();
+	await input.fill('Button Flow Page');
+	await input.press('Enter');
+	await expect
+		.poll(() => fs.readdirSync(fixtureCopy).some((f) => /^\d+-Button-Flow-Page\.md$/.test(f)), {
+			timeout: 5000
+		})
+		.toBe(true);
+});
+
+test('create → edit → delete a page through the page editor', async () => {
+	// Stub confirm so the delete confirmation auto-accepts.
+	await page.evaluate(() => {
+		(window as typeof window).confirm = () => true;
+	});
+
+	// Create via the + page button
+	await page.getByTestId('new-page-btn').click();
+	const createInput = page.getByTestId('new-page-input');
+	await expect(createInput).toBeVisible();
+	await createInput.fill('My Images');
+	await createInput.press('Enter');
+
+	// The file lands on disk with the hyphen-slug filename.
+	let createdFilename: string | null = null;
+	await expect
+		.poll(
+			() => {
+				const match = fs
+					.readdirSync(fixtureCopy)
+					.find((f) => /^\d+-My-Images\.md$/.test(f));
+				if (match) createdFilename = match;
+				return !!match;
+			},
+			{ timeout: 5000 }
+		)
+		.toBe(true);
+	expect(createdFilename).not.toBeNull();
+	const createdAbs = path.join(fixtureCopy, createdFilename!);
+	expect(fs.existsSync(createdAbs)).toBe(true);
+
+	// Open the page in the editor (click its row in the tree)
+	await page.getByTestId('tree-page').filter({ hasText: 'My Images' }).click();
+	await expect(page.getByTestId('page-editor')).toBeVisible();
+
+	// Edit and save
+	await page.getByTestId('page-body-input').fill('# My Images\n\nSome body text.');
+	await page.getByTestId('page-save-btn').click();
+	await expect
+		.poll(() => fs.readFileSync(createdAbs, 'utf8').includes('Some body text'), { timeout: 5000 })
+		.toBe(true);
+
+	// Delete via the trash button
+	await page.getByTestId('page-delete-btn').click();
+	await expect.poll(() => fs.existsSync(createdAbs), { timeout: 5000 }).toBe(false);
 });
 
 test('createAlbum IPC creates a new NNN- directory at root', async () => {
@@ -145,4 +220,73 @@ test('selecting a page shows the page editor', async () => {
 test('captures structure screenshot', async () => {
 	const outDir = path.join(repoRoot, 'tests/__screenshots__/pr6');
 	await page.screenshot({ path: path.join(outDir, 'tree-with-actions.png'), fullPage: true });
+});
+
+// --- Reorder specs are last because they renumber everything at root -----
+
+test('reorderTreeEntries IPC renumbers albums with sparse 10/20/30 prefixes', async () => {
+	const home = await getHome();
+	const before = fs
+		.readdirSync(fixtureCopy, { withFileTypes: true })
+		.filter((d) => d.isDirectory() && /^\d+-/.test(d.name))
+		.map((d) => d.name)
+		.sort();
+	expect(before.length).toBeGreaterThanOrEqual(2);
+
+	const reversed = [...before].reverse();
+	const result = await page.evaluate(
+		async ({ home, orderedNames }) =>
+			(window as typeof window).api.fs.reorderTreeEntries({
+				home,
+				parentPath: '',
+				kind: 'dir',
+				orderedNames
+			}),
+		{ home, orderedNames: reversed }
+	);
+	expect(result.ok).toBe(true);
+
+	const after = fs
+		.readdirSync(fixtureCopy, { withFileTypes: true })
+		.filter((d) => d.isDirectory() && /^\d+-/.test(d.name))
+		.map((d) => d.name)
+		.sort();
+	const prefixes = after
+		.map((n) => parseInt(n.match(/^(\d+)-/)?.[1] ?? '0', 10))
+		.sort((a, b) => a - b);
+	expect(prefixes.every((n) => n % 10 === 0)).toBe(true);
+	expect(after.length).toBe(before.length);
+});
+
+test('reorderTreeEntries IPC renumbers page files with sparse prefixes', async () => {
+	const home = await getHome();
+	const before = fs
+		.readdirSync(fixtureCopy)
+		.filter((f) => /^\d+-.*\.md$/.test(f))
+		.sort();
+	if (before.length < 2) {
+		test.skip();
+		return;
+	}
+	const reversed = [...before].reverse();
+	const result = await page.evaluate(
+		async ({ home, orderedNames }) =>
+			(window as typeof window).api.fs.reorderTreeEntries({
+				home,
+				parentPath: '',
+				kind: 'file',
+				orderedNames
+			}),
+		{ home, orderedNames: reversed }
+	);
+	expect(result.ok).toBe(true);
+
+	const after = fs
+		.readdirSync(fixtureCopy)
+		.filter((f) => /^\d+-.*\.md$/.test(f))
+		.sort();
+	const prefixes = after
+		.map((n) => parseInt(n.match(/^(\d+)-/)?.[1] ?? '0', 10))
+		.sort((a, b) => a - b);
+	expect(prefixes.every((n) => n % 10 === 0)).toBe(true);
 });

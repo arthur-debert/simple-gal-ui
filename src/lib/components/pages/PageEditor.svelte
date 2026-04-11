@@ -3,6 +3,7 @@
 	import { api } from '$lib/api';
 	import { showToast } from '$lib/stores/toastStore.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
+	import IconTrash from '~icons/lucide/trash-2';
 	import type { ManifestPage } from '$lib/types/manifest';
 
 	interface Props {
@@ -11,19 +12,40 @@
 
 	const { page }: Props = $props();
 
-	/**
-	 * simple-gal's manifest exposes a page's slug but not its source filename.
-	 * We reconstruct it from the page ordering: `{sort_key NNN-}{slug}.md`.
-	 * For numbered pages the prefix matches sort_key (already NNN-padded).
-	 */
-	const pageFilename = $derived.by(() => {
-		const prefix = page.in_nav ? `${String(page.sort_key).padStart(3, '0')}-` : '';
-		return `${prefix}${page.link_title}.md`;
-	});
-
 	let body = $state(page.body ?? '');
 	let lastSlug = $state(page.slug);
 	let saving = $state(false);
+
+	/**
+	 * The real on-disk filename, resolved from the home directory. We can't
+	 * reconstruct it from the manifest (simple-gal's `link_title` converts
+	 * filename hyphens to spaces for display), so we scan and fuzzy-match
+	 * by slug via a main-process helper.
+	 */
+	let resolvedFilename = $state<string | null>(null);
+
+	$effect(() => {
+		const slug = page.slug;
+		const home = site.home;
+		if (!home) {
+			resolvedFilename = null;
+			return;
+		}
+		let cancelled = false;
+		api.fs
+			.findPageFile({ home, slug })
+			.then((r) => {
+				if (cancelled) return;
+				resolvedFilename = r.filename;
+			})
+			.catch(() => {
+				if (cancelled) return;
+				resolvedFilename = null;
+			});
+		return () => {
+			cancelled = true;
+		};
+	});
 
 	$effect(() => {
 		if (page.slug !== lastSlug) {
@@ -36,15 +58,23 @@
 
 	async function save(): Promise<void> {
 		if (!site.home || saving) return;
+		if (!resolvedFilename) {
+			showToast({
+				kind: 'error',
+				title: 'Cannot save',
+				body: 'Unable to find the page file on disk. Try reopening the gallery.'
+			});
+			return;
+		}
 		saving = true;
 		try {
 			const result = await api.fs.writePage({
 				home: site.home,
-				pagePath: pageFilename,
+				pagePath: resolvedFilename,
 				body
 			});
 			if (result.ok) {
-				showToast({ kind: 'success', title: 'Page saved', body: pageFilename });
+				showToast({ kind: 'success', title: 'Page saved', body: resolvedFilename });
 				await rescanCurrentHome();
 			} else {
 				showToast({ kind: 'error', title: 'Save failed' });
@@ -62,21 +92,57 @@
 			save();
 		}
 	}
+
+	async function onDeletePage(): Promise<void> {
+		if (!site.home) return;
+		if (!resolvedFilename) {
+			showToast({
+				kind: 'error',
+				title: 'Cannot delete',
+				body: 'Unable to find the page file on disk. Try reopening the gallery.'
+			});
+			return;
+		}
+		if (!window.confirm(`Move page "${page.title}" to trash?`)) return;
+		try {
+			await api.fs.deleteEntry({ home: site.home, entryPath: resolvedFilename });
+			showToast({ kind: 'success', title: 'Page moved to trash', body: page.title });
+			site.selection = { kind: 'none' };
+			await rescanCurrentHome();
+		} catch (err) {
+			showToast({ kind: 'error', title: 'Delete failed', body: (err as Error).message });
+		}
+	}
 </script>
 
 <svelte:window onkeydown={onKeydown} />
 
 <div class="flex h-full flex-col" data-testid="page-editor">
-	<header class="border-border bg-surface-1 shrink-0 border-b px-4 py-3">
-		<div class="text-text-primary text-[length:var(--text-label)] font-semibold">
-			{page.title}
+	<header
+		class="border-border bg-surface-1 flex shrink-0 items-start justify-between gap-3 border-b px-4 py-3"
+	>
+		<div class="min-w-0 flex-1">
+			<div class="text-text-primary truncate text-[length:var(--text-label)] font-semibold">
+				{page.title}
+			</div>
+			<div class="text-text-muted mt-0.5 truncate text-[length:var(--text-caption)]">
+				{resolvedFilename ?? '(resolving…)'}
+				{#if page.is_link}
+					<span class="text-text-faint ml-2">· external link</span>
+				{/if}
+			</div>
 		</div>
-		<div class="text-text-muted mt-0.5 text-[length:var(--text-caption)]">
-			{pageFilename}
-			{#if page.is_link}
-				<span class="text-text-faint ml-2">· external link</span>
-			{/if}
-		</div>
+		<Button
+			variant="danger"
+			size="icon"
+			onclick={onDeletePage}
+			aria-label="Delete page"
+			title="Delete page"
+			data-testid="page-delete-btn"
+			class="shrink-0"
+		>
+			<IconTrash class="h-4 w-4" />
+		</Button>
 	</header>
 
 	<div class="bg-surface-0 min-h-0 flex-1 overflow-y-auto">

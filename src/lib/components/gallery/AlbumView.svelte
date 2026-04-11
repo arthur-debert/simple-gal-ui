@@ -4,6 +4,9 @@
 	import { showToast } from '$lib/stores/toastStore.svelte';
 	import type { ManifestAlbum, ManifestImage } from '$lib/types/manifest';
 	import DescriptionEditor from './DescriptionEditor.svelte';
+	import InlineTitleEdit from './InlineTitleEdit.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import IconTrash from '~icons/lucide/trash-2';
 	import { cn } from '$lib/utils';
 
 	interface Props {
@@ -12,15 +15,22 @@
 
 	const { album }: Props = $props();
 
+	// Import drop overlay (OS file drag-drop)
 	let isDraggingOver = $state(false);
-	let draggedIndex = $state<number | null>(null);
-	let overIndex = $state<number | null>(null);
+
+	// Thumbnail selection state (ephemeral, per-album)
+	let selected = $state<Set<string>>(new Set());
+	let lastAnchor = $state<string | null>(null);
+
+	// In-album reorder drag state
+	let draggingSet = $state<string[] | null>(null);
+	let dropAtIndex = $state<number | null>(null); // insertion gap (0..images.length)
+
+	const THUMB_MIME = 'application/x-sgui-thumb-set';
 
 	/**
 	 * simple-gal's manifest gives us the url-slug `path` for an album but we
 	 * need the on-disk source directory (e.g. "010-Landscapes") for writes.
-	 * For the test fixture and typical layouts the source dir is the parent
-	 * of the first image's source_path.
 	 */
 	const albumSourceDir = $derived.by(() => {
 		if (album.images.length === 0) return album.path;
@@ -29,13 +39,26 @@
 		return idx === -1 ? '' : firstPath.slice(0, idx);
 	});
 
+	// Prune stale selection members when the album changes out from under us
+	// (rescan after reorder / rename / delete).
+	$effect(() => {
+		const valid = new Set(album.images.map((i) => i.source_path));
+		let changed = false;
+		const next = new Set<string>();
+		for (const p of selected) {
+			if (valid.has(p)) next.add(p);
+			else changed = true;
+		}
+		if (changed) selected = next;
+	});
+
 	function fileUrlFor(img: ManifestImage): string {
 		if (!site.home) return '';
 		const abs = `${site.home}/${img.source_path}`;
 		return `file://${abs.replace(/#/g, '%23').replace(/\?/g, '%3F')}`;
 	}
 
-	function selectImage(img: ManifestImage): void {
+	function openDetail(img: ManifestImage): void {
 		site.selection = {
 			kind: 'image',
 			albumPath: album.path,
@@ -43,14 +66,179 @@
 		};
 	}
 
-	function onDragEnter(e: DragEvent): void {
+	function setSelectionTo(paths: string[]): void {
+		selected = new Set(paths);
+	}
+
+	function toggleSelection(p: string): void {
+		const next = new Set(selected);
+		if (next.has(p)) next.delete(p);
+		else next.add(p);
+		selected = next;
+	}
+
+	function selectRangeTo(p: string): void {
+		if (!lastAnchor) {
+			setSelectionTo([p]);
+			return;
+		}
+		const paths = album.images.map((i) => i.source_path);
+		const a = paths.indexOf(lastAnchor);
+		const b = paths.indexOf(p);
+		if (a === -1 || b === -1) {
+			setSelectionTo([p]);
+			return;
+		}
+		const [lo, hi] = a <= b ? [a, b] : [b, a];
+		const next = new Set(selected);
+		for (let i = lo; i <= hi; i++) next.add(paths[i]);
+		selected = next;
+	}
+
+	function onThumbClick(img: ManifestImage, e: MouseEvent): void {
+		const mod = e.metaKey || e.ctrlKey;
+		if (e.shiftKey) {
+			selectRangeTo(img.source_path);
+		} else if (mod) {
+			toggleSelection(img.source_path);
+			lastAnchor = img.source_path;
+		} else {
+			setSelectionTo([img.source_path]);
+			lastAnchor = img.source_path;
+		}
+	}
+
+	function onThumbDoubleClick(img: ManifestImage): void {
+		openDetail(img);
+	}
+
+	function clearSelection(): void {
+		selected = new Set();
+		lastAnchor = null;
+	}
+
+	function onGridClick(e: MouseEvent): void {
+		// Only clear when the click landed on the grid surface itself, not on
+		// a thumbnail that bubbled up.
+		if (e.target === e.currentTarget) clearSelection();
+	}
+
+	async function onKeydown(e: KeyboardEvent): Promise<void> {
+		if (!site.home) return;
+		// Ignore keystrokes while an input/textarea has focus (e.g. caption editor)
+		const tag = (e.target as HTMLElement | null)?.tagName;
+		if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+
+		if (e.key === 'Escape') {
+			clearSelection();
+			return;
+		}
+		if (e.key === 'Enter' && selected.size === 1) {
+			const only = [...selected][0];
+			const img = album.images.find((i) => i.source_path === only);
+			if (img) openDetail(img);
+			return;
+		}
+		if ((e.key === 'Delete' || e.key === 'Backspace') && selected.size > 0) {
+			e.preventDefault();
+			await deleteSelection();
+		}
+	}
+
+	async function deleteSelection(): Promise<void> {
+		if (!site.home || selected.size === 0) return;
+		const count = selected.size;
+		if (!window.confirm(`Move ${count} image${count === 1 ? '' : 's'} to trash?`)) return;
+		try {
+			for (const p of selected) {
+				await api.fs.deleteImage({ home: site.home, imageSourcePath: p });
+			}
+			showToast({ kind: 'success', title: `Trashed ${count} image${count === 1 ? '' : 's'}` });
+			clearSelection();
+			await rescanCurrentHome();
+		} catch (err) {
+			showToast({ kind: 'error', title: 'Delete failed', body: (err as Error).message });
+		}
+	}
+
+	async function onDeleteAlbum(): Promise<void> {
+		if (!site.home) return;
+		if (!window.confirm(`Move album "${album.title}" to trash?`)) return;
+		try {
+			await api.fs.deleteEntry({ home: site.home, entryPath: albumSourceDir });
+			showToast({ kind: 'success', title: 'Album moved to trash', body: album.title });
+			site.selection = { kind: 'none' };
+			await rescanCurrentHome();
+		} catch (err) {
+			showToast({ kind: 'error', title: 'Delete failed', body: (err as Error).message });
+		}
+	}
+
+	// Context-aware header X button: delete selection or delete album
+	const headerDeleteLabel = $derived.by(() =>
+		selected.size > 0 ? `Delete ${selected.size} selected` : 'Delete album'
+	);
+
+	async function onHeaderDelete(): Promise<void> {
+		if (selected.size > 0) {
+			await deleteSelection();
+		} else {
+			await onDeleteAlbum();
+		}
+	}
+
+	// --- Inline title rename ---------------------------------------------
+
+	async function onCommitRename(newTitle: string): Promise<void> {
+		if (!site.home) return;
+		try {
+			const result = await api.fs.renameEntry({
+				home: site.home,
+				entryPath: albumSourceDir,
+				newTitle
+			});
+			if (!result.ok) {
+				showToast({ kind: 'error', title: 'Rename failed' });
+				return;
+			}
+
+			// Compute the new source dir (basename preserved at same depth).
+			const slash = albumSourceDir.lastIndexOf('/');
+			const parent = slash === -1 ? '' : albumSourceDir.slice(0, slash);
+			const newSourceDir = parent ? `${parent}/${result.newName}` : result.newName;
+
+			await rescanCurrentHome();
+
+			// Re-pin selection to the album whose first image now lives under
+			// newSourceDir.
+			const manifest = site.manifest;
+			if (manifest) {
+				const renamed = manifest.albums.find((a) => {
+					if (a.images.length === 0) return false;
+					const sd = a.images[0].source_path;
+					const dirSeg = sd.slice(0, sd.lastIndexOf('/'));
+					return dirSeg === newSourceDir;
+				});
+				if (renamed) {
+					site.selection = { kind: 'album', albumPath: renamed.path };
+				}
+			}
+			showToast({ kind: 'success', title: 'Renamed', body: result.newName });
+		} catch (err) {
+			showToast({ kind: 'error', title: 'Rename failed', body: (err as Error).message });
+		}
+	}
+
+	// --- OS file drag-drop import ----------------------------------------
+
+	function onOuterDragEnter(e: DragEvent): void {
 		if (!e.dataTransfer) return;
 		if (Array.from(e.dataTransfer.types).includes('Files')) {
 			isDraggingOver = true;
 		}
 	}
 
-	function onDragOver(e: DragEvent): void {
+	function onOuterDragOver(e: DragEvent): void {
 		if (!e.dataTransfer) return;
 		if (Array.from(e.dataTransfer.types).includes('Files')) {
 			e.preventDefault();
@@ -59,13 +247,15 @@
 		}
 	}
 
-	function onDragLeave(e: DragEvent): void {
+	function onOuterDragLeave(e: DragEvent): void {
 		if ((e.currentTarget as HTMLElement | null)?.contains(e.relatedTarget as Node)) return;
 		isDraggingOver = false;
 	}
 
-	async function onDrop(e: DragEvent): Promise<void> {
+	async function onOuterDrop(e: DragEvent): Promise<void> {
 		if (!e.dataTransfer || !site.home) return;
+		// Only handle OS file drops here; in-album reorder is handled on thumbs.
+		if (!Array.from(e.dataTransfer.types).includes('Files')) return;
 		e.preventDefault();
 		isDraggingOver = false;
 		const files = Array.from(e.dataTransfer.files);
@@ -94,58 +284,56 @@
 		}
 	}
 
-	async function onDelete(img: ManifestImage, e: MouseEvent): Promise<void> {
-		e.stopPropagation();
-		if (!site.home) return;
-		try {
-			await api.fs.deleteImage({ home: site.home, imageSourcePath: img.source_path });
-			showToast({
-				kind: 'success',
-				title: 'Moved to trash',
-				body: img.filename
-			});
-			await rescanCurrentHome();
-		} catch (err) {
-			showToast({ kind: 'error', title: 'Delete failed', body: (err as Error).message });
-		}
-	}
+	// --- Thumbnail reorder drag ------------------------------------------
 
-	function onThumbDragStart(index: number, e: DragEvent): void {
+	function onThumbDragStart(img: ManifestImage, e: DragEvent): void {
 		if (!e.dataTransfer) return;
-		// Only start a reorder drag if no OS files are involved
-		draggedIndex = index;
+		// If the dragged thumb is in the selection, drag the whole selection.
+		// Otherwise drag just this one (and leave selection untouched — Finder-style).
+		const payload = selected.has(img.source_path) ? [...selected] : [img.source_path];
+		draggingSet = payload;
 		e.dataTransfer.effectAllowed = 'move';
-		e.dataTransfer.setData('application/x-sgui-thumb', String(index));
+		e.dataTransfer.setData(THUMB_MIME, JSON.stringify(payload));
 	}
 
 	function onThumbDragOver(index: number, e: DragEvent): void {
-		if (draggedIndex === null) return;
-		if (!e.dataTransfer) return;
-		if (!Array.from(e.dataTransfer.types).includes('application/x-sgui-thumb')) return;
+		if (draggingSet === null || !e.dataTransfer) return;
+		if (!Array.from(e.dataTransfer.types).includes(THUMB_MIME)) return;
 		e.preventDefault();
 		e.dataTransfer.dropEffect = 'move';
-		overIndex = index;
+		// Decide left-half (gap = index) vs right-half (gap = index + 1).
+		const target = e.currentTarget as HTMLElement;
+		const rect = target.getBoundingClientRect();
+		const pastMid = e.clientX - rect.left > rect.width / 2;
+		dropAtIndex = pastMid ? index + 1 : index;
 	}
 
-	async function onThumbDrop(index: number, e: DragEvent): Promise<void> {
-		if (draggedIndex === null || !site.home) return;
+	async function onThumbDrop(_index: number, e: DragEvent): Promise<void> {
+		if (draggingSet === null || !site.home || dropAtIndex === null) return;
 		e.preventDefault();
 		e.stopPropagation();
-		const from = draggedIndex;
-		const to = index;
-		draggedIndex = null;
-		overIndex = null;
-		if (from === to) return;
+		const gap = dropAtIndex;
+		const draggedPaths = draggingSet;
+		draggingSet = null;
+		dropAtIndex = null;
 
-		const ordered = album.images.map((i) => i.source_path);
-		const [moved] = ordered.splice(from, 1);
-		ordered.splice(to, 0, moved);
+		const allPaths = album.images.map((i) => i.source_path);
+		const remaining = allPaths.filter((p) => !draggedPaths.includes(p));
+		// Translate the gap index from "all images" coordinates to "remaining" coordinates
+		// by counting how many dragged items were before the gap.
+		const draggedBeforeGap = draggedPaths.filter((p) => allPaths.indexOf(p) < gap).length;
+		const insertAt = gap - draggedBeforeGap;
+		const newOrder = [
+			...remaining.slice(0, insertAt),
+			...draggedPaths,
+			...remaining.slice(insertAt)
+		];
 
 		try {
 			await api.fs.reorderImages({
 				home: site.home,
 				albumPath: albumSourceDir,
-				orderedSourcePaths: ordered
+				orderedSourcePaths: newOrder
 			});
 			showToast({ kind: 'success', title: 'Reordered' });
 			await rescanCurrentHome();
@@ -155,56 +343,98 @@
 	}
 
 	function onThumbDragEnd(): void {
-		draggedIndex = null;
-		overIndex = null;
+		draggingSet = null;
+		dropAtIndex = null;
 	}
 </script>
+
+<svelte:window onkeydown={onKeydown} />
 
 <div
 	class="relative flex h-full flex-col"
 	data-testid="album-view"
-	ondragenter={onDragEnter}
-	ondragover={onDragOver}
-	ondragleave={onDragLeave}
-	ondrop={onDrop}
+	ondragenter={onOuterDragEnter}
+	ondragover={onOuterDragOver}
+	ondragleave={onOuterDragLeave}
+	ondrop={onOuterDrop}
 	role="presentation"
 >
-	<header class="border-border bg-surface-1 shrink-0 border-b px-4 py-3">
-		<div class="text-text-primary text-[length:var(--text-label)] font-semibold">
-			{album.title}
+	<header
+		class="border-border bg-surface-1 flex shrink-0 items-start justify-between gap-3 border-b px-4 py-3"
+	>
+		<div class="min-w-0 flex-1">
+			<div class="text-text-primary text-[length:var(--text-label)] font-semibold">
+				<InlineTitleEdit value={album.title} onCommit={onCommitRename} />
+			</div>
+			<div class="text-text-muted mt-1 text-[length:var(--text-caption)]">
+				{album.images.length} image{album.images.length === 1 ? '' : 's'}
+				{#if selected.size > 0}
+					<span class="text-accent">· {selected.size} selected</span>
+				{:else}
+					<span class="text-text-faint">· drag images here to import</span>
+				{/if}
+			</div>
 		</div>
-		<div class="text-text-muted mt-1 text-[length:var(--text-caption)]">
-			{album.images.length} image{album.images.length === 1 ? '' : 's'}
-			<span class="text-text-faint">· drag images here to import</span>
-		</div>
+		<Button
+			variant="danger"
+			size="icon"
+			onclick={onHeaderDelete}
+			aria-label={headerDeleteLabel}
+			title={headerDeleteLabel}
+			data-testid="album-delete-btn"
+			data-selection-count={selected.size}
+			class="shrink-0"
+		>
+			<IconTrash class="h-4 w-4" />
+		</Button>
 	</header>
 
 	<DescriptionEditor {album} {albumSourceDir} />
 
-	<div class="bg-surface-0 min-h-0 flex-1 overflow-y-auto p-4">
-		<div class="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3">
+	<div
+		class="bg-surface-0 min-h-0 flex-1 overflow-y-auto p-4"
+		onclick={onGridClick}
+		role="presentation"
+	>
+		<div class="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3" role="presentation">
 			{#each album.images as img, i (img.source_path)}
+				{@const isSel = selected.has(img.source_path)}
+				{@const isDrag = draggingSet?.includes(img.source_path) ?? false}
 				<div
 					class={cn(
-						'group bg-surface-1 border-border hover:border-border-strong relative flex flex-col overflow-hidden rounded-md border transition-colors',
-						overIndex === i && draggedIndex !== null && draggedIndex !== i
-							? 'border-drop border-2'
-							: null,
-						draggedIndex === i ? 'opacity-40' : null
+						'group bg-surface-1 relative flex flex-col rounded-md border transition-colors',
+						isSel ? 'border-accent ring-accent ring-2' : 'border-border hover:border-border-strong',
+						isDrag ? 'opacity-40' : null
 					)}
 					draggable="true"
-					ondragstart={(e) => onThumbDragStart(i, e)}
+					ondragstart={(e) => onThumbDragStart(img, e)}
 					ondragover={(e) => onThumbDragOver(i, e)}
 					ondrop={(e) => onThumbDrop(i, e)}
 					ondragend={onThumbDragEnd}
 					role="listitem"
 				>
+					<!-- Left insertion bar — sits just outside the card on the left edge -->
+					{#if dropAtIndex === i && draggingSet !== null}
+						<div
+							class="bg-drop pointer-events-none absolute top-0 bottom-0 -left-2 z-10 w-1 rounded-full"
+							data-testid="drop-bar-left"
+						></div>
+					{/if}
+					<!-- Right insertion bar — sits just outside the card on the right edge -->
+					{#if dropAtIndex === i + 1 && draggingSet !== null}
+						<div
+							class="bg-drop pointer-events-none absolute top-0 -right-2 bottom-0 z-10 w-1 rounded-full"
+							data-testid="drop-bar-right"
+						></div>
+					{/if}
 					<button
 						type="button"
-						class="flex flex-col text-left"
-						onclick={() => selectImage(img)}
+						class="flex flex-col overflow-hidden rounded-md text-left"
+						onclick={(e) => onThumbClick(img, e)}
+						ondblclick={() => onThumbDoubleClick(img)}
 						data-testid="album-thumb"
 						data-image-path={img.source_path}
+						data-selected={isSel ? 'true' : 'false'}
 					>
 						<div class="bg-surface-2 relative aspect-[4/5] w-full overflow-hidden">
 							<img
@@ -212,6 +442,7 @@
 								alt={img.title ?? img.filename}
 								class="h-full w-full object-cover"
 								loading="lazy"
+								draggable="false"
 							/>
 						</div>
 						<div class="flex items-center justify-between gap-1 px-2 py-1.5">
@@ -222,15 +453,6 @@
 								#{img.number}
 							</span>
 						</div>
-					</button>
-					<button
-						type="button"
-						class="bg-danger/80 hover:bg-danger absolute top-1 right-1 rounded-sm px-1.5 py-0.5 text-[length:var(--text-micro)] text-white opacity-0 transition-opacity group-hover:opacity-100"
-						onclick={(e) => onDelete(img, e)}
-						aria-label="Delete image"
-						data-testid="thumb-delete-btn"
-					>
-						trash
 					</button>
 				</div>
 			{/each}

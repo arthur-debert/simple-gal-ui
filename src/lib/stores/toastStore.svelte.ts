@@ -28,12 +28,15 @@ export function showToast(input: {
 	timeoutMs?: number;
 }): number {
 	const id = nextId++;
+	// Errors stick around until explicitly dismissed so they can't be missed;
+	// everything else auto-dismisses after 4s (or whatever the caller passes).
+	const defaultTimeout = input.kind === 'error' ? 0 : 4000;
 	const toast: Toast = {
 		id,
 		kind: input.kind,
 		title: input.title,
 		body: input.body,
-		timeoutMs: input.timeoutMs ?? (input.kind === 'error' ? 8000 : 4000)
+		timeoutMs: input.timeoutMs ?? defaultTimeout
 	};
 	state.items = [...state.items, toast];
 	if (toast.timeoutMs > 0) {

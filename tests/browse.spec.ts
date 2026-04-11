@@ -60,10 +60,10 @@ test('selecting an album shows the thumbnail grid', async () => {
 	expect(await thumbs.count()).toBeGreaterThan(0);
 });
 
-test('selecting a thumbnail shows the image detail view', async () => {
+test('double-clicking a thumbnail shows the image detail view', async () => {
 	const landscapes = page.getByTestId('tree-album').filter({ hasText: 'Landscapes' });
 	await landscapes.click();
-	await page.getByTestId('album-thumb').first().click();
+	await page.getByTestId('album-thumb').first().dblclick();
 	await expect(page.getByTestId('image-detail-editor')).toBeVisible();
 });
 
@@ -79,7 +79,7 @@ test('captures browse screenshots', async () => {
 	await landscapes.click();
 	await page.screenshot({ path: path.join(outDir, 'album.png'), fullPage: true });
 
-	await page.getByTestId('album-thumb').first().click();
+	await page.getByTestId('album-thumb').first().dblclick();
 	await page.screenshot({ path: path.join(outDir, 'image-detail.png'), fullPage: true });
 
 	await page.getByTestId('tree-page').first().click();
