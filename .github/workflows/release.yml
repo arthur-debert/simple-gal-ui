@@ -59,7 +59,7 @@ jobs:
             artifact_name: dist-win-x64
 
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
+    timeout-minutes: 45
 
     steps:
       - uses: actions/checkout@v4
