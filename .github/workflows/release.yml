@@ -85,22 +85,6 @@ jobs:
         shell: bash
         run: node scripts/fetch-simple-gal.mjs
 
-      - name: Import Apple signing certificate
-        if: matrix.target == 'mac'
-        env:
-          P12_BASE64: ${{ secrets.APPLE_CERTIFICATE_P12_BASE64 }}
-          P12_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-        run: |
-          KEYCHAIN_PATH=$RUNNER_TEMP/signing.keychain-db
-          CERT_PATH=$RUNNER_TEMP/cert.p12
-          echo "$P12_BASE64" | base64 --decode > "$CERT_PATH"
-          security create-keychain -p "" "$KEYCHAIN_PATH"
-          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
-          security unlock-keychain -p "" "$KEYCHAIN_PATH"
-          security import "$CERT_PATH" -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
-          security set-key-partition-list -S apple-tool:,apple: -k "" "$KEYCHAIN_PATH"
-          security list-keychains -d user -s "$KEYCHAIN_PATH" login.keychain-db
-
       - name: Build renderer + main
         shell: bash
         run: pnpm run build
@@ -108,10 +92,11 @@ jobs:
       - name: Package (${{ matrix.label }})
         shell: bash
         env:
-          # macOS signing: electron-builder reads these env vars directly.
-          # CSC_LINK points at the imported .p12; the keychain is already
-          # unlocked from the import step above.
-          CSC_LINK: ${{ matrix.target == 'mac' && format('{0}/cert.p12', runner.temp) || '' }}
+          # macOS signing: electron-builder manages its own temp keychain
+          # from the base64-encoded p12 in CSC_LINK + CSC_KEY_PASSWORD.
+          # The p12 must use legacy encryption (-legacy flag in openssl)
+          # because macOS Security framework rejects AES-256-CBC PKCS12.
+          CSC_LINK: ${{ matrix.target == 'mac' && secrets.APPLE_CERTIFICATE_P12_BASE64 || '' }}
           CSC_KEY_PASSWORD: ${{ matrix.target == 'mac' && secrets.APPLE_CERTIFICATE_PASSWORD || '' }}
           # Notarization credentials for notarytool.
           APPLE_ID: ${{ matrix.target == 'mac' && secrets.APPLE_ID || '' }}
@@ -144,10 +129,6 @@ jobs:
           name: startup-error-logs-${{ matrix.target }}
           path: ~/.config/simple-gal-ui/logs/
           if-no-files-found: ignore
-
-      - name: Clean up signing keychain
-        if: always() && matrix.target == 'mac'
-        run: security delete-keychain $RUNNER_TEMP/signing.keychain-db || true
 
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
