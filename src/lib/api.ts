@@ -55,6 +55,15 @@ export interface PaneState {
 	rightCollapsed: boolean;
 }
 
+export interface BuildProgress {
+	percent: number;
+	stage: string;
+	images_done: number;
+	images_total: number;
+	variants_done: number;
+	variants_total: number;
+}
+
 export interface BuildRunResult {
 	ok: boolean;
 	distPath: string;
@@ -260,7 +269,9 @@ export const api = {
 		stop: (): Promise<void> => window.api.preview.stop(),
 		cancel: (): Promise<boolean> => window.api.preview.cancel(),
 		onReady: (cb: (payload: { url: string; token: number }) => void): (() => void) =>
-			window.api.preview.onReady(cb)
+			window.api.preview.onReady(cb),
+		onBuildProgress: (cb: (progress: BuildProgress) => void): (() => void) =>
+			window.api.preview.onBuildProgress(cb)
 	},
 	fs: {
 		writeSidecar: (args: WriteSidecarArgs): Promise<WriteSidecarResult> =>

@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import type { SimpleGalResult, ScanData } from './simpleGal.js';
-import type { BuildRunResult } from './build.js';
+import type { BuildRunResult, BuildProgress } from './build.js';
 import type { FetchSchemaResult } from './configSchema.js';
 import type { LoadCascadeArgs, LoadCascadeResult } from './configLoader.js';
 import type { SaveConfigArgs, SaveConfigResult } from './configSave.js';
@@ -81,6 +81,11 @@ const api = {
 			const handler = (_ev: Electron.IpcRendererEvent, p: { url: string; token: number }) => cb(p);
 			ipcRenderer.on('preview:ready', handler);
 			return () => ipcRenderer.off('preview:ready', handler);
+		},
+		onBuildProgress: (cb: (progress: BuildProgress) => void): (() => void) => {
+			const handler = (_ev: Electron.IpcRendererEvent, p: BuildProgress) => cb(p);
+			ipcRenderer.on('preview:build-progress', handler);
+			return () => ipcRenderer.off('preview:build-progress', handler);
 		}
 	},
 	fs: {
