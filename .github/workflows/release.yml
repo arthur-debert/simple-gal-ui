@@ -168,18 +168,16 @@ jobs:
             fi
             sleep 30
           done
-          echo "Timed out waiting for notarization after 30 minutes"
-          exit 1
+          echo "::warning::Timed out waiting for notarization after 30 minutes. The DMG is signed but not notarized — staple manually once Apple finishes processing (submission ID: $ID)."
 
       - name: Staple notarization ticket
-        if: matrix.target == 'mac'
+        if: matrix.target == 'mac' && steps.notarize-submit.outcome == 'success'
         shell: bash
         run: |
           DMG=$(ls release/*.dmg | head -1)
           echo "Stapling $DMG..."
-          xcrun stapler staple "$DMG"
-          echo "Verifying staple..."
-          xcrun stapler validate "$DMG"
+          xcrun stapler staple "$DMG" || echo "::warning::Staple failed — notarization may not be complete yet. DMG is still signed."
+          xcrun stapler validate "$DMG" || true
 
       - name: Upload packaged screenshot
         if: always()
@@ -198,6 +196,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: Upload installer artifact
+        if: always() && !cancelled()
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
@@ -207,6 +206,7 @@ jobs:
   release:
     name: Draft GitHub Release
     needs: package
+    if: always() && !cancelled()
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
