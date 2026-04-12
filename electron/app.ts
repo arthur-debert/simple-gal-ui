@@ -60,6 +60,7 @@ import {
 } from './fs.js';
 import { watchHome, stopWatching } from './watch.js';
 import { fetchConfigSchema, type FetchSchemaResult } from './configSchema.js';
+import { loadCascade, type LoadCascadeArgs, type LoadCascadeResult } from './configLoader.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -320,6 +321,11 @@ function registerIpcHandlers(): void {
 	);
 
 	ipcMain.handle('config:schema', async (): Promise<FetchSchemaResult> => fetchConfigSchema());
+
+	ipcMain.handle(
+		'config:loadCascade',
+		async (_ev, args: LoadCascadeArgs): Promise<LoadCascadeResult> => loadCascade(args)
+	);
 }
 
 app.whenReady().then(() => {

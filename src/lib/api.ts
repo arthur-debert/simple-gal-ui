@@ -7,6 +7,7 @@
  */
 import type { SimpleGalResult, ScanData } from './types/manifest';
 import type { ConfigSchemaRoot } from './types/configSchema';
+import type { ConfigCascade } from './types/configEditor';
 
 export interface FetchSchemaOk {
 	ok: true;
@@ -18,6 +19,12 @@ export interface FetchSchemaErr {
 	error: string;
 }
 export type FetchSchemaResult = FetchSchemaOk | FetchSchemaErr;
+
+export interface LoadCascadeArgs {
+	home: string;
+	dirPath: string;
+}
+export type LoadCascadeResult = { ok: true; cascade: ConfigCascade } | { ok: false; error: string };
 
 export interface PaneState {
 	leftWidth: number;
@@ -272,6 +279,8 @@ export const api = {
 	},
 	config: {
 		schema: (): Promise<FetchSchemaResult> =>
-			window.api.config.schema() as Promise<FetchSchemaResult>
+			window.api.config.schema() as Promise<FetchSchemaResult>,
+		loadCascade: (args: LoadCascadeArgs): Promise<LoadCascadeResult> =>
+			window.api.config.loadCascade(args) as Promise<LoadCascadeResult>
 	}
 };

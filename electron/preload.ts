@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import type { SimpleGalResult, ScanData } from './simpleGal.js';
 import type { BuildRunResult } from './build.js';
 import type { FetchSchemaResult } from './configSchema.js';
+import type { LoadCascadeArgs, LoadCascadeResult } from './configLoader.js';
 import type {
 	WriteSidecarArgs,
 	WriteSidecarResult,
@@ -113,7 +114,9 @@ const api = {
 		getPathForFile: (file: File): string => webUtils.getPathForFile(file)
 	},
 	config: {
-		schema: (): Promise<FetchSchemaResult> => ipcRenderer.invoke('config:schema')
+		schema: (): Promise<FetchSchemaResult> => ipcRenderer.invoke('config:schema'),
+		loadCascade: (args: LoadCascadeArgs): Promise<LoadCascadeResult> =>
+			ipcRenderer.invoke('config:loadCascade', args)
 	},
 	watch: {
 		start: (home: string): Promise<void> => ipcRenderer.invoke('watch:start', home),
