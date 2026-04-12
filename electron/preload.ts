@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import type { SimpleGalResult, ScanData } from './simpleGal.js';
 import type { BuildRunResult } from './build.js';
+import type { FetchSchemaResult } from './configSchema.js';
 import type {
 	WriteSidecarArgs,
 	WriteSidecarResult,
@@ -110,6 +111,9 @@ const api = {
 		setAlbumThumbnail: (args: SetAlbumThumbnailArgs): Promise<SetAlbumThumbnailResult> =>
 			ipcRenderer.invoke('fs:setAlbumThumbnail', args),
 		getPathForFile: (file: File): string => webUtils.getPathForFile(file)
+	},
+	config: {
+		schema: (): Promise<FetchSchemaResult> => ipcRenderer.invoke('config:schema')
 	},
 	watch: {
 		start: (home: string): Promise<void> => ipcRenderer.invoke('watch:start', home),

@@ -6,6 +6,18 @@
  * substituted cleanly.
  */
 import type { SimpleGalResult, ScanData } from './types/manifest';
+import type { ConfigSchemaRoot } from './types/configSchema';
+
+export interface FetchSchemaOk {
+	ok: true;
+	schema: ConfigSchemaRoot;
+	binPath: string;
+}
+export interface FetchSchemaErr {
+	ok: false;
+	error: string;
+}
+export type FetchSchemaResult = FetchSchemaOk | FetchSchemaErr;
 
 export interface PaneState {
 	leftWidth: number;
@@ -257,5 +269,9 @@ export const api = {
 		stop: (): Promise<void> => window.api.watch.stop(),
 		onChanged: (cb: (payload: { home: string; paths: string[] }) => void): (() => void) =>
 			window.api.watch.onChanged(cb)
+	},
+	config: {
+		schema: (): Promise<FetchSchemaResult> =>
+			window.api.config.schema() as Promise<FetchSchemaResult>
 	}
 };

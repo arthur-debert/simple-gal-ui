@@ -59,6 +59,7 @@ import {
 	type SetAlbumThumbnailResult
 } from './fs.js';
 import { watchHome, stopWatching } from './watch.js';
+import { fetchConfigSchema, type FetchSchemaResult } from './configSchema.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -317,6 +318,8 @@ function registerIpcHandlers(): void {
 		async (_ev, args: SetAlbumThumbnailArgs): Promise<SetAlbumThumbnailResult> =>
 			setAlbumThumbnail(args)
 	);
+
+	ipcMain.handle('config:schema', async (): Promise<FetchSchemaResult> => fetchConfigSchema());
 }
 
 app.whenReady().then(() => {
