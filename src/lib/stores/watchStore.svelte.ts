@@ -30,7 +30,7 @@ async function startWatchingCurrent(): Promise<void> {
 }
 
 export function initWatchStore(): () => void {
-	startWatchingCurrent();
+	void startWatchingCurrent().catch(() => {});
 
 	unsubChanged = api.watch.onChanged(async ({ home }) => {
 		if (home !== site.home) return;
@@ -39,7 +39,7 @@ export function initWatchStore(): () => void {
 	});
 
 	unsubHome = api.gallery.onHomeChanged(() => {
-		startWatchingCurrent();
+		void startWatchingCurrent().catch(() => {});
 	});
 
 	return () => {

@@ -116,6 +116,7 @@ test('image detail editor shows the metadata behavior note', async () => {
 
 test('captures editor screenshot', async () => {
 	const outDir = path.join(repoRoot, 'tests/__screenshots__/pr4');
+	fs.mkdirSync(outDir, { recursive: true });
 	await page.getByTestId('tree-album').filter({ hasText: 'Landscapes' }).click();
 	await page.getByTestId('album-thumb').first().dblclick();
 	await expect(page.getByTestId('image-detail-editor')).toBeVisible();

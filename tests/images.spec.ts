@@ -158,6 +158,7 @@ test('reordering images renumbers them with sparse prefixes', async () => {
 
 test('captures images screenshot', async () => {
 	const outDir = path.join(repoRoot, 'tests/__screenshots__/pr5');
+	fs.mkdirSync(outDir, { recursive: true });
 	await page.getByTestId('tree-album').filter({ hasText: 'Landscapes' }).click();
 	await expect(page.getByTestId('album-view')).toBeVisible();
 	await page.screenshot({ path: path.join(outDir, 'album-management.png'), fullPage: true });

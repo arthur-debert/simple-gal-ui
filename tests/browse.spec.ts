@@ -17,14 +17,16 @@ const fixtureSrc = path.join(repoRoot, 'tests/fixtures/sample-gallery');
 let app: ElectronApplication;
 let page: Page;
 let fixtureCopy: string;
+let userDataDir: string;
 
 test.beforeAll(async () => {
 	// Copy the fixture into a tmp dir so tests are isolated from mutations.
 	fixtureCopy = fs.mkdtempSync(path.join(os.tmpdir(), 'sgui-fix-'));
 	fs.cpSync(fixtureSrc, fixtureCopy, { recursive: true });
+	userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sgui-userdata-'));
 
 	app = await electron.launch({
-		args: [path.join(repoRoot, 'dist-electron/main.js')],
+		args: [path.join(repoRoot, 'dist-electron/main.js'), `--user-data-dir=${userDataDir}`],
 		cwd: repoRoot,
 		env: {
 			...process.env,
@@ -40,6 +42,7 @@ test.beforeAll(async () => {
 test.afterAll(async () => {
 	await app?.close();
 	if (fixtureCopy && fs.existsSync(fixtureCopy)) fs.rmSync(fixtureCopy, { recursive: true });
+	if (userDataDir && fs.existsSync(userDataDir)) fs.rmSync(userDataDir, { recursive: true });
 });
 
 test('renders site tree with fixture albums and pages', async () => {
@@ -75,6 +78,7 @@ test('selecting a page shows the page editor', async () => {
 
 test('captures browse screenshots', async () => {
 	const outDir = path.join(repoRoot, 'tests/__screenshots__/pr2');
+	fs.mkdirSync(outDir, { recursive: true });
 	const landscapes = page.getByTestId('tree-album').filter({ hasText: 'Landscapes' });
 	await landscapes.click();
 	await page.screenshot({ path: path.join(outDir, 'album.png'), fullPage: true });

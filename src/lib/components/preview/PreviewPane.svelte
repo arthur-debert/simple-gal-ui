@@ -17,7 +17,7 @@
 		<a
 			href={preview.url}
 			target="_blank"
-			rel="noopener"
+			rel="noopener noreferrer"
 			class="bg-surface-1/90 text-text-muted hover:text-text-primary border-border absolute top-2 right-2 rounded-sm border px-2 py-1 text-[length:var(--text-micro)] opacity-0 backdrop-blur transition-opacity hover:opacity-100"
 			style="opacity: 0;"
 			onmouseenter={(e) => ((e.currentTarget as HTMLElement).style.opacity = '1')}

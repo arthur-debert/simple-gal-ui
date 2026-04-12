@@ -17,13 +17,15 @@ const fixtureSrc = path.join(repoRoot, 'tests/fixtures/sample-gallery');
 let app: ElectronApplication;
 let page: Page;
 let fixtureCopy: string;
+let userDataDir: string;
 
 test.beforeAll(async () => {
 	fixtureCopy = fs.mkdtempSync(path.join(os.tmpdir(), 'sgui-cfg-'));
 	fs.cpSync(fixtureSrc, fixtureCopy, { recursive: true });
+	userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sgui-userdata-'));
 
 	app = await electron.launch({
-		args: [path.join(repoRoot, 'dist-electron/main.js')],
+		args: [path.join(repoRoot, 'dist-electron/main.js'), `--user-data-dir=${userDataDir}`],
 		cwd: repoRoot,
 		env: {
 			...process.env,
@@ -39,6 +41,7 @@ test.beforeAll(async () => {
 test.afterAll(async () => {
 	await app?.close();
 	if (fixtureCopy && fs.existsSync(fixtureCopy)) fs.rmSync(fixtureCopy, { recursive: true });
+	if (userDataDir && fs.existsSync(userDataDir)) fs.rmSync(userDataDir, { recursive: true });
 });
 
 test('config.schema() returns the simple-gal schema with expected top-level keys', async () => {

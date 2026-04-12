@@ -75,7 +75,7 @@
 			{#if editable && source === 'local' && onReset}
 				<button
 					type="button"
-					class="text-text-faint hover:text-text-primary rounded-sm px-1 text-[length:var(--text-micro)]"
+					class="text-text-faint hover:text-text-primary relative z-10 rounded-sm px-1 text-[length:var(--text-micro)]"
 					onclick={onReset}
 					data-testid="config-field-reset"
 					data-config-key={dottedKey}

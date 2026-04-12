@@ -48,8 +48,8 @@ test('clicking the root configure button opens the config editor for the root', 
 	await expect(page.getByTestId('config-editor-title')).toHaveText('root');
 	// Every top-level schema property renders a ConfigSection except the
 	// scalar ones (assets_dir, site_title, site_description_file).
-	const sections = page.getByTestId('config-section');
-	expect(await sections.count()).toBeGreaterThanOrEqual(5);
+	await expect(page.getByTestId('config-section').first()).toBeVisible();
+	await expect.poll(() => page.getByTestId('config-section').count()).toBeGreaterThanOrEqual(5);
 });
 
 test('root editor shows images.quality with source=local since the fixture sets it', async () => {

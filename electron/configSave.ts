@@ -65,11 +65,22 @@ async function restoreSnapshot(filePath: string, snapshot: string | null): Promi
 		}
 		return;
 	}
-	await fs.writeFile(filePath, snapshot, 'utf8');
+	const tmpPath = filePath + '.sgui-tmp';
+	await fs.writeFile(tmpPath, snapshot, 'utf8');
+	await fs.rename(tmpPath, filePath);
 }
 
 export async function saveConfig(args: SaveConfigArgs): Promise<SaveConfigResult> {
 	const { home, dirPath, payload } = args;
+
+	// Path traversal guard: dirPath must resolve inside home.
+	const resolvedHome = path.resolve(home);
+	const resolvedDir = path.resolve(dirPath);
+	const rel = path.relative(resolvedHome, resolvedDir);
+	if (rel.startsWith('..') || path.isAbsolute(rel)) {
+		return { ok: false, error: `dirPath ${resolvedDir} is not inside home ${resolvedHome}` };
+	}
+
 	const configPath = path.join(dirPath, 'config.toml');
 
 	let snapshot: string | null;
@@ -90,7 +101,9 @@ export async function saveConfig(args: SaveConfigArgs): Promise<SaveConfigResult
 		} else {
 			const toml = TOML.stringify(payload as TOML.JsonMap);
 			await fs.mkdir(path.dirname(configPath), { recursive: true });
-			await fs.writeFile(configPath, toml, 'utf8');
+			const tmpPath = configPath + '.sgui-tmp';
+			await fs.writeFile(tmpPath, toml, 'utf8');
+			await fs.rename(tmpPath, configPath);
 		}
 	} catch (err) {
 		// Writing the file itself failed — attempt to restore and bail.

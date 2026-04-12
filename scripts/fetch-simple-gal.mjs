@@ -23,6 +23,7 @@ import {
 	copyFileSync,
 	chmodSync,
 	readFileSync,
+	readdirSync,
 	rmSync,
 	createWriteStream
 } from 'node:fs';
@@ -173,7 +174,7 @@ function findBin(root) {
 const extractedBin = findBin(scratch);
 if (!extractedBin) {
 	softExit(
-		`could not find ${exe} inside the extracted archive at ${scratch}. Contents: ${execFileSync('ls', ['-la', scratch], { encoding: 'utf8' })}`
+		`could not find ${exe} inside the extracted archive at ${scratch}. Contents: ${readdirSync(scratch).join(', ')}`
 	);
 }
 

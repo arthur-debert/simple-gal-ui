@@ -90,5 +90,6 @@ test('preview.cancel IPC exists and returns cleanly when no build is in flight',
 
 test('captures preview screenshot', async () => {
 	const outDir = path.join(repoRoot, 'tests/__screenshots__/pr3');
+	fs.mkdirSync(outDir, { recursive: true });
 	await page.screenshot({ path: path.join(outDir, 'preview-ready.png'), fullPage: true });
 });
