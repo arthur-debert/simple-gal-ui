@@ -150,6 +150,86 @@ test('saving a single edit writes ONLY that key to disk (sparse file)', async ()
 	expect(contents).not.toContain('aspect_ratio');
 });
 
+test('sparse cascade regression: album edit + later parent edit both propagate', async () => {
+	// The critical scenario the user flagged:
+	//
+	//   1. Album's config.toml is absent (inherits everything from root).
+	//   2. User saves ONE key at the album level (images.quality = 92).
+	//   3. Without touching the album again, the user saves a DIFFERENT key
+	//      at the root level (site_title = "Regression Title").
+	//   4. Re-opening the album's config editor must show the new site_title
+	//      inherited from root, NOT the old value frozen into the album file.
+	//   5. The album's on-disk file should still contain ONLY
+	//      `images.quality = 92` — nothing else copied down during step 2.
+	//
+	// If the sparse save rule were broken (e.g. the album wrote every
+	// effective value on step 2), step 4 would show the OLD site_title.
+	// Japan is the nested album we use because it has no config.toml in
+	// the fixture.
+
+	const japanConfig = path.join(fixtureCopy, '020-Travel', '010-Japan', 'config.toml');
+	const rootConfig = path.join(fixtureCopy, 'config.toml');
+
+	// Clean-slate Japan for this test (earlier sparse test also wrote there).
+	if (fs.existsSync(japanConfig)) fs.rmSync(japanConfig);
+
+	// Step 1+2: save images.quality=92 at the album level.
+	const japanRow = page.getByTestId('tree-album').filter({ hasText: 'Japan' });
+	await japanRow.click({ button: 'right' });
+	await page.getByTestId('menu-configure').click();
+	await expect(page.getByTestId('config-editor')).toBeVisible();
+	await expect(page.getByTestId('config-editor-title')).toHaveText('Travel / Japan');
+	const japanQuality = page
+		.locator('[data-testid="config-field-input"][data-config-key="images.quality"]')
+		.first();
+	await japanQuality.fill('92');
+	await page.getByTestId('config-editor-save').click();
+	await expect(
+		page.locator('[data-testid="config-field"][data-config-key="images.quality"]').first()
+	).toHaveAttribute('data-config-source', 'local');
+
+	// Assert the on-disk Japan config is sparse: ONLY the quality key.
+	const japanBody = fs.readFileSync(japanConfig, 'utf8');
+	expect(japanBody).toContain('quality = 92');
+	expect(japanBody).not.toContain('site_title');
+	expect(japanBody).not.toContain('[colors');
+	expect(japanBody).not.toContain('aspect_ratio');
+
+	// Step 3: edit site_title at the root level.
+	await page.getByTestId('configure-root-btn').click();
+	await expect(page.getByTestId('config-editor-title')).toHaveText('root');
+	const rootTitle = page
+		.locator('[data-testid="config-field-input"][data-config-key="site_title"]')
+		.first();
+	await rootTitle.fill('Regression Title');
+	await page.getByTestId('config-editor-save').click();
+	await expect(
+		page.locator('[data-testid="config-field"][data-config-key="site_title"]').first()
+	).toHaveAttribute('data-config-source', 'local');
+
+	const rootBody = fs.readFileSync(rootConfig, 'utf8');
+	expect(rootBody).toContain('Regression Title');
+
+	// Step 4: re-open Japan config. site_title must inherit the new root
+	// value; quality must still be local (unchanged).
+	await japanRow.click({ button: 'right' });
+	await page.getByTestId('menu-configure').click();
+	await expect(page.getByTestId('config-editor-title')).toHaveText('Travel / Japan');
+	const inheritedTitleField = page
+		.locator('[data-testid="config-field"][data-config-key="site_title"]')
+		.first();
+	await expect(inheritedTitleField).toHaveAttribute('data-config-source', 'root');
+	const inheritedTitleInput = page
+		.locator('[data-testid="config-field-input"][data-config-key="site_title"]')
+		.first();
+	await expect(inheritedTitleInput).toHaveValue('Regression Title');
+
+	// Step 5: Japan's file is still sparse.
+	const japanAfter = fs.readFileSync(japanConfig, 'utf8');
+	expect(japanAfter).toContain('quality = 92');
+	expect(japanAfter).not.toContain('site_title');
+});
+
 test('resetting a field removes it from the target file, restoring inheritance', async () => {
 	// Landscapes has its own [images] quality AND thumbnails.aspect_ratio.
 	// Reset images.quality: the save should strip it from the file while
