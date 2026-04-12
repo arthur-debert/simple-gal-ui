@@ -1,14 +1,14 @@
 # electron-builder configuration for simple-gal-ui
 #
 # Packaging targets:
-#   - macOS arm64 .dmg (unsigned)
+#   - macOS arm64 .dmg (signed + notarized via Developer ID)
 #   - Linux x64 AppImage
 #   - Windows x64 NSIS installer (.exe)
 #
-# Code signing is deliberately off for every platform in this round —
-# macOS users right-click → Open on first launch, Linux AppImages run
-# directly, Windows triggers SmartScreen. Signing can be wired up later
-# without changing this file's shape.
+# macOS signing uses env vars set by the release workflow:
+#   CSC_LINK / CSC_KEY_PASSWORD — imported p12 certificate
+#   APPLE_ID / APPLE_TEAM_ID / APPLE_APP_SPECIFIC_PASSWORD — notarization
+# When these are absent (local dev), electron-builder skips signing.
 #
 # Usage:
 #   pnpm run package         — builds the current OS's installer
@@ -48,14 +48,17 @@ extraResources:
 mac:
   category: public.app-category.photography
   icon: resources/icon.png
-  identity: null # unsigned for this round
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: resources/entitlements.mac.plist
+  entitlementsInherit: resources/entitlements.mac.plist
+  notarize: true
   target:
     - target: dmg
       arch: [arm64]
   artifactName: ${productName}-${version}-${arch}.${ext}
 
 dmg:
-  writeUpdateInfo: false
   sign: false
 
 linux:
