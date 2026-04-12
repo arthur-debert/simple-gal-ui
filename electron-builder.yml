@@ -52,7 +52,10 @@ mac:
   gatekeeperAssess: false
   entitlements: resources/entitlements.mac.plist
   entitlementsInherit: resources/entitlements.mac.plist
-  notarize: true
+  # Notarization is handled separately in the release workflow via
+  # xcrun notarytool (submit → poll → staple) so we get visibility
+  # into Apple's queue and avoid blocking the whole job.
+  notarize: false
   target:
     - target: dmg
       arch: [arm64]

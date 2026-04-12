@@ -96,12 +96,10 @@ jobs:
           # from the base64-encoded p12 in CSC_LINK + CSC_KEY_PASSWORD.
           # The p12 must use legacy encryption (-legacy flag in openssl)
           # because macOS Security framework rejects AES-256-CBC PKCS12.
+          # Notarization is handled in separate steps below (not by
+          # electron-builder) so we get submit/poll visibility.
           CSC_LINK: ${{ matrix.target == 'mac' && secrets.APPLE_CERTIFICATE_P12_BASE64 || '' }}
           CSC_KEY_PASSWORD: ${{ matrix.target == 'mac' && secrets.APPLE_CERTIFICATE_PASSWORD || '' }}
-          # Notarization credentials for notarytool.
-          APPLE_ID: ${{ matrix.target == 'mac' && secrets.APPLE_ID || '' }}
-          APPLE_TEAM_ID: ${{ matrix.target == 'mac' && secrets.APPLE_TEAM_ID || '' }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ matrix.target == 'mac' && secrets.APPLE_APP_SPECIFIC_PASSWORD || '' }}
         run: pnpm exec electron-builder ${{ matrix.builder_args }} --publish never
 
       - name: List release artifacts
@@ -113,6 +111,75 @@ jobs:
         env:
           PACKAGED_APP_PATH: ${{ matrix.packaged_app_path }}
         run: ${{ matrix.smoke_prefix }} pnpm exec playwright test --project=packaged
+
+      # --- macOS notarization (submit → poll → staple) ---
+      # Split from electron-builder so we get per-step visibility and
+      # don't block the whole job on Apple's queue.
+      - name: Submit DMG for notarization
+        id: notarize-submit
+        if: matrix.target == 'mac'
+        shell: bash
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+        run: |
+          DMG=$(ls release/*.dmg | head -1)
+          echo "Submitting $DMG for notarization..."
+          RESULT=$(xcrun notarytool submit "$DMG" \
+            --apple-id "$APPLE_ID" \
+            --team-id "$APPLE_TEAM_ID" \
+            --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+            --output-format json \
+            --no-wait)
+          echo "$RESULT"
+          ID=$(echo "$RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
+          echo "submission-id=$ID" >> "$GITHUB_OUTPUT"
+          echo "Submission ID: $ID"
+
+      - name: Wait for notarization
+        if: matrix.target == 'mac'
+        shell: bash
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+        run: |
+          ID="${{ steps.notarize-submit.outputs.submission-id }}"
+          echo "Polling notarization status for $ID..."
+          for i in $(seq 1 60); do
+            RESULT=$(xcrun notarytool info "$ID" \
+              --apple-id "$APPLE_ID" \
+              --team-id "$APPLE_TEAM_ID" \
+              --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+              --output-format json 2>&1) || true
+            STATUS=$(echo "$RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('status','Unknown'))" 2>/dev/null || echo "Unknown")
+            echo "  [$i/60] status=$STATUS ($(date -u +%H:%M:%S))"
+            if [ "$STATUS" = "Accepted" ]; then
+              echo "Notarization accepted!"
+              exit 0
+            elif [ "$STATUS" = "Invalid" ] || [ "$STATUS" = "Rejected" ]; then
+              echo "Notarization failed with status: $STATUS"
+              xcrun notarytool log "$ID" \
+                --apple-id "$APPLE_ID" \
+                --team-id "$APPLE_TEAM_ID" \
+                --password "$APPLE_APP_SPECIFIC_PASSWORD" 2>&1 || true
+              exit 1
+            fi
+            sleep 30
+          done
+          echo "Timed out waiting for notarization after 30 minutes"
+          exit 1
+
+      - name: Staple notarization ticket
+        if: matrix.target == 'mac'
+        shell: bash
+        run: |
+          DMG=$(ls release/*.dmg | head -1)
+          echo "Stapling $DMG..."
+          xcrun stapler staple "$DMG"
+          echo "Verifying staple..."
+          xcrun stapler validate "$DMG"
 
       - name: Upload packaged screenshot
         if: always()
