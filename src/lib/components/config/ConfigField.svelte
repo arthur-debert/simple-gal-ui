@@ -5,6 +5,8 @@
 	import NumberField from './fields/NumberField.svelte';
 	import BooleanField from './fields/BooleanField.svelte';
 	import ArrayField from './fields/ArrayField.svelte';
+	import EnumField from './fields/EnumField.svelte';
+	import ColorField from './fields/ColorField.svelte';
 
 	interface Props {
 		label: string;
@@ -103,6 +105,15 @@
 						? '[' + value.join(', ') + ']'
 						: String(value)}
 			</div>
+		{:else if node.type === 'string' && Array.isArray(node.enum) && node.enum.length > 0}
+			<EnumField
+				value={(value as string) ?? ''}
+				options={node.enum}
+				{dottedKey}
+				oninput={(v) => handleEdit(v)}
+			/>
+		{:else if node.type === 'string' && (dottedKey.includes('colors.') || node.format === 'color')}
+			<ColorField value={(value as string) ?? ''} {dottedKey} oninput={(v) => handleEdit(v)} />
 		{:else if node.type === 'string'}
 			<StringField value={(value as string) ?? ''} {dottedKey} oninput={(v) => handleEdit(v)} />
 		{:else if node.type === 'integer' || node.type === 'number'}

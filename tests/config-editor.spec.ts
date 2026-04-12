@@ -150,6 +150,20 @@ test('saving a single edit writes ONLY that key to disk (sparse file)', async ()
 	expect(contents).not.toContain('aspect_ratio');
 });
 
+test('color field renders a swatch + text input for keys under [colors]', async () => {
+	await page.getByTestId('configure-root-btn').click();
+	await expect(page.getByTestId('config-editor')).toBeVisible();
+	const swatch = page
+		.locator('[data-testid="config-field-color-swatch"][data-config-key="colors.light.background"]')
+		.first();
+	await expect(swatch).toBeVisible();
+	// The text input alongside the swatch shares the data-testid=config-field-input.
+	const textInput = page
+		.locator('[data-testid="config-field-input"][data-config-key="colors.light.background"]')
+		.first();
+	await expect(textInput).toHaveValue(/#/);
+});
+
 test('sparse cascade regression: album edit + later parent edit both propagate', async () => {
 	// The critical scenario the user flagged:
 	//
