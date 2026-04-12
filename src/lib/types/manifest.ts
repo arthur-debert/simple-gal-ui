@@ -96,7 +96,7 @@ export interface ScanData {
 
 // Selection model for the UI tree
 
-export type SelectionKind = 'album' | 'image' | 'page' | 'none';
+export type SelectionKind = 'album' | 'image' | 'page' | 'config' | 'none';
 
 export interface AlbumSelection {
 	kind: 'album';
@@ -114,8 +114,25 @@ export interface PageSelection {
 	pageSlug: string;
 }
 
+/**
+ * Selecting a config target pops the config editor in the center pane.
+ * `dirPath` is absolute (the cascade loader needs one); `levelKind` is a
+ * renderer hint carried through from the tree row so the UI can label the
+ * editor correctly before loadCascade resolves.
+ */
+export interface ConfigSelection {
+	kind: 'config';
+	dirPath: string;
+	levelKind: 'root' | 'group' | 'album';
+}
+
 export interface NoSelection {
 	kind: 'none';
 }
 
-export type Selection = AlbumSelection | ImageSelection | PageSelection | NoSelection;
+export type Selection =
+	| AlbumSelection
+	| ImageSelection
+	| PageSelection
+	| ConfigSelection
+	| NoSelection;

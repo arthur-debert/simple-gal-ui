@@ -9,6 +9,7 @@
 	import PreviewPane from '$lib/components/preview/PreviewPane.svelte';
 	import StatusBar from '$lib/components/status/StatusBar.svelte';
 	import ConfigErrorModal from '$lib/components/dialogs/ConfigErrorModal.svelte';
+	import ConfigEditor from '$lib/components/config/ConfigEditor.svelte';
 	import {
 		site,
 		openGalleryHomeDialog,
@@ -167,6 +168,8 @@
 				<AlbumView album={selectedAlbum} />
 			{:else if site.selection.kind === 'page' && selectedPage}
 				<PageEditor page={selectedPage} />
+			{:else if site.selection.kind === 'config'}
+				<ConfigEditor dirPath={site.selection.dirPath} levelKind={site.selection.levelKind} />
 			{:else}
 				<div
 					class="text-text-faint flex h-full items-center justify-center text-[length:var(--text-caption)]"

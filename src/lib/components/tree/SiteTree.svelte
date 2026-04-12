@@ -337,6 +337,40 @@
 		}
 	}
 
+	function onConfigure(): void {
+		if (!menu || !site.home) return;
+		const target = menu.target;
+		if (target.kind !== 'album') return; // pages have no config.toml scope
+		closeMenu();
+		const dirPath = `${site.home}/${target.sourceDir}`;
+		// Groups and albums both carry `sourceDir`; cascade loader detects the
+		// kind server-side, but we pass a hint for the editor label.
+		const levelKind = groupPaths.has(target.path) ? 'group' : 'album';
+		site.selection = { kind: 'config', dirPath, levelKind };
+	}
+
+	function configureRoot(): void {
+		if (!site.home) return;
+		site.selection = { kind: 'config', dirPath: site.home, levelKind: 'root' };
+	}
+
+	/** Flat set of paths that are groups in the current manifest, for quick
+	 *  level-kind classification when the context menu fires. */
+	const groupPaths = $derived.by((): Set<string> => {
+		const out = new Set<string>();
+		if (!manifest) return out;
+		const walk = (items: ManifestNavItem[]): void => {
+			for (const it of items) {
+				if (isGroup(it)) {
+					out.add(it.path);
+					walk(it.children!);
+				}
+			}
+		};
+		walk(manifest.navigation);
+		return out;
+	});
+
 	// --- Source-dir resolution for a nav path ---------------------------
 
 	/**
@@ -573,6 +607,16 @@
 		class="text-text-muted flex items-center gap-2 px-3 pt-3 pb-2 text-[length:var(--text-micro)] font-semibold tracking-wider uppercase"
 	>
 		<span class="flex-1">Site</span>
+		<Button
+			variant="ghost"
+			size="sm"
+			onclick={configureRoot}
+			disabled={!site.home}
+			data-testid="configure-root-btn"
+			class="-my-1 h-5 px-1.5"
+		>
+			configure
+		</Button>
 	</div>
 
 	{#if !manifest}
@@ -814,6 +858,16 @@
 		>
 			Rename…
 		</button>
+		{#if menu.target.kind === 'album'}
+			<button
+				type="button"
+				class="hover:bg-surface-2 text-text-primary block w-full px-3 py-1 text-left text-[length:var(--text-caption)]"
+				onclick={onConfigure}
+				data-testid="menu-configure"
+			>
+				Configure…
+			</button>
+		{/if}
 		<button
 			type="button"
 			class="hover:bg-surface-2 text-danger block w-full px-3 py-1 text-left text-[length:var(--text-caption)]"
