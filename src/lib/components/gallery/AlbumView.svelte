@@ -3,7 +3,7 @@
 	import { api } from '$lib/api';
 	import { showToast } from '$lib/stores/toastStore.svelte';
 	import type { ManifestAlbum, ManifestImage } from '$lib/types/manifest';
-	import DescriptionEditor from './DescriptionEditor.svelte';
+	import InlineDescriptionEdit from './InlineDescriptionEdit.svelte';
 	import InlineTitleEdit from './InlineTitleEdit.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import IconTrash from '~icons/lucide/trash-2';
@@ -268,6 +268,27 @@
 		}
 	}
 
+	// --- Inline description save -----------------------------------------
+
+	async function onSaveDescription(body: string): Promise<void> {
+		if (!site.home) return;
+		const result = await api.fs.writeDescription({
+			home: site.home,
+			albumPath: albumSourceDir,
+			body
+		});
+		if (result.ok) {
+			showToast({
+				kind: 'success',
+				title: 'Description saved',
+				body: result.writtenPath ? 'description.md updated' : 'description removed'
+			});
+			await rescanCurrentHome();
+		} else {
+			showToast({ kind: 'error', title: 'Save failed' });
+		}
+	}
+
 	// --- OS file drag-drop import ----------------------------------------
 
 	function onOuterDragEnter(e: DragEvent): void {
@@ -453,7 +474,11 @@
 		</div>
 	</header>
 
-	<DescriptionEditor {album} {albumSourceDir} />
+	<InlineDescriptionEdit
+		value={album.description ?? ''}
+		onSave={onSaveDescription}
+		placeholder="Add description\u2026"
+	/>
 
 	<div
 		class="bg-surface-0 min-h-0 flex-1 overflow-y-auto p-4"
