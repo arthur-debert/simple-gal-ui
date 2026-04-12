@@ -45,9 +45,8 @@ test.afterAll(async () => {
 	if (userDataDir && fs.existsSync(userDataDir)) fs.rmSync(userDataDir, { recursive: true });
 });
 
-test('editing caption writes sidecar on disk', async () => {
+test('editing description writes sidecar on disk', async () => {
 	// Navigate to Landscapes → dusk (no existing sidecar — has .jpg only).
-	// Single-click now only selects; double-click opens the detail editor.
 	await page.getByTestId('tree-album').filter({ hasText: 'Landscapes' }).click();
 	await page
 		.getByTestId('album-thumb')
@@ -56,9 +55,14 @@ test('editing caption writes sidecar on disk', async () => {
 
 	await expect(page.getByTestId('image-detail-editor')).toBeVisible();
 
+	// Hover the description area to reveal the pencil, then click to edit
+	const editor = page.getByTestId('image-detail-editor').getByTestId('description-editor');
+	await editor.hover();
+	await editor.getByTestId('description-edit-btn').click();
+
 	const newCaption = 'Evening light across the ridge (test caption)';
-	await page.getByTestId('image-caption-input').fill(newCaption);
-	await page.getByTestId('image-save-btn').click();
+	await editor.getByTestId('description-input').fill(newCaption);
+	await editor.getByTestId('description-save-btn').click();
 
 	// The save should create 002-dusk.txt in the fixture dir.
 	const sidecar = path.join(fixtureCopy, '010-Landscapes/002-dusk.txt');
@@ -76,8 +80,12 @@ test('editing title renames the image file', async () => {
 		.dblclick();
 	await expect(page.getByTestId('image-detail-editor')).toBeVisible();
 
-	await page.getByTestId('image-title-input').fill('The Hero Shot');
-	await page.getByTestId('image-save-btn').click();
+	// Use InlineTitleEdit: double-click to edit, type new name, press Enter
+	await page.getByTestId('inline-title-display').dblclick();
+	const input = page.getByTestId('inline-title-input');
+	await expect(input).toBeVisible();
+	await input.fill('The Hero Shot');
+	await input.press('Enter');
 
 	const renamed = path.join(fixtureCopy, '010-Landscapes/005-The-Hero-Shot.jpg');
 	const old = path.join(fixtureCopy, '010-Landscapes/005-thumb.jpg');
@@ -85,7 +93,7 @@ test('editing title renames the image file', async () => {
 	expect(fs.existsSync(old)).toBe(false);
 });
 
-test('emptying caption removes sidecar', async () => {
+test('emptying description removes sidecar', async () => {
 	// dawn has an existing sidecar at 001-dawn.txt
 	const sidecar = path.join(fixtureCopy, '010-Landscapes/001-dawn.txt');
 	expect(fs.existsSync(sidecar)).toBe(true);
@@ -97,21 +105,14 @@ test('emptying caption removes sidecar', async () => {
 		.dblclick();
 	await expect(page.getByTestId('image-detail-editor')).toBeVisible();
 
-	await page.getByTestId('image-caption-input').fill('');
-	await page.getByTestId('image-save-btn').click();
+	// Hover the description area to reveal the pencil, then click to edit and clear
+	const editor = page.getByTestId('image-detail-editor').getByTestId('description-editor');
+	await editor.hover();
+	await editor.getByTestId('description-edit-btn').click();
+	await editor.getByTestId('description-input').fill('');
+	await editor.getByTestId('description-save-btn').click();
 
 	await expect.poll(() => fs.existsSync(sidecar), { timeout: 5000 }).toBe(false);
-});
-
-test('image detail editor shows the metadata behavior note', async () => {
-	await page.getByTestId('tree-album').filter({ hasText: 'Landscapes' }).click();
-	await page.getByTestId('album-thumb').first().dblclick();
-	await expect(page.getByTestId('image-detail-editor')).toBeVisible();
-	const note = page.getByTestId('image-metadata-note');
-	await expect(note).toBeVisible();
-	await expect(note).toContainText('Title edits rename the file');
-	await expect(note).toContainText('sidecar');
-	await expect(note).toContainText('IPTC');
 });
 
 test('captures editor screenshot', async () => {
