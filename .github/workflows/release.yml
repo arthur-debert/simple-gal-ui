@@ -6,9 +6,9 @@ name: Release
 # runner, then creates a single draft GitHub Release with all three
 # artifacts attached.
 #
-# macOS signing requires these repository secrets:
-#   APPLE_CERTIFICATE_P12_BASE64, APPLE_CERTIFICATE_PASSWORD,
-#   APPLE_ID, APPLE_TEAM_ID, APPLE_APP_SPECIFIC_PASSWORD
+# macOS signing + notarization requires these repository secrets:
+#   APPLE_CERTIFICATE_P12_BASE64, APPLE_CERTIFICATE_PASSWORD (code signing)
+#   ASC_API_KEY_BASE64, ASC_API_KEY_ID, ASC_API_ISSUER_ID (notarization)
 #
 # Usage:
 #   1. Bump `version` in package.json (and `simpleGalVersion` if pinning
@@ -115,21 +115,28 @@ jobs:
       # --- macOS notarization (submit → poll → staple) ---
       # Split from electron-builder so we get per-step visibility and
       # don't block the whole job on Apple's queue.
+      # --- macOS notarization via App Store Connect API key ---
+      # API key auth is recommended over Apple ID + app-specific password
+      # for CI: no credential rotation, better queue recognition.
+      - name: Write App Store Connect API key
+        if: matrix.target == 'mac'
+        shell: bash
+        env:
+          ASC_API_KEY_BASE64: ${{ secrets.ASC_API_KEY_BASE64 }}
+        run: |
+          echo "$ASC_API_KEY_BASE64" | base64 --decode > "$RUNNER_TEMP/AuthKey.p8"
+
       - name: Submit DMG for notarization
         id: notarize-submit
         if: matrix.target == 'mac'
         shell: bash
-        env:
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
         run: |
           DMG=$(ls release/*.dmg | head -1)
           echo "Submitting $DMG for notarization..."
           RESULT=$(xcrun notarytool submit "$DMG" \
-            --apple-id "$APPLE_ID" \
-            --team-id "$APPLE_TEAM_ID" \
-            --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+            --key "$RUNNER_TEMP/AuthKey.p8" \
+            --key-id "${{ secrets.ASC_API_KEY_ID }}" \
+            --issuer "${{ secrets.ASC_API_ISSUER_ID }}" \
             --output-format json \
             --no-wait)
           echo "$RESULT"
@@ -140,18 +147,14 @@ jobs:
       - name: Wait for notarization
         if: matrix.target == 'mac'
         shell: bash
-        env:
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
         run: |
           ID="${{ steps.notarize-submit.outputs.submission-id }}"
           echo "Polling notarization status for $ID..."
           for i in $(seq 1 60); do
             RESULT=$(xcrun notarytool info "$ID" \
-              --apple-id "$APPLE_ID" \
-              --team-id "$APPLE_TEAM_ID" \
-              --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+              --key "$RUNNER_TEMP/AuthKey.p8" \
+              --key-id "${{ secrets.ASC_API_KEY_ID }}" \
+              --issuer "${{ secrets.ASC_API_ISSUER_ID }}" \
               --output-format json 2>&1) || true
             STATUS=$(echo "$RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('status','Unknown'))" 2>/dev/null || echo "Unknown")
             echo "  [$i/60] status=$STATUS ($(date -u +%H:%M:%S))"
@@ -161,9 +164,9 @@ jobs:
             elif [ "$STATUS" = "Invalid" ] || [ "$STATUS" = "Rejected" ]; then
               echo "Notarization failed with status: $STATUS"
               xcrun notarytool log "$ID" \
-                --apple-id "$APPLE_ID" \
-                --team-id "$APPLE_TEAM_ID" \
-                --password "$APPLE_APP_SPECIFIC_PASSWORD" 2>&1 || true
+                --key "$RUNNER_TEMP/AuthKey.p8" \
+                --key-id "${{ secrets.ASC_API_KEY_ID }}" \
+                --issuer "${{ secrets.ASC_API_ISSUER_ID }}" 2>&1 || true
               exit 1
             fi
             sleep 30
