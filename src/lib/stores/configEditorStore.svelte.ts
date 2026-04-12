@@ -2,6 +2,7 @@ import { api } from '$lib/api';
 import type { ConfigCascade } from '$lib/types/configEditor';
 import type { ConfigSchemaNode, ConfigSchemaRoot } from '$lib/types/configSchema';
 import { showToast } from './toastStore.svelte';
+import { site } from './siteStore.svelte';
 
 /**
  * Store for the active config editor pane.
@@ -23,23 +24,36 @@ import { showToast } from './toastStore.svelte';
 
 export interface ConfigEditorState {
 	loading: boolean;
+	saving: boolean;
 	cascade: ConfigCascade | null;
 	error: string | null;
+	/** Keys the user has typed into this session. Their values live in
+	 *  `pendingValues`. A key stays dirty even if the user reverts it to the
+	 *  effective value — the intent was explicit. */
 	dirtyKeys: Set<string>;
+	/** Keys the user has explicitly reset via the "inherit from parent" button.
+	 *  These must be stripped from the target level's file on save, even if
+	 *  they were in `loadedKeys`. Reapplying a touch clears this flag. */
+	resetKeys: Set<string>;
 	pendingValues: Map<string, unknown>;
 }
 
 const state = $state<ConfigEditorState>({
 	loading: false,
+	saving: false,
 	cascade: null,
 	error: null,
 	dirtyKeys: new Set(),
+	resetKeys: new Set(),
 	pendingValues: new Map()
 });
 
 export const configEditor = {
 	get loading() {
 		return state.loading;
+	},
+	get saving() {
+		return state.saving;
 	},
 	get cascade() {
 		return state.cascade;
@@ -50,8 +64,14 @@ export const configEditor = {
 	get dirtyKeys() {
 		return state.dirtyKeys;
 	},
+	get resetKeys() {
+		return state.resetKeys;
+	},
 	get pendingValues() {
 		return state.pendingValues;
+	},
+	get hasUnsaved() {
+		return state.dirtyKeys.size > 0 || state.resetKeys.size > 0;
 	}
 };
 
@@ -59,6 +79,7 @@ export async function openConfigEditor(home: string, dirPath: string): Promise<v
 	state.loading = true;
 	state.error = null;
 	state.dirtyKeys = new Set();
+	state.resetKeys = new Set();
 	state.pendingValues = new Map();
 	try {
 		const result = await api.config.loadCascade({ home, dirPath });
@@ -82,7 +103,130 @@ export function closeConfigEditor(): void {
 	state.cascade = null;
 	state.error = null;
 	state.dirtyKeys = new Set();
+	state.resetKeys = new Set();
 	state.pendingValues = new Map();
+}
+
+/**
+ * Mark a field as edited with the given value. The key becomes `local`
+ * for effective-value resolution and is guaranteed to end up in the saved
+ * file on the next save.
+ */
+export function touchField(dotted: string, value: unknown): void {
+	const next = new Set(state.dirtyKeys);
+	next.add(dotted);
+	state.dirtyKeys = next;
+	const resetNext = new Set(state.resetKeys);
+	if (resetNext.delete(dotted)) {
+		state.resetKeys = resetNext;
+	}
+	const values = new Map(state.pendingValues);
+	values.set(dotted, value);
+	state.pendingValues = values;
+}
+
+/**
+ * Reset a field to its inherited value. Forgets any pending edit AND
+ * removes the loaded value so the key drops out of the target file on
+ * save. If the user subsequently edits the field again, `touchField`
+ * revives it.
+ */
+export function resetField(dotted: string): void {
+	const dirty = new Set(state.dirtyKeys);
+	dirty.delete(dotted);
+	state.dirtyKeys = dirty;
+	const values = new Map(state.pendingValues);
+	values.delete(dotted);
+	state.pendingValues = values;
+	const resets = new Set(state.resetKeys);
+	resets.add(dotted);
+	state.resetKeys = resets;
+}
+
+/**
+ * The sparse-save rule, materialized. Returns a nested TOML-shaped object
+ * containing exactly the keys that should end up in the target level's
+ * file:
+ *
+ *   keysToWrite = (loadedKeys ∪ dirtyKeys) \ resetKeys
+ *
+ * Values are pulled from pendingValues (for dirty keys) or from the
+ * target level's parsed object (for retained-but-untouched keys).
+ *
+ * If the set is empty, returns `null` — the caller interprets that as
+ * "no file should exist at this level after save".
+ */
+export function computeSavePayload(): Record<string, unknown> | null {
+	if (!state.cascade) return null;
+	const target = state.cascade.chain[state.cascade.chain.length - 1];
+	const loaded = new Set(target.loadedKeys);
+	const union = new Set<string>();
+	for (const k of loaded) {
+		if (!state.resetKeys.has(k)) union.add(k);
+	}
+	for (const k of state.dirtyKeys) {
+		if (!state.resetKeys.has(k)) union.add(k);
+	}
+	if (union.size === 0) return null;
+	const out: Record<string, unknown> = {};
+	for (const key of union) {
+		const value = state.dirtyKeys.has(key)
+			? state.pendingValues.get(key)
+			: getDotted(target.parsed, key);
+		setDotted(out, key, value);
+	}
+	return out;
+}
+
+function setDotted(obj: Record<string, unknown>, dotted: string, value: unknown): void {
+	const parts = dotted.split('.');
+	let cur: Record<string, unknown> = obj;
+	for (let i = 0; i < parts.length - 1; i++) {
+		const p = parts[i];
+		const next = cur[p];
+		if (!isPlainObject(next)) cur[p] = {};
+		cur = cur[p] as Record<string, unknown>;
+	}
+	cur[parts[parts.length - 1]] = value;
+}
+
+export async function saveConfig(): Promise<boolean> {
+	if (!state.cascade || !site.home) return false;
+	const target = state.cascade.chain[state.cascade.chain.length - 1];
+	const payload = computeSavePayload();
+	state.saving = true;
+	try {
+		// Strip Svelte $state proxies before crossing the IPC boundary —
+		// structured-clone chokes on proxy-wrapped values.
+		const cleanPayload =
+			payload === null ? null : (JSON.parse(JSON.stringify(payload)) as Record<string, unknown>);
+		const result = await api.config.save({
+			home: site.home,
+			dirPath: target.level.dirPath,
+			payload: cleanPayload
+		});
+		if (!result.ok) {
+			showToast({
+				kind: 'error',
+				title: 'Config save failed',
+				body: result.error
+			});
+			return false;
+		}
+		showToast({ kind: 'success', title: 'Config saved' });
+		// Re-load the cascade to pick up the freshly-written file.
+		await openConfigEditor(site.home, target.level.dirPath);
+		return true;
+	} catch (err) {
+		showToast({
+			kind: 'error',
+			title: 'Config save failed',
+			body: (err as Error).message
+		});
+		return false;
+	} finally {
+		state.saving = false;
+	}
 }
 
 // ------------------------------------------------------------------
@@ -115,14 +259,17 @@ function getDotted(obj: Record<string, unknown>, dotted: string): unknown {
  * fall back to the schema default; if the schema has no default, return
  * undefined and a `source` of `'default'`.
  *
- * The "local" label applies to the target level (last chain entry); every
- * ancestor reports its own human-readable level label.
+ * `resetKeys` suppresses the target level's own value when walking, so a
+ * reset field shows the effective value as if the local override didn't
+ * exist. `dirtyKeys` always wins — the user's in-flight value takes
+ * priority over everything else.
  */
 export function resolveEffective(
 	cascade: ConfigCascade,
 	dotted: string,
 	dirtyKeys: Set<string>,
-	pendingValues: Map<string, unknown>
+	pendingValues: Map<string, unknown>,
+	resetKeys: Set<string> = new Set()
 ): EffectiveField {
 	// User-touched values always win and mark the field as local.
 	if (dirtyKeys.has(dotted)) {
@@ -131,10 +278,12 @@ export function resolveEffective(
 
 	const chain = cascade.chain;
 	for (let i = chain.length - 1; i >= 0; i--) {
+		const isTarget = i === chain.length - 1;
+		// If the user reset this key, pretend the target file doesn't have it.
+		if (isTarget && resetKeys.has(dotted)) continue;
 		const level = chain[i];
 		const v = getDotted(level.parsed, dotted);
 		if (v !== undefined) {
-			const isTarget = i === chain.length - 1;
 			return {
 				key: dotted,
 				value: v,

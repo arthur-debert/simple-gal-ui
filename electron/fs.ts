@@ -12,7 +12,7 @@ import { shell } from 'electron';
 const SUPPRESS_MS = 800;
 const suppressed = new Map<string, number>();
 
-function markSelfWrite(absPath: string): void {
+export function markSelfWrite(absPath: string): void {
 	suppressed.set(path.resolve(absPath), Date.now() + SUPPRESS_MS);
 }
 

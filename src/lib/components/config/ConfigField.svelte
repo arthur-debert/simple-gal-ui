@@ -1,6 +1,10 @@
 <script lang="ts">
 	import type { ConfigSchemaNode } from '$lib/types/configSchema';
 	import { cn } from '$lib/utils';
+	import StringField from './fields/StringField.svelte';
+	import NumberField from './fields/NumberField.svelte';
+	import BooleanField from './fields/BooleanField.svelte';
+	import ArrayField from './fields/ArrayField.svelte';
 
 	interface Props {
 		label: string;
@@ -9,18 +13,13 @@
 		value: unknown;
 		source: 'default' | 'local' | string;
 		depth?: number;
+		onEdit?: (next: unknown) => void;
+		onReset?: () => void;
 	}
 
-	const { label, dottedKey, node, value, source, depth = 0 }: Props = $props();
+	const { label, dottedKey, node, value, source, depth = 0, onEdit, onReset }: Props = $props();
 
-	function formatValue(v: unknown): string {
-		if (v === undefined || v === null) return '—';
-		if (typeof v === 'boolean') return v ? 'true' : 'false';
-		if (typeof v === 'string') return v;
-		if (typeof v === 'number') return String(v);
-		if (Array.isArray(v)) return '[' + v.map((x) => formatValue(x)).join(', ') + ']';
-		return JSON.stringify(v);
-	}
+	const editable = $derived(!!onEdit);
 
 	const description = $derived(
 		'description' in node && typeof node.description === 'string' ? node.description : null
@@ -36,6 +35,10 @@
 				? 'bg-surface-2 text-text-faint border-border'
 				: 'bg-surface-2 text-text-muted border-border'
 	);
+
+	function handleEdit(next: unknown): void {
+		if (onEdit) onEdit(next);
+	}
 </script>
 
 <div
@@ -67,6 +70,18 @@
 			>
 				{badgeLabel}
 			</span>
+			{#if editable && source === 'local' && onReset}
+				<button
+					type="button"
+					class="text-text-faint hover:text-text-primary rounded-sm px-1 text-[length:var(--text-micro)]"
+					onclick={onReset}
+					data-testid="config-field-reset"
+					data-config-key={dottedKey}
+					title="Reset to inherited value"
+				>
+					⌫ reset
+				</button>
+			{/if}
 		</div>
 		{#if description}
 			<div
@@ -77,10 +92,41 @@
 			</div>
 		{/if}
 	</div>
-	<div
-		class="text-text-secondary max-w-[50%] text-right font-mono text-[length:var(--text-caption)] break-all"
-		data-testid="config-field-value"
-	>
-		{formatValue(value)}
+	<div class="max-w-[50%] min-w-[12rem]" data-testid="config-field-value">
+		{#if !editable}
+			<div
+				class="text-text-secondary text-right font-mono text-[length:var(--text-caption)] break-all"
+			>
+				{value === undefined || value === null
+					? '—'
+					: Array.isArray(value)
+						? '[' + value.join(', ') + ']'
+						: String(value)}
+			</div>
+		{:else if node.type === 'string'}
+			<StringField value={(value as string) ?? ''} {dottedKey} oninput={(v) => handleEdit(v)} />
+		{:else if node.type === 'integer' || node.type === 'number'}
+			<NumberField
+				value={typeof value === 'number' ? value : undefined}
+				{dottedKey}
+				integer={node.type === 'integer'}
+				min={node.minimum}
+				max={node.maximum}
+				oninput={(v) => handleEdit(v)}
+			/>
+		{:else if node.type === 'boolean'}
+			<BooleanField value={!!value} {dottedKey} oninput={(v) => handleEdit(v)} />
+		{:else if node.type === 'array'}
+			<ArrayField
+				value={Array.isArray(value) ? value : []}
+				{dottedKey}
+				itemType={(node.items.type as 'string' | 'number' | 'integer' | 'boolean') ?? 'string'}
+				oninput={(v) => handleEdit(v)}
+			/>
+		{:else}
+			<div class="text-text-faint font-mono text-[length:var(--text-caption)]">
+				{JSON.stringify(value)}
+			</div>
+		{/if}
 	</div>
 </div>

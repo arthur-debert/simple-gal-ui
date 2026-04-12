@@ -3,8 +3,12 @@
 	import {
 		configEditor,
 		openConfigEditor,
-		resolveEffective
+		resolveEffective,
+		touchField,
+		resetField,
+		saveConfig
 	} from '$lib/stores/configEditorStore.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
 	import ConfigSection from './ConfigSection.svelte';
 	import ConfigField from './ConfigField.svelte';
 	import type {
@@ -29,6 +33,8 @@
 	const cascade = $derived(configEditor.cascade);
 	const loading = $derived(configEditor.loading);
 	const error = $derived(configEditor.error);
+	const saving = $derived(configEditor.saving);
+	const hasUnsaved = $derived(configEditor.hasUnsaved);
 
 	const targetLabel = $derived.by(() => {
 		if (cascade) return cascade.target.label;
@@ -38,7 +44,13 @@
 
 	function resolve(key: string) {
 		if (!cascade) return { key, value: undefined, source: 'default' as const };
-		return resolveEffective(cascade, key, configEditor.dirtyKeys, configEditor.pendingValues);
+		return resolveEffective(
+			cascade,
+			key,
+			configEditor.dirtyKeys,
+			configEditor.pendingValues,
+			configEditor.resetKeys
+		);
 	}
 
 	function humanize(key: string): string {
@@ -82,6 +94,8 @@
 			value={eff.value}
 			source={eff.source}
 			{depth}
+			onEdit={(v) => touchField(dottedKey, v)}
+			onReset={() => resetField(dottedKey)}
 		/>
 	{/if}
 {/snippet}
@@ -108,6 +122,8 @@
 						node={topNode}
 						value={eff.value}
 						source={eff.source}
+						onEdit={(v) => touchField(topKey, v)}
+						onReset={() => resetField(topKey)}
 					/>
 				</div>
 			{/if}
@@ -135,7 +151,15 @@
 				{targetLabel}
 			</div>
 		</div>
-		<div class="text-text-faint text-[length:var(--text-caption)]">read-only</div>
+		<Button
+			variant="default"
+			size="sm"
+			disabled={!hasUnsaved || saving}
+			onclick={() => saveConfig()}
+			data-testid="config-editor-save"
+		>
+			{saving ? 'Saving…' : hasUnsaved ? 'Save' : 'Saved'}
+		</Button>
 	</header>
 
 	{#if loading}

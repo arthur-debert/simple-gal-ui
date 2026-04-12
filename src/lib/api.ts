@@ -26,6 +26,28 @@ export interface LoadCascadeArgs {
 }
 export type LoadCascadeResult = { ok: true; cascade: ConfigCascade } | { ok: false; error: string };
 
+export interface SaveConfigArgs {
+	home: string;
+	dirPath: string;
+	payload: Record<string, unknown> | null;
+}
+export interface SaveConfigOk {
+	ok: true;
+	written: boolean;
+	deleted: boolean;
+}
+export interface SaveConfigErr {
+	ok: false;
+	error: string;
+	configError?: {
+		path: string;
+		line?: number;
+		column?: number;
+		snippet?: string;
+	};
+}
+export type SaveConfigResult = SaveConfigOk | SaveConfigErr;
+
 export interface PaneState {
 	leftWidth: number;
 	rightWidth: number;
@@ -281,6 +303,8 @@ export const api = {
 		schema: (): Promise<FetchSchemaResult> =>
 			window.api.config.schema() as Promise<FetchSchemaResult>,
 		loadCascade: (args: LoadCascadeArgs): Promise<LoadCascadeResult> =>
-			window.api.config.loadCascade(args) as Promise<LoadCascadeResult>
+			window.api.config.loadCascade(args) as Promise<LoadCascadeResult>,
+		save: (args: SaveConfigArgs): Promise<SaveConfigResult> =>
+			window.api.config.save(args) as Promise<SaveConfigResult>
 	}
 };

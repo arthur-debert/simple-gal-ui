@@ -61,6 +61,7 @@ import {
 import { watchHome, stopWatching } from './watch.js';
 import { fetchConfigSchema, type FetchSchemaResult } from './configSchema.js';
 import { loadCascade, type LoadCascadeArgs, type LoadCascadeResult } from './configLoader.js';
+import { saveConfig, type SaveConfigArgs, type SaveConfigResult } from './configSave.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -325,6 +326,11 @@ function registerIpcHandlers(): void {
 	ipcMain.handle(
 		'config:loadCascade',
 		async (_ev, args: LoadCascadeArgs): Promise<LoadCascadeResult> => loadCascade(args)
+	);
+
+	ipcMain.handle(
+		'config:save',
+		async (_ev, args: SaveConfigArgs): Promise<SaveConfigResult> => saveConfig(args)
 	);
 }
 

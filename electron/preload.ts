@@ -3,6 +3,7 @@ import type { SimpleGalResult, ScanData } from './simpleGal.js';
 import type { BuildRunResult } from './build.js';
 import type { FetchSchemaResult } from './configSchema.js';
 import type { LoadCascadeArgs, LoadCascadeResult } from './configLoader.js';
+import type { SaveConfigArgs, SaveConfigResult } from './configSave.js';
 import type {
 	WriteSidecarArgs,
 	WriteSidecarResult,
@@ -116,7 +117,9 @@ const api = {
 	config: {
 		schema: (): Promise<FetchSchemaResult> => ipcRenderer.invoke('config:schema'),
 		loadCascade: (args: LoadCascadeArgs): Promise<LoadCascadeResult> =>
-			ipcRenderer.invoke('config:loadCascade', args)
+			ipcRenderer.invoke('config:loadCascade', args),
+		save: (args: SaveConfigArgs): Promise<SaveConfigResult> =>
+			ipcRenderer.invoke('config:save', args)
 	},
 	watch: {
 		start: (home: string): Promise<void> => ipcRenderer.invoke('watch:start', home),

@@ -103,3 +103,80 @@ test('album editor uses local source when the album has its own config.toml', as
 		.first();
 	await expect(field).toHaveAttribute('data-config-source', 'local');
 });
+
+test('editing a field changes the save button from disabled to enabled', async () => {
+	await page.getByTestId('configure-root-btn').click();
+	await expect(page.getByTestId('config-editor')).toBeVisible();
+	const save = page.getByTestId('config-editor-save');
+	await expect(save).toBeDisabled();
+	const input = page
+		.locator('[data-testid="config-field-input"][data-config-key="site_title"]')
+		.first();
+	await input.fill('Regression Title');
+	await expect(save).toBeEnabled();
+});
+
+test('saving a single edit writes ONLY that key to disk (sparse file)', async () => {
+	// Open an album that does NOT have a local config.toml — Japan.
+	const japanRow = page.getByTestId('tree-album').filter({ hasText: 'Japan' });
+	await japanRow.click({ button: 'right' });
+	await page.getByTestId('menu-configure').click();
+	await expect(page.getByTestId('config-editor')).toBeVisible();
+
+	const japanConfig = path.join(fixtureCopy, '020-Travel', '010-Japan', 'config.toml');
+	expect(fs.existsSync(japanConfig)).toBe(false);
+
+	// Change one number: images.quality.
+	const qualityInput = page
+		.locator('[data-testid="config-field-input"][data-config-key="images.quality"]')
+		.first();
+	await qualityInput.fill('92');
+	await page.getByTestId('config-editor-save').click();
+
+	// Wait for save toast / reload to settle: the cascade is re-fetched so
+	// the source of images.quality flips to 'local'.
+	await expect(
+		page.locator('[data-testid="config-field"][data-config-key="images.quality"]').first()
+	).toHaveAttribute('data-config-source', 'local');
+
+	// Check the on-disk file: exists, contains ONLY images.quality, NOT
+	// any other root keys like site_title or colors.
+	expect(fs.existsSync(japanConfig)).toBe(true);
+	const contents = fs.readFileSync(japanConfig, 'utf8');
+	expect(contents).toContain('quality = 92');
+	expect(contents).not.toContain('site_title');
+	expect(contents).not.toContain('[colors');
+	expect(contents).not.toContain('background');
+	expect(contents).not.toContain('aspect_ratio');
+});
+
+test('resetting a field removes it from the target file, restoring inheritance', async () => {
+	// Landscapes has its own [images] quality AND thumbnails.aspect_ratio.
+	// Reset images.quality: the save should strip it from the file while
+	// leaving thumbnails.aspect_ratio intact.
+	const landscapes = page.getByTestId('tree-album').filter({ hasText: 'Landscapes' });
+	await landscapes.click({ button: 'right' });
+	await page.getByTestId('menu-configure').click();
+	await expect(page.getByTestId('config-editor')).toBeVisible();
+
+	const landscapesConfig = path.join(fixtureCopy, '010-Landscapes', 'config.toml');
+	const before = fs.readFileSync(landscapesConfig, 'utf8');
+	expect(before).toContain('quality');
+	expect(before).toContain('aspect_ratio');
+
+	const resetBtn = page
+		.locator('[data-testid="config-field-reset"][data-config-key="images.quality"]')
+		.first();
+	await resetBtn.click();
+	await page.getByTestId('config-editor-save').click();
+
+	// After save, reloaded cascade should show images.quality inherited
+	// (not local).
+	await expect(
+		page.locator('[data-testid="config-field"][data-config-key="images.quality"]').first()
+	).not.toHaveAttribute('data-config-source', 'local');
+
+	const after = fs.readFileSync(landscapesConfig, 'utf8');
+	expect(after).not.toMatch(/\bquality\s*=/);
+	expect(after).toContain('aspect_ratio');
+});
