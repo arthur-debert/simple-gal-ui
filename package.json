@@ -15,9 +15,15 @@
 		"format": "prettier --write .",
 		"format:check": "prettier --check .",
 		"test:e2e": "playwright test",
+		"package": "node scripts/fetch-simple-gal.mjs && pnpm run build && electron-builder",
+		"package:dir": "node scripts/fetch-simple-gal.mjs && pnpm run build && electron-builder --dir",
+		"package:mac": "node scripts/fetch-simple-gal.mjs && pnpm run build && electron-builder --mac --arm64",
+		"package:linux": "node scripts/fetch-simple-gal.mjs && pnpm run build && electron-builder --linux --x64",
+		"package:win": "node scripts/fetch-simple-gal.mjs && pnpm run build && electron-builder --win --x64",
+		"prepare": "lefthook install || true",
 		"postinstall": "node scripts/fetch-simple-gal.mjs || true"
 	},
-	"simpleGalVersion": "0.14.0",
+	"simpleGalVersion": "0.15.0",
 	"pnpm": {
 		"onlyBuiltDependencies": [
 			"electron",
@@ -29,11 +35,14 @@
 		"@playwright/test": "^1.49.1",
 		"@sveltejs/vite-plugin-svelte": "^5.0.3",
 		"@tailwindcss/vite": "^4.0.0",
+		"@types/iarna__toml": "^2.0.5",
 		"@types/node": "^22.10.5",
 		"electron": "^33.3.1",
+		"electron-builder": "^26.8.1",
 		"eslint": "^9.17.0",
 		"eslint-plugin-svelte": "^2.46.1",
 		"globals": "^15.14.0",
+		"lefthook": "^2.1.5",
 		"prettier": "^3.8.1",
 		"prettier-plugin-svelte": "^3.4.1",
 		"prettier-plugin-tailwindcss": "^0.7.2",
@@ -48,10 +57,18 @@
 		"vite-plugin-electron-renderer": "^0.14.6"
 	},
 	"dependencies": {
+		"@codemirror/commands": "^6.10.3",
+		"@codemirror/lang-markdown": "^6.5.0",
+		"@codemirror/state": "^6.6.0",
+		"@codemirror/view": "^6.41.0",
+		"@iarna/toml": "^2.2.5",
 		"@iconify-json/lucide": "^1.2.20",
 		"bits-ui": "^1.0.0-next.78",
+		"chokidar": "^3.6.0",
 		"clsx": "^2.1.1",
+		"codemirror": "^6.0.2",
 		"electron-store": "^10.0.1",
+		"serve-handler": "^6.1.7",
 		"tailwind-merge": "^2.6.0",
 		"tailwind-variants": "^0.3.0"
 	}

@@ -37,7 +37,19 @@ test('window opens and renders three panes', async () => {
 	await expect(page.getByTestId('pane-left')).toBeVisible();
 	await expect(page.getByTestId('pane-center')).toBeVisible();
 	await expect(page.getByTestId('pane-right')).toBeVisible();
-	await expect(page.getByTestId('app-footer')).toBeVisible();
+	await expect(page.getByTestId('status-bar')).toBeVisible();
+});
+
+test('app header is draggable for native window move', async () => {
+	const headerStyle = await page.getByTestId('app-header').getAttribute('style');
+	expect(headerStyle ?? '').toContain('app-region: drag');
+});
+
+test('status bar shows app version and simple-gal version on the right', async () => {
+	await expect(page.getByTestId('footer-app-version')).toBeVisible();
+	await expect(page.getByTestId('footer-sg-version')).toBeVisible();
+	// The app version comes from package.json (not Electron's runtime version).
+	await expect(page.getByTestId('footer-app-version')).toHaveText('v0.1.0');
 });
 
 test('welcome message is present', async () => {

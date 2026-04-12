@@ -1,0 +1,88 @@
+# electron-builder configuration for simple-gal-ui
+#
+# Packaging targets:
+#   - macOS arm64 .dmg (unsigned)
+#   - Linux x64 AppImage
+#   - Windows x64 NSIS installer (.exe)
+#
+# Code signing is deliberately off for every platform in this round —
+# macOS users right-click → Open on first launch, Linux AppImages run
+# directly, Windows triggers SmartScreen. Signing can be wired up later
+# without changing this file's shape.
+#
+# Usage:
+#   pnpm run package         — builds the current OS's installer
+#   pnpm run package:mac     — macOS arm64 .dmg
+#   pnpm run package:linux   — linux x64 AppImage
+#   pnpm run package:win     — windows x64 NSIS .exe
+#   pnpm run package:dir     — unpacked current-OS app only (fast dev loop)
+
+appId: com.arthur-debert.simple-gal-ui
+productName: simple-gal-ui
+copyright: Copyright © 2026 Arthur Debert
+
+directories:
+  output: release
+  buildResources: resources
+
+# File inclusion. Since vite.config.ts bundles every main-process runtime
+# dependency (electron-store, chokidar, serve-handler, etc.) directly into
+# dist-electron/main.js, the packaged app doesn't need anything from
+# node_modules at runtime — `electron` is the only import we leave
+# external and it's supplied by Electron's runtime, not by node_modules.
+# So we ship ONLY the compiled bundles + package.json + the bundled
+# simple-gal binary (via extraResources below).
+files:
+  - dist/**/*
+  - dist-electron/**/*
+  - package.json
+  - '!**/*.map'
+
+# The bundled simple-gal binary lives outside the asar so it can be executed
+# directly. electron/binPath.ts resolves it via process.resourcesPath/bin/...
+extraResources:
+  - from: resources/bin
+    to: bin
+    filter: ['**/*']
+
+mac:
+  category: public.app-category.photography
+  icon: resources/icon.png
+  identity: null # unsigned for this round
+  target:
+    - target: dmg
+      arch: [arm64]
+  artifactName: ${productName}-${version}-${arch}.${ext}
+
+dmg:
+  writeUpdateInfo: false
+  sign: false
+
+linux:
+  category: Graphics
+  icon: resources/icon.png
+  target:
+    - target: AppImage
+      arch: [x64]
+  # Electron needs the sandbox to be SUID-rooted, which doesn't happen
+  # inside an AppImage. This switch disables the sandbox at launch time
+  # so the app actually opens on Linux without root.
+  executableArgs:
+    - '--no-sandbox'
+  artifactName: ${productName}-${version}-${arch}.${ext}
+
+win:
+  icon: resources/icon.png # electron-builder auto-generates .ico from PNG
+  target:
+    - target: nsis
+      arch: [x64]
+  # Disable code signing — we don't have a cert. Users will see a
+  # SmartScreen warning on first launch and can click "More info → Run".
+  signAndEditExecutable: false
+  artifactName: ${productName}-${version}-${arch}.${ext}
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
