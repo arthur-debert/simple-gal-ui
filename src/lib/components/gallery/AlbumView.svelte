@@ -8,6 +8,7 @@
 	import Button from '$lib/components/ui/Button.svelte';
 	import IconTrash from '~icons/lucide/trash-2';
 	import IconImage from '~icons/lucide/image';
+	import IconSettings from '~icons/lucide/settings';
 	import { cn } from '$lib/utils';
 
 	interface Props {
@@ -216,6 +217,15 @@
 		}
 	}
 
+	function onConfigureAlbum(): void {
+		if (!site.home) return;
+		site.selection = {
+			kind: 'config',
+			dirPath: `${site.home}/${albumSourceDir}`,
+			levelKind: 'album'
+		};
+	}
+
 	// --- Inline title rename ---------------------------------------------
 
 	async function onCommitRename(newTitle: string): Promise<void> {
@@ -417,6 +427,17 @@
 					Use as Thumbnail
 				</Button>
 			{/if}
+			<Button
+				variant="outline"
+				size="icon"
+				onclick={onConfigureAlbum}
+				aria-label="Configure album"
+				title="Configure album"
+				data-testid="album-configure-btn"
+				class="shrink-0"
+			>
+				<IconSettings class="h-4 w-4" />
+			</Button>
 			<Button
 				variant="danger"
 				size="icon"
