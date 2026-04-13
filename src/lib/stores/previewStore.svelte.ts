@@ -1,4 +1,4 @@
-import { api } from '$lib/api';
+import { api, type BuildProgress } from '$lib/api';
 import { showToast } from './toastStore.svelte';
 import { site } from './siteStore.svelte';
 import type { SimpleGalConfigError } from '$lib/types/manifest';
@@ -14,6 +14,7 @@ interface PreviewState {
 	configError: (SimpleGalConfigError & { message: string }) | null;
 	counts: { albums: number; image_pages: number; pages: number } | null;
 	cache: { cached: number; copied: number; encoded: number; total: number } | null;
+	progress: BuildProgress | null;
 }
 
 const state = $state<PreviewState>({
@@ -24,11 +25,13 @@ const state = $state<PreviewState>({
 	lastError: null,
 	configError: null,
 	counts: null,
-	cache: null
+	cache: null,
+	progress: null
 });
 
 let homeChangedUnsub: (() => void) | null = null;
 let readyUnsub: (() => void) | null = null;
+let progressUnsub: (() => void) | null = null;
 
 export const preview = {
 	get status() {
@@ -55,6 +58,9 @@ export const preview = {
 	get cache() {
 		return state.cache;
 	},
+	get progress() {
+		return state.progress;
+	},
 	clearConfigError() {
 		state.configError = null;
 	}
@@ -72,12 +78,18 @@ export function initPreviewStore(): () => void {
 		state.configError = null;
 		state.counts = null;
 		state.cache = null;
+		state.progress = null;
+	});
+	progressUnsub = api.preview.onBuildProgress((p) => {
+		state.progress = p;
 	});
 	return () => {
 		readyUnsub?.();
 		homeChangedUnsub?.();
+		progressUnsub?.();
 		readyUnsub = null;
 		homeChangedUnsub = null;
+		progressUnsub = null;
 	};
 }
 
@@ -88,10 +100,12 @@ export async function runBuild(): Promise<void> {
 	state.status = 'building';
 	state.lastError = null;
 	state.configError = null;
+	state.progress = null;
 
 	try {
 		const result = await api.preview.build(site.home);
 		state.lastDurationMs = result.durationMs;
+		state.progress = null;
 		if (result.envelope.ok) {
 			state.status = 'ready';
 			state.counts = (result.envelope.data.counts as PreviewState['counts']) ?? null;
@@ -119,6 +133,7 @@ export async function runBuild(): Promise<void> {
 		}
 	} catch (err) {
 		state.status = 'error';
+		state.progress = null;
 		state.lastError = (err as Error).message;
 		showToast({ kind: 'error', title: 'build failed', body: (err as Error).message });
 	}

@@ -12,7 +12,7 @@ import {
 	setPaneState,
 	type PaneState
 } from './store.js';
-import { build, cancelBuild, type BuildRunResult } from './build.js';
+import { build, cancelBuild, type BuildRunResult, type BuildProgress } from './build.js';
 import { ensureServer, stopServer } from './previewServer.js';
 import {
 	writeSidecar,
@@ -207,7 +207,9 @@ function registerIpcHandlers(): void {
 	});
 
 	ipcMain.handle('preview:build', async (ev, home: string): Promise<BuildRunResult> => {
-		const result = await build(home);
+		const result = await build(home, (p: BuildProgress) => {
+			ev.sender.send('preview:build-progress', p);
+		});
 		if (result.ok) {
 			const url = await ensureServer(result.distPath);
 			ev.sender.send('preview:ready', { url, token: Date.now() });
