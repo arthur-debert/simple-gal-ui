@@ -44,6 +44,8 @@ let inflight: {
 	promise: Promise<BuildRunResult>;
 	child: ChildProcess;
 	cancelled: boolean;
+	/** Timer ID for the deferred SIGKILL escalation set by cancelBuild(). */
+	killTimer: NodeJS.Timeout | null;
 } | null = null;
 
 /**
@@ -70,8 +72,6 @@ export function build(
 		'progress',
 		'build'
 	];
-
-	const state = { cancelled: false, killTimer: null as NodeJS.Timeout | null };
 
 	const child = spawn(bin, args, {
 		stdio: ['ignore', 'pipe', 'pipe']
@@ -117,7 +117,10 @@ export function build(
 
 	const promise = new Promise<BuildRunResult>((resolve) => {
 		child.on('error', (err) => {
-			if (state.killTimer) clearTimeout(state.killTimer);
+			// Capture and clear the deferred SIGKILL timer before nullifying inflight,
+			// so a timer started by cancelBuild() is always cancelled on spawn failure.
+			const killTimer = inflight?.killTimer ?? null;
+			if (killTimer) clearTimeout(killTimer);
 			inflight = null;
 			resolve({
 				ok: false,
@@ -129,12 +132,22 @@ export function build(
 		});
 
 		child.on('close', (code) => {
-			if (state.killTimer) clearTimeout(state.killTimer);
+			// Capture both the kill timer and the cancellation flag before nullifying
+			// inflight, so we reliably observe the state that cancelBuild() set.
+			const killTimer = inflight?.killTimer ?? null;
+			if (killTimer) clearTimeout(killTimer);
+
+			// cancelBuild() sets inflight.cancelled (the module-level object), not any
+			// local variable, so we must read it here while inflight is still set.
+			const wasCancelled = inflight?.cancelled ?? false;
 			inflight = null;
 
 			const durationMs = Date.now() - started;
 
-			if (state.cancelled) {
+			if (wasCancelled) {
+				// The build was explicitly cancelled via cancelBuild(); resolve with the
+				// dedicated 'cancelled' envelope instead of falling through to generic
+				// exit-code error handling.
 				resolve({
 					ok: false,
 					distPath: dist,
@@ -189,7 +202,7 @@ export function build(
 		});
 	});
 
-	inflight = { promise, child, cancelled: false };
+	inflight = { promise, child, cancelled: false, killTimer: null };
 	return promise;
 }
 
@@ -206,7 +219,10 @@ export function cancelBuild(): boolean {
 	} catch {
 		// ignore
 	}
-	setTimeout(() => {
+	// If the process does not exit after SIGTERM, escalate to SIGKILL after a
+	// short grace period.  We store the timer ID on inflight so the close/error
+	// handlers can cancel it if the process exits on its own beforehand.
+	inflight.killTimer = setTimeout(() => {
 		if (inflight?.child.exitCode === null) {
 			try {
 				inflight.child.kill('SIGKILL');
