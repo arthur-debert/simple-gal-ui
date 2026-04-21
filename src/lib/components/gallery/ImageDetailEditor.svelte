@@ -204,14 +204,14 @@
 		<div class="flex shrink-0 items-center gap-2">
 			<Button
 				variant="outline"
-				size="sm"
+				size="icon"
 				onclick={onReplace}
+				aria-label="Replace image"
 				data-testid="image-replace-btn"
 				title="Replace this image with a different file"
 				class="shrink-0"
 			>
-				<IconRefresh class="h-3.5 w-3.5" />
-				Replace
+				<IconRefresh class="h-4 w-4" />
 			</Button>
 			<Button
 				variant="outline"
