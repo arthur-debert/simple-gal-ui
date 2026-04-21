@@ -33,6 +33,12 @@ export interface ManifestImage {
 	slug: string;
 	title?: string;
 	description?: string;
+	/**
+	 * SHA-256 of the image bytes. Keys into `Manifest.canonical_images`.
+	 * Emitted by simple-gal's data-model refactor (landed across v0.18
+	 * → v0.20); `undefined` on manifests from earlier releases.
+	 */
+	canonical_id?: string;
 }
 
 export interface ManifestNavItem {
@@ -74,12 +80,33 @@ export interface ManifestGroup {
 	description?: string;
 }
 
+/**
+ * Content-addressed record of a single source image, emitted once per
+ * unique SHA-256. When the same bytes appear in multiple albums, every
+ * `ManifestImage` for those copies shares the same `canonical_id` and
+ * the extra source paths show up in `aliases`.
+ *
+ * Landed across the simple-gal v0.18 → v0.20 data-model refactor; both
+ * scan and process manifests include it. Process output enriches the
+ * same records with IPTC / dimensions once they've been decoded.
+ */
+export interface CanonicalImage {
+	id: string;
+	source_path: string;
+	aliases?: string[];
+	iptc_title?: string;
+	iptc_description?: string;
+	width?: number;
+	height?: number;
+}
+
 export interface Manifest {
 	navigation: ManifestNavItem[];
 	albums: ManifestAlbum[];
 	pages: ManifestPage[];
 	groups?: ManifestGroup[];
 	config: ResolvedConfig;
+	canonical_images?: CanonicalImage[];
 }
 
 export interface ScanCounts {

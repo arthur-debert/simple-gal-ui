@@ -66,36 +66,8 @@ export async function fetchConfigSchema(): Promise<FetchSchemaResult> {
 		};
 	}
 
-	augmentSchemaEnums(schema);
-
 	cached = { binPath, schema };
 	return { ok: true, schema, binPath };
-}
-
-/**
- * Patch the schema for string fields that simple-gal defines as Rust enums
- * but that serialize to plain `"type": "string"` in the emitted JSON Schema.
- * The renderer's `EnumField` picks up `node.enum` to render a dropdown
- * instead of a free-text input; we inject the known variants here so
- * mistypes are impossible from the UI side.
- *
- * Keep this list minimal: only enums we actively surface in the UI.
- */
-function augmentSchemaEnums(schema: ConfigSchemaRoot): void {
-	const autoIndexing = schema.properties?.auto_indexing;
-	if (
-		autoIndexing &&
-		typeof autoIndexing === 'object' &&
-		'properties' in autoIndexing &&
-		autoIndexing.properties
-	) {
-		const autoNode = (autoIndexing.properties as Record<string, unknown>).auto as
-			| { type?: string; enum?: string[] }
-			| undefined;
-		if (autoNode && autoNode.type === 'string' && !autoNode.enum) {
-			autoNode.enum = ['off', 'source_only', 'export_only', 'both'];
-		}
-	}
 }
 
 export function clearConfigSchemaCache(): void {
