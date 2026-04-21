@@ -15,6 +15,8 @@ import type {
 	DeleteImageResult,
 	ReorderImagesArgs,
 	ReorderImagesResult,
+	ReplaceImagesArgs,
+	ReplaceImagesResult,
 	WriteDescriptionArgs,
 	WriteDescriptionResult,
 	CreateAlbumArgs,
@@ -118,6 +120,10 @@ const api = {
 			ipcRenderer.invoke('fs:findPageFile', args),
 		setAlbumThumbnail: (args: SetAlbumThumbnailArgs): Promise<SetAlbumThumbnailResult> =>
 			ipcRenderer.invoke('fs:setAlbumThumbnail', args),
+		replaceImages: (args: ReplaceImagesArgs): Promise<ReplaceImagesResult> =>
+			ipcRenderer.invoke('fs:replaceImages', args),
+		pickImages: (opts: { multi: boolean }): Promise<string[]> =>
+			ipcRenderer.invoke('fs:pickImages', opts),
 		reindex: (args: ReindexArgs): Promise<ReindexResult> => ipcRenderer.invoke('fs:reindex', args),
 		getPathForFile: (file: File): string => webUtils.getPathForFile(file)
 	},
