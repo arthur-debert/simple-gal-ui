@@ -34,6 +34,7 @@ import type {
 	SetAlbumThumbnailArgs,
 	SetAlbumThumbnailResult
 } from './fs.js';
+import type { ReindexArgs, ReindexResult } from './reindex.js';
 
 export interface SimpleGalVersionResult {
 	ok: boolean;
@@ -117,6 +118,7 @@ const api = {
 			ipcRenderer.invoke('fs:findPageFile', args),
 		setAlbumThumbnail: (args: SetAlbumThumbnailArgs): Promise<SetAlbumThumbnailResult> =>
 			ipcRenderer.invoke('fs:setAlbumThumbnail', args),
+		reindex: (args: ReindexArgs): Promise<ReindexResult> => ipcRenderer.invoke('fs:reindex', args),
 		getPathForFile: (file: File): string => webUtils.getPathForFile(file)
 	},
 	config: {
