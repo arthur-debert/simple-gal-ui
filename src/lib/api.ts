@@ -241,6 +241,26 @@ export interface SetAlbumThumbnailResult {
 	noOp: boolean;
 }
 
+export type ReplaceIndexStrategy = 'slot' | 'filename';
+
+export interface ReplacePair {
+	targetSourcePath: string;
+	replacementPath: string;
+}
+
+export interface ReplaceImagesArgs {
+	home: string;
+	albumPath: string;
+	pairs: ReplacePair[];
+	indexStrategy: ReplaceIndexStrategy;
+}
+
+export interface ReplaceImagesResult {
+	ok: boolean;
+	replaced: { oldPath: string; newPath: string; filename: string }[];
+	skipped: { target: string; replacement: string; reason: string }[];
+}
+
 export interface ReindexRename {
 	from: string;
 	to: string;
@@ -338,6 +358,10 @@ export const api = {
 			window.api.fs.findPageFile(args) as Promise<FindPageFileResult>,
 		setAlbumThumbnail: (args: SetAlbumThumbnailArgs): Promise<SetAlbumThumbnailResult> =>
 			window.api.fs.setAlbumThumbnail(args) as Promise<SetAlbumThumbnailResult>,
+		replaceImages: (args: ReplaceImagesArgs): Promise<ReplaceImagesResult> =>
+			window.api.fs.replaceImages(args) as Promise<ReplaceImagesResult>,
+		pickImages: (opts: { multi: boolean }): Promise<string[]> =>
+			window.api.fs.pickImages(opts) as Promise<string[]>,
 		reindex: (args: ReindexArgs): Promise<ReindexResult> =>
 			window.api.fs.reindex(args) as Promise<ReindexResult>,
 		getPathForFile: (file: File): string => window.api.fs.getPathForFile(file)

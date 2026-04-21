@@ -1,15 +1,23 @@
 <script lang="ts">
 	import { site, rescanCurrentHome } from '$lib/stores/siteStore.svelte';
 	import { api } from '$lib/api';
+	import type { ReplaceIndexStrategy } from '$lib/api';
 	import { showToast } from '$lib/stores/toastStore.svelte';
 	import type { ManifestAlbum, ManifestImage } from '$lib/types/manifest';
 	import InlineDescriptionEdit from './InlineDescriptionEdit.svelte';
 	import InlineTitleEdit from './InlineTitleEdit.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
+	import ReplaceModeDialog from '$lib/components/dialogs/ReplaceModeDialog.svelte';
 	import IconTrash from '~icons/lucide/trash-2';
 	import IconImage from '~icons/lucide/image';
 	import IconSettings from '~icons/lucide/settings';
+	import IconRefresh from '~icons/lucide/refresh-cw';
 	import { cn } from '$lib/utils';
+	import {
+		anyHasNumericPrefix,
+		filterSupportedImages,
+		pairReplacements
+	} from '$lib/utils/replaceFlow';
 
 	interface Props {
 		album: ManifestAlbum;
@@ -144,6 +152,97 @@
 		if ((e.key === 'Delete' || e.key === 'Backspace') && selected.size > 0) {
 			e.preventDefault();
 			await deleteSelection();
+		}
+	}
+
+	// --- Replace selected images ----------------------------------------
+
+	interface PendingReplace {
+		pairs: { targetSourcePath: string; replacementPath: string }[];
+		sampleTarget: string;
+		sampleReplacement: string;
+	}
+
+	let pendingReplace = $state<PendingReplace | null>(null);
+	const replaceDialogOpen = $derived(pendingReplace !== null);
+
+	async function onReplaceSelection(): Promise<void> {
+		if (!site.home || selected.size === 0) return;
+
+		const picked = await api.fs.pickImages({ multi: selected.size > 1 });
+		if (picked.length === 0) return;
+
+		const valid = filterSupportedImages(picked);
+		if (valid.length !== picked.length) {
+			showToast({
+				kind: 'warning',
+				title: 'Some picks were skipped',
+				body: `${picked.length - valid.length} file${picked.length - valid.length === 1 ? '' : 's'} not a supported image type.`
+			});
+		}
+		if (valid.length !== selected.size) {
+			showToast({
+				kind: 'error',
+				title: 'Replacement count mismatch',
+				body: `Selected ${selected.size} image${selected.size === 1 ? '' : 's'}, but picked ${valid.length}. Pick exactly ${selected.size}.`
+			});
+			return;
+		}
+
+		// Preserve album visual order when pairing: iterate the album image list,
+		// keep only selected paths, then pair with alphabetically-sorted picks.
+		const orderedTargets = album.images.map((i) => i.source_path).filter((p) => selected.has(p));
+		const pairs = pairReplacements(orderedTargets, valid);
+
+		if (anyHasNumericPrefix(valid)) {
+			// Ask the user whether to keep slot numbering or take filename
+			// numbering. Parking the pairs here; `onReplaceConfirm` below
+			// executes once the user chooses.
+			const sampleTarget = pairs[0].targetSourcePath.split('/').pop() ?? '';
+			const sampleReplacement = pairs[0].replacementPath.split('/').pop() ?? '';
+			pendingReplace = { pairs, sampleTarget, sampleReplacement };
+			return;
+		}
+
+		await runReplace(pairs, 'slot');
+	}
+
+	async function onReplaceConfirm(strategy: ReplaceIndexStrategy): Promise<void> {
+		if (!pendingReplace) return;
+		const pairs = pendingReplace.pairs;
+		pendingReplace = null;
+		await runReplace(pairs, strategy);
+	}
+
+	function onReplaceCancel(): void {
+		pendingReplace = null;
+	}
+
+	async function runReplace(
+		pairs: { targetSourcePath: string; replacementPath: string }[],
+		indexStrategy: ReplaceIndexStrategy
+	): Promise<void> {
+		if (!site.home) return;
+		try {
+			const result = await api.fs.replaceImages({
+				home: site.home,
+				albumPath: albumSourceDir,
+				pairs,
+				indexStrategy
+			});
+			if (!result.ok) {
+				showToast({ kind: 'error', title: 'Replace failed' });
+				return;
+			}
+			showToast({
+				kind: 'success',
+				title: `Replaced ${result.replaced.length} image${result.replaced.length === 1 ? '' : 's'}`,
+				body: result.skipped.length > 0 ? `${result.skipped.length} skipped` : undefined
+			});
+			clearSelection();
+			await rescanCurrentHome();
+		} catch (err) {
+			showToast({ kind: 'error', title: 'Replace failed', body: (err as Error).message });
 		}
 	}
 
@@ -448,6 +547,22 @@
 					Use as Thumbnail
 				</Button>
 			{/if}
+			{#if selected.size > 0}
+				<Button
+					variant="outline"
+					size="sm"
+					onclick={onReplaceSelection}
+					data-testid="album-replace-btn"
+					data-selection-count={selected.size}
+					title={selected.size === 1
+						? 'Replace this image with another file'
+						: `Replace these ${selected.size} images with ${selected.size} picked files`}
+					class="shrink-0"
+				>
+					<IconRefresh class="h-3.5 w-3.5" />
+					Replace
+				</Button>
+			{/if}
 			<Button
 				variant="outline"
 				size="icon"
@@ -557,3 +672,11 @@
 		</div>
 	{/if}
 </div>
+
+<ReplaceModeDialog
+	open={replaceDialogOpen}
+	sampleTarget={pendingReplace?.sampleTarget ?? ''}
+	sampleReplacement={pendingReplace?.sampleReplacement ?? ''}
+	onChoose={onReplaceConfirm}
+	onCancel={onReplaceCancel}
+/>

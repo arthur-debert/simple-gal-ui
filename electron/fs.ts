@@ -146,7 +146,10 @@ export async function renameImage(args: RenameImageArgs): Promise<RenameImageRes
 
 // --- Image import ---------------------------------------------------------
 
-const IMAGE_EXTS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.avif', '.tif', '.tiff']);
+export const IMAGE_EXTS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.avif', '.tif', '.tiff']);
+
+/** File-picker filter derived from `IMAGE_EXTS` — no leading dot, lowercase. */
+export const IMAGE_FILTER_EXTENSIONS = [...IMAGE_EXTS].map((e) => e.slice(1));
 
 export interface ImportImagesArgs {
 	home: string;
@@ -221,6 +224,142 @@ export async function importImages(args: ImportImagesArgs): Promise<ImportImages
 	}
 
 	return { ok: true, imported, skipped };
+}
+
+// --- Image replace (swap file in place, keep slot) ------------------------
+
+export type ReplaceIndexStrategy = 'slot' | 'filename';
+
+export interface ReplacePair {
+	/** Image to replace — relative to `home`. */
+	targetSourcePath: string;
+	/** Absolute OS path of the replacement source file. */
+	replacementPath: string;
+}
+
+export interface ReplaceImagesArgs {
+	home: string;
+	albumPath: string;
+	pairs: ReplacePair[];
+	/**
+	 * Which numeric prefix the new file carries:
+	 *  - `slot`: keep the prefix of the image being replaced (the visual slot).
+	 *  - `filename`: take the prefix from the replacement's filename.
+	 */
+	indexStrategy: ReplaceIndexStrategy;
+}
+
+export interface ReplaceImagesResult {
+	ok: boolean;
+	replaced: { oldPath: string; newPath: string; filename: string }[];
+	skipped: { target: string; replacement: string; reason: string }[];
+}
+
+function parsePrefixAndSlug(filename: string): { prefix: string | null; slug: string } {
+	const ext = path.extname(filename);
+	const base = path.basename(filename, ext);
+	const m = base.match(/^(\d+)(?:[-._ ](.*))?$/);
+	if (m) {
+		return { prefix: m[1], slug: slugFromStem(m[2] ?? '') };
+	}
+	return { prefix: null, slug: slugFromStem(base) };
+}
+
+function slugFromStem(stem: string): string {
+	return stem
+		.trim()
+		.replace(/\s+/g, '-')
+		.replace(/[^\w.-]/g, '')
+		.replace(/-+/g, '-')
+		.replace(/^-|-$/g, '');
+}
+
+/**
+ * Replace one or more images in place. Each original is moved to the OS
+ * trash (along with its sidecar if any), then the replacement is copied in
+ * under a new filename derived from the chosen `indexStrategy`:
+ *
+ * - `slot` — new file inherits the replaced image's numeric prefix. Good
+ *   default when you just want to swap the actual photo under an existing
+ *   slot.
+ * - `filename` — new file uses the numeric prefix baked into the source
+ *   filename. Good for archives where the incoming files already encode
+ *   desired ordering.
+ *
+ * The replacement source file is not deleted — we only copy.
+ *
+ * Sidecars (`.txt`) on the replaced image are NOT transferred: a replace
+ * means a new photo, so a stale caption would be misleading.
+ */
+export async function replaceImages(args: ReplaceImagesArgs): Promise<ReplaceImagesResult> {
+	const albumAbs = path.join(args.home, args.albumPath);
+	const replaced: ReplaceImagesResult['replaced'] = [];
+	const skipped: ReplaceImagesResult['skipped'] = [];
+
+	for (const pair of args.pairs) {
+		const ext = path.extname(pair.replacementPath).toLowerCase();
+		if (!IMAGE_EXTS.has(ext)) {
+			skipped.push({
+				target: pair.targetSourcePath,
+				replacement: pair.replacementPath,
+				reason: 'not an image'
+			});
+			continue;
+		}
+		try {
+			await fs.access(pair.replacementPath);
+		} catch {
+			skipped.push({
+				target: pair.targetSourcePath,
+				replacement: pair.replacementPath,
+				reason: 'source missing'
+			});
+			continue;
+		}
+
+		const oldAbs = path.join(args.home, pair.targetSourcePath);
+		const oldBasename = path.basename(oldAbs);
+		const target = parsePrefixAndSlug(oldBasename);
+		const replacementBasename = path.basename(pair.replacementPath);
+		const rep = parsePrefixAndSlug(replacementBasename);
+
+		let prefix: string | null;
+		if (args.indexStrategy === 'filename') {
+			prefix = rep.prefix ?? target.prefix;
+		} else {
+			prefix = target.prefix;
+		}
+
+		const newSlug = rep.slug || target.slug || 'image';
+		const newBase = prefix ? `${prefix}-${newSlug}` : newSlug;
+		const newName = `${newBase}${ext}`;
+		const newAbs = path.join(albumAbs, newName);
+
+		// Trash old image + its sidecar. Do this BEFORE copy to avoid a
+		// collision when the replacement carries the same filename stem.
+		markSelfWrite(oldAbs);
+		await shell.trashItem(oldAbs);
+		const oldSidecar = sidecarPathFor(oldAbs);
+		try {
+			await fs.access(oldSidecar);
+			markSelfWrite(oldSidecar);
+			await shell.trashItem(oldSidecar);
+		} catch {
+			// no sidecar — nothing to discard
+		}
+
+		markSelfWrite(newAbs);
+		await fs.copyFile(pair.replacementPath, newAbs);
+
+		const relParent = args.albumPath;
+		replaced.push({
+			oldPath: pair.targetSourcePath,
+			newPath: relParent ? `${relParent}/${newName}` : newName,
+			filename: newName
+		});
+	}
+
+	return { ok: true, replaced, skipped };
 }
 
 // --- Image delete (OS trash) ---------------------------------------------
