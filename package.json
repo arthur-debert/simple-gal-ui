@@ -23,7 +23,7 @@
 		"prepare": "lefthook install || true",
 		"postinstall": "node scripts/fetch-simple-gal.mjs || true"
 	},
-	"simpleGalVersion": "0.18.0",
+	"simpleGalVersion": "0.20.0",
 	"pnpm": {
 		"onlyBuiltDependencies": [
 			"electron",

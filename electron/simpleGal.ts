@@ -188,6 +188,11 @@ export interface ManifestImage {
 	slug: string;
 	title?: string;
 	description?: string;
+	/**
+	 * SHA-256 of the image bytes; keys into `Manifest.canonical_images`.
+	 * Added in simple-gal v0.18; absent on older manifests.
+	 */
+	canonical_id?: string;
 }
 
 export interface ManifestNavItem {
@@ -227,12 +232,23 @@ export interface ManifestGroup {
 	description?: string;
 }
 
+export interface CanonicalImage {
+	id: string;
+	source_path: string;
+	aliases?: string[];
+	iptc_title?: string;
+	iptc_description?: string;
+	width?: number;
+	height?: number;
+}
+
 export interface Manifest {
 	navigation: ManifestNavItem[];
 	albums: ManifestAlbum[];
 	pages: ManifestPage[];
 	groups?: ManifestGroup[];
 	config: ResolvedConfig;
+	canonical_images?: CanonicalImage[];
 }
 
 export interface ScanCounts {
