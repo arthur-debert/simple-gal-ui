@@ -1,6 +1,13 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { shell } from 'electron';
+import {
+	IMAGE_EXTS as SHARED_IMAGE_EXTS,
+	IMAGE_FILTER_EXTENSIONS as SHARED_IMAGE_FILTER_EXTENSIONS
+} from '../src/lib/utils/imageTypes.js';
+
+export const IMAGE_EXTS = SHARED_IMAGE_EXTS;
+export const IMAGE_FILTER_EXTENSIONS = SHARED_IMAGE_FILTER_EXTENSIONS;
 
 /**
  * Filesystem writes against the gallery home. All writes funnel through here
@@ -146,11 +153,6 @@ export async function renameImage(args: RenameImageArgs): Promise<RenameImageRes
 
 // --- Image import ---------------------------------------------------------
 
-export const IMAGE_EXTS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.avif', '.tif', '.tiff']);
-
-/** File-picker filter derived from `IMAGE_EXTS` — no leading dot, lowercase. */
-export const IMAGE_FILTER_EXTENSIONS = [...IMAGE_EXTS].map((e) => e.slice(1));
-
 export interface ImportImagesArgs {
 	home: string;
 	albumPath: string; // relative path like "010-Landscapes" (source_dir, not slug)
@@ -291,72 +293,149 @@ function slugFromStem(stem: string): string {
  * Sidecars (`.txt`) on the replaced image are NOT transferred: a replace
  * means a new photo, so a stale caption would be misleading.
  */
+interface PlannedReplace {
+	pair: ReplacePair;
+	ext: string;
+	oldAbs: string;
+	newAbs: string;
+	newName: string;
+}
+
+/**
+ * Resolve a pair to its final destination. Returns either a plan entry or a
+ * `skipped` reason. Validates the replacement extension and that both the
+ * replacement source and the target image actually exist on disk — the
+ * latter guards against a stale selection (e.g. the file was removed
+ * out-of-band between the picker opening and the click landing).
+ */
+async function planReplace(
+	albumAbs: string,
+	home: string,
+	pair: ReplacePair,
+	indexStrategy: ReplaceIndexStrategy
+): Promise<{ plan: PlannedReplace } | { reason: string }> {
+	const ext = path.extname(pair.replacementPath).toLowerCase();
+	if (!IMAGE_EXTS.has(ext)) return { reason: 'not an image' };
+
+	try {
+		await fs.access(pair.replacementPath);
+	} catch {
+		return { reason: 'source missing' };
+	}
+
+	const oldAbs = path.join(home, pair.targetSourcePath);
+	try {
+		await fs.access(oldAbs);
+	} catch {
+		return { reason: 'target missing' };
+	}
+
+	const oldBasename = path.basename(oldAbs);
+	const target = parsePrefixAndSlug(oldBasename);
+	const replacementBasename = path.basename(pair.replacementPath);
+	const rep = parsePrefixAndSlug(replacementBasename);
+
+	let prefix: string | null;
+	if (indexStrategy === 'filename') {
+		prefix = rep.prefix ?? target.prefix;
+	} else {
+		prefix = target.prefix;
+	}
+
+	const newSlug = rep.slug || target.slug || 'image';
+	const newBase = prefix ? `${prefix}-${newSlug}` : newSlug;
+	const newName = `${newBase}${ext}`;
+	const newAbs = path.join(albumAbs, newName);
+
+	return { plan: { pair, ext, oldAbs, newAbs, newName } };
+}
+
 export async function replaceImages(args: ReplaceImagesArgs): Promise<ReplaceImagesResult> {
 	const albumAbs = path.join(args.home, args.albumPath);
 	const replaced: ReplaceImagesResult['replaced'] = [];
 	const skipped: ReplaceImagesResult['skipped'] = [];
 
+	// Plan every pair first. Collecting the full plan before touching the
+	// filesystem lets us (1) detect in-batch destination collisions (two
+	// pairs that would both land on the same filename) and (2) detect
+	// destinations that would clobber a target scheduled for later in the
+	// batch (A's dest == B's oldAbs). Without this, a later iteration could
+	// trash a newly-copied file from an earlier iteration.
+	const plans: PlannedReplace[] = [];
 	for (const pair of args.pairs) {
-		const ext = path.extname(pair.replacementPath).toLowerCase();
-		if (!IMAGE_EXTS.has(ext)) {
+		const result = await planReplace(albumAbs, args.home, pair, args.indexStrategy);
+		if ('reason' in result) {
 			skipped.push({
 				target: pair.targetSourcePath,
 				replacement: pair.replacementPath,
-				reason: 'not an image'
+				reason: result.reason
 			});
 			continue;
 		}
-		try {
-			await fs.access(pair.replacementPath);
-		} catch {
+		plans.push(result.plan);
+	}
+
+	const destCount = new Map<string, number>();
+	for (const p of plans) {
+		destCount.set(p.newAbs, (destCount.get(p.newAbs) ?? 0) + 1);
+	}
+	const targetsInBatch = new Set(plans.map((p) => p.oldAbs));
+
+	const finalPlans: PlannedReplace[] = [];
+	for (const plan of plans) {
+		if ((destCount.get(plan.newAbs) ?? 0) > 1) {
 			skipped.push({
-				target: pair.targetSourcePath,
-				replacement: pair.replacementPath,
-				reason: 'source missing'
+				target: plan.pair.targetSourcePath,
+				replacement: plan.pair.replacementPath,
+				reason: 'destination conflict: two pairs map to the same filename'
 			});
 			continue;
 		}
-
-		const oldAbs = path.join(args.home, pair.targetSourcePath);
-		const oldBasename = path.basename(oldAbs);
-		const target = parsePrefixAndSlug(oldBasename);
-		const replacementBasename = path.basename(pair.replacementPath);
-		const rep = parsePrefixAndSlug(replacementBasename);
-
-		let prefix: string | null;
-		if (args.indexStrategy === 'filename') {
-			prefix = rep.prefix ?? target.prefix;
-		} else {
-			prefix = target.prefix;
+		// Destination would clobber a different pair's target that hasn't been
+		// trashed yet. Refuse rather than risk losing that image.
+		if (plan.newAbs !== plan.oldAbs && targetsInBatch.has(plan.newAbs)) {
+			skipped.push({
+				target: plan.pair.targetSourcePath,
+				replacement: plan.pair.replacementPath,
+				reason: 'destination would overwrite another replaced image'
+			});
+			continue;
 		}
+		finalPlans.push(plan);
+	}
 
-		const newSlug = rep.slug || target.slug || 'image';
-		const newBase = prefix ? `${prefix}-${newSlug}` : newSlug;
-		const newName = `${newBase}${ext}`;
-		const newAbs = path.join(albumAbs, newName);
-
-		// Trash old image + its sidecar. Do this BEFORE copy to avoid a
-		// collision when the replacement carries the same filename stem.
-		markSelfWrite(oldAbs);
-		await shell.trashItem(oldAbs);
-		const oldSidecar = sidecarPathFor(oldAbs);
+	// Per-plan try/catch: if one fails (e.g. trashItem throws because the
+	// user moved the file out-of-band right between our access() and the
+	// trash), it doesn't abort remaining pairs.
+	for (const plan of finalPlans) {
 		try {
-			await fs.access(oldSidecar);
-			markSelfWrite(oldSidecar);
-			await shell.trashItem(oldSidecar);
-		} catch {
-			// no sidecar — nothing to discard
+			markSelfWrite(plan.oldAbs);
+			await shell.trashItem(plan.oldAbs);
+			const oldSidecar = sidecarPathFor(plan.oldAbs);
+			try {
+				await fs.access(oldSidecar);
+				markSelfWrite(oldSidecar);
+				await shell.trashItem(oldSidecar);
+			} catch {
+				// no sidecar — nothing to discard
+			}
+
+			markSelfWrite(plan.newAbs);
+			await fs.copyFile(plan.pair.replacementPath, plan.newAbs);
+
+			const relParent = args.albumPath;
+			replaced.push({
+				oldPath: plan.pair.targetSourcePath,
+				newPath: relParent ? `${relParent}/${plan.newName}` : plan.newName,
+				filename: plan.newName
+			});
+		} catch (err) {
+			skipped.push({
+				target: plan.pair.targetSourcePath,
+				replacement: plan.pair.replacementPath,
+				reason: `replace failed: ${(err as Error).message}`
+			});
 		}
-
-		markSelfWrite(newAbs);
-		await fs.copyFile(pair.replacementPath, newAbs);
-
-		const relParent = args.albumPath;
-		replaced.push({
-			oldPath: pair.targetSourcePath,
-			newPath: relParent ? `${relParent}/${newName}` : newName,
-			filename: newName
-		});
 	}
 
 	return { ok: true, replaced, skipped };

@@ -220,3 +220,84 @@ test('skipping an unsupported extension surfaces a `skipped` entry', async () =>
 	// Target still on disk.
 	expect(fs.existsSync(path.join(fixtureCopy, '030-Minimal', existing))).toBe(true);
 });
+
+test('batch destination collision: two pairs mapping to the same filename are both skipped', async () => {
+	const home = await page.evaluate(() =>
+		decodeURIComponent(window.location.search.match(/home=([^&]+)/)![1])
+	);
+
+	// Seed two slots we can swap, plus two replacement files whose filename
+	// strategies would both produce `042-IMG.jpg` (same prefix and same
+	// slug) under the filename strategy → collision.
+	fs.copyFileSync(
+		path.join(fixtureCopy, '010-Landscapes/010-night.jpg'),
+		path.join(fixtureCopy, '030-Minimal/200-a.jpg')
+	);
+	fs.copyFileSync(
+		path.join(fixtureCopy, '010-Landscapes/010-night.jpg'),
+		path.join(fixtureCopy, '030-Minimal/201-b.jpg')
+	);
+	const rep1 = path.join(extDir, '042-IMG.jpg');
+	const rep2 = path.join(extDir, 'other/042-IMG.jpg');
+	fs.copyFileSync(path.join(fixtureCopy, '010-Landscapes/010-night.jpg'), rep1);
+	fs.mkdirSync(path.dirname(rep2), { recursive: true });
+	fs.copyFileSync(path.join(fixtureCopy, '010-Landscapes/010-night.jpg'), rep2);
+
+	const result = await page.evaluate(
+		async ({ home, r1, r2 }) =>
+			(window as typeof window).api.fs.replaceImages({
+				home,
+				albumPath: '030-Minimal',
+				pairs: [
+					{ targetSourcePath: '030-Minimal/200-a.jpg', replacementPath: r1 },
+					{ targetSourcePath: '030-Minimal/201-b.jpg', replacementPath: r2 }
+				],
+				indexStrategy: 'filename'
+			}),
+		{ home, r1: rep1, r2: rep2 }
+	);
+
+	expect(result.ok).toBe(true);
+	expect(result.replaced.length).toBe(0);
+	expect(result.skipped.length).toBe(2);
+	expect(result.skipped.every((s) => s.reason.includes('destination conflict'))).toBe(true);
+	// Both targets preserved on disk.
+	expect(fs.existsSync(path.join(fixtureCopy, '030-Minimal/200-a.jpg'))).toBe(true);
+	expect(fs.existsSync(path.join(fixtureCopy, '030-Minimal/201-b.jpg'))).toBe(true);
+});
+
+test('replace of a missing target yields a `target missing` skip without aborting other pairs', async () => {
+	const home = await page.evaluate(() =>
+		decodeURIComponent(window.location.search.match(/home=([^&]+)/)![1])
+	);
+
+	// Seed one real target; reference a second target that does not exist.
+	fs.copyFileSync(
+		path.join(fixtureCopy, '010-Landscapes/010-night.jpg'),
+		path.join(fixtureCopy, '030-Minimal/300-real.jpg')
+	);
+	const rep1 = path.join(extDir, 'fresh1.jpg');
+	const rep2 = path.join(extDir, 'fresh2.jpg');
+	fs.copyFileSync(path.join(fixtureCopy, '010-Landscapes/010-night.jpg'), rep1);
+	fs.copyFileSync(path.join(fixtureCopy, '010-Landscapes/010-night.jpg'), rep2);
+
+	const result = await page.evaluate(
+		async ({ home, r1, r2 }) =>
+			(window as typeof window).api.fs.replaceImages({
+				home,
+				albumPath: '030-Minimal',
+				pairs: [
+					{ targetSourcePath: '030-Minimal/300-real.jpg', replacementPath: r1 },
+					{ targetSourcePath: '030-Minimal/999-missing.jpg', replacementPath: r2 }
+				],
+				indexStrategy: 'slot'
+			}),
+		{ home, r1: rep1, r2: rep2 }
+	);
+
+	expect(result.ok).toBe(true);
+	expect(result.replaced.length).toBe(1);
+	expect(result.replaced[0].filename).toBe('300-fresh1.jpg');
+	expect(result.skipped.length).toBe(1);
+	expect(result.skipped[0].reason).toBe('target missing');
+});

@@ -3,20 +3,15 @@
  * path and the image-detail single-replace path.
  */
 
-export const IMAGE_EXTS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.avif', '.tif', '.tiff']);
+import { IMAGE_EXTS, basenameOf } from './imageTypes';
+
+export { IMAGE_EXTS, basenameOf };
 
 const PREFIX_RE = /^(\d+)[-._ ]/;
 
 function extOf(p: string): string {
 	const idx = p.lastIndexOf('.');
 	return idx >= 0 ? p.slice(idx).toLowerCase() : '';
-}
-
-function basenameOf(p: string): string {
-	const unix = p.lastIndexOf('/');
-	const win = p.lastIndexOf('\\');
-	const i = Math.max(unix, win);
-	return i >= 0 ? p.slice(i + 1) : p;
 }
 
 /** True if `basename` starts with a `NNN-` (or `NNN.`, `NNN_`, `NNN ` ) prefix. */
