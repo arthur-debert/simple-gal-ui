@@ -483,8 +483,8 @@
 		const pairs = pairReplacements(orderedTargets, valid);
 
 		if (anyHasNumericPrefix(valid)) {
-			const sampleTarget = pairs[0].targetSourcePath.split('/').pop() ?? '';
-			const sampleReplacement = pairs[0].replacementPath.split('/').pop() ?? '';
+			const sampleTarget = basenameOf(pairs[0].targetSourcePath);
+			const sampleReplacement = basenameOf(pairs[0].replacementPath);
 			pendingReplace = { pairs, sampleTarget, sampleReplacement };
 			return;
 		}

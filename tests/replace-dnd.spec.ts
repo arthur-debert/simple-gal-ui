@@ -1,5 +1,5 @@
 /**
- * PR2b — drag-and-drop replace tests.
+ * Selection-aware drag-and-drop replace tests.
  *
  * Playwright can't synthesize a native OS file-drag into an Electron
  * BrowserWindow, so we exercise the UI at the DOM level (the drop
@@ -98,7 +98,7 @@ test('drop overlay switches to "replace" wording when thumbs are selected', asyn
 	// Select two thumbs
 	const thumbs = page.getByTestId('album-thumb');
 	await thumbs.nth(0).click();
-	await thumbs.nth(1).click({ modifiers: ['Meta'] });
+	await thumbs.nth(1).click({ modifiers: [process.platform === 'darwin' ? 'Meta' : 'Control'] });
 	await enterDragWithFiles();
 	const overlay = page.getByTestId('drop-overlay');
 	await expect(overlay).toBeVisible();
