@@ -169,29 +169,44 @@
 
 	async function onReplaceSelection(): Promise<void> {
 		if (!site.home || selected.size === 0) return;
-
 		const picked = await api.fs.pickImages({ multi: selected.size > 1 });
 		if (picked.length === 0) return;
+		await executeReplaceFlow(picked, 'pick');
+	}
 
-		const valid = filterSupportedImages(picked);
-		if (valid.length !== picked.length) {
+	/**
+	 * Shared entry point for both the Replace-button path (source = OS file
+	 * picker) and the OS drag-drop path (source = `dataTransfer.files`).
+	 * Applies extension filtering, count-match enforcement, visual-order
+	 * pairing, and the slot/filename strategy prompt. Only the error-toast
+	 * verbs ("picks" vs "drops") vary by `action`.
+	 */
+	async function executeReplaceFlow(sourcePaths: string[], action: 'pick' | 'drop'): Promise<void> {
+		const verb = action === 'pick' ? 'picked' : 'dropped';
+		const noun = action === 'pick' ? 'picks' : 'drops';
+		const imperative = action === 'pick' ? 'Pick' : 'Drop';
+
+		const valid = filterSupportedImages(sourcePaths);
+		if (valid.length !== sourcePaths.length) {
+			const skipped = sourcePaths.length - valid.length;
 			showToast({
 				kind: 'warning',
-				title: 'Some picks were skipped',
-				body: `${picked.length - valid.length} file${picked.length - valid.length === 1 ? '' : 's'} not a supported image type.`
+				title: `Some ${noun} were skipped`,
+				body: `${skipped} file${skipped === 1 ? ' is' : 's are'} not a supported image type.`
 			});
 		}
+		if (valid.length === 0) return;
 		if (valid.length !== selected.size) {
 			showToast({
 				kind: 'error',
-				title: 'Replacement count mismatch',
-				body: `Selected ${selected.size} image${selected.size === 1 ? '' : 's'}, but picked ${valid.length}. Pick exactly ${selected.size}.`
+				title: `${imperative} count mismatch`,
+				body: `Selected ${selected.size} image${selected.size === 1 ? '' : 's'}, but ${verb} ${valid.length}. ${imperative} exactly ${selected.size}.`
 			});
 			return;
 		}
 
 		// Preserve album visual order when pairing: iterate the album image list,
-		// keep only selected paths, then pair with alphabetically-sorted picks.
+		// keep only selected paths, then pair with alphabetically-sorted files.
 		const orderedTargets = album.images.map((i) => i.source_path).filter((p) => selected.has(p));
 		const pairs = pairReplacements(orderedTargets, valid);
 
@@ -432,7 +447,7 @@
 		// slots" rather than "append to the album". Route through the same
 		// count-matching + strategy-prompt flow as the Replace button.
 		if (selected.size > 0) {
-			await startReplaceFromOsDrop(sourcePaths);
+			await executeReplaceFlow(sourcePaths, 'drop');
 			return;
 		}
 
@@ -451,44 +466,6 @@
 		} catch (err) {
 			showToast({ kind: 'error', title: 'Import failed', body: (err as Error).message });
 		}
-	}
-
-	/**
-	 * Handle an OS-file drop when the user has selected thumbs. Filters
-	 * out unsupported extensions, enforces the count-match rule, and then
-	 * either prompts for the slot/filename strategy (if any replacement
-	 * has its own numeric prefix) or runs the replace directly.
-	 */
-	async function startReplaceFromOsDrop(sourcePaths: string[]): Promise<void> {
-		const valid = filterSupportedImages(sourcePaths);
-		if (valid.length !== sourcePaths.length) {
-			const dropped = sourcePaths.length - valid.length;
-			showToast({
-				kind: 'warning',
-				title: 'Some drops were skipped',
-				body: `${dropped} file${dropped === 1 ? '' : 's'} not a supported image type.`
-			});
-		}
-		if (valid.length === 0) return;
-		if (valid.length !== selected.size) {
-			showToast({
-				kind: 'error',
-				title: 'Drop count mismatch',
-				body: `Selected ${selected.size} image${selected.size === 1 ? '' : 's'}, but dropped ${valid.length}. Drop exactly ${selected.size}.`
-			});
-			return;
-		}
-
-		const orderedTargets = album.images.map((i) => i.source_path).filter((p) => selected.has(p));
-		const pairs = pairReplacements(orderedTargets, valid);
-
-		if (anyHasNumericPrefix(valid)) {
-			const sampleTarget = basenameOf(pairs[0].targetSourcePath);
-			const sampleReplacement = basenameOf(pairs[0].replacementPath);
-			pendingReplace = { pairs, sampleTarget, sampleReplacement };
-			return;
-		}
-		await runReplace(pairs, 'slot');
 	}
 
 	// --- Thumbnail reorder drag ------------------------------------------
