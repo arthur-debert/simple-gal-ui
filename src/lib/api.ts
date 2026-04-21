@@ -241,6 +241,42 @@ export interface SetAlbumThumbnailResult {
 	noOp: boolean;
 }
 
+export interface ReindexRename {
+	from: string;
+	to: string;
+}
+
+export interface ReindexPerDirectory {
+	dir: string;
+	applied: boolean;
+	renames: ReindexRename[];
+}
+
+export interface ReindexData {
+	dry_run: boolean;
+	spacing: number;
+	padding: number;
+	per_directory: ReindexPerDirectory[];
+	totals: {
+		directories_scanned: number;
+		directories_with_changes: number;
+		total_renames: number;
+	};
+}
+
+export interface ReindexArgs {
+	home: string;
+	targetPath?: string;
+	spacing?: number;
+	padding?: number;
+	flat?: boolean;
+	dryRun: boolean;
+}
+
+export type ReindexResult =
+	| { ok: true; data: ReindexData; renameMap: Record<string, string> }
+	| { ok: false; kind: string; message: string };
+
 export const api = {
 	app: {
 		version: () => window.api.app.version(),
@@ -302,6 +338,8 @@ export const api = {
 			window.api.fs.findPageFile(args) as Promise<FindPageFileResult>,
 		setAlbumThumbnail: (args: SetAlbumThumbnailArgs): Promise<SetAlbumThumbnailResult> =>
 			window.api.fs.setAlbumThumbnail(args) as Promise<SetAlbumThumbnailResult>,
+		reindex: (args: ReindexArgs): Promise<ReindexResult> =>
+			window.api.fs.reindex(args) as Promise<ReindexResult>,
 		getPathForFile: (file: File): string => window.api.fs.getPathForFile(file)
 	},
 	watch: {

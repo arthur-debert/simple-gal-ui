@@ -62,6 +62,7 @@ import { watchHome, stopWatching } from './watch.js';
 import { fetchConfigSchema, type FetchSchemaResult } from './configSchema.js';
 import { loadCascade, type LoadCascadeArgs, type LoadCascadeResult } from './configLoader.js';
 import { saveConfig, type SaveConfigArgs, type SaveConfigResult } from './configSave.js';
+import { reindex, type ReindexArgs, type ReindexResult } from './reindex.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -324,6 +325,11 @@ function registerIpcHandlers(): void {
 	);
 
 	ipcMain.handle('config:schema', async (): Promise<FetchSchemaResult> => fetchConfigSchema());
+
+	ipcMain.handle(
+		'fs:reindex',
+		async (_ev, args: ReindexArgs): Promise<ReindexResult> => reindex(args)
+	);
 
 	ipcMain.handle(
 		'config:loadCascade',
