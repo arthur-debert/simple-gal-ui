@@ -76,10 +76,11 @@ export type ReindexResult = ReindexOk | ReindexErr;
  */
 function relativizeDir(home: string, dir: string): string {
 	const normalized = path.isAbsolute(dir) ? path.relative(home, dir) : dir;
-	// Strip leading "./" if the walker emitted it, and replace OS-specific
-	// separators with forward slashes so we match manifest source_paths.
-	const cleaned = normalized === '.' ? '' : normalized.replace(/^\.\//, '');
-	return cleaned.split(path.sep).join('/');
+	if (normalized === '.') return '';
+	// Strip a leading "./" or ".\\" if the walker emitted it, and normalize
+	// mixed slash directions to forward slashes so we match manifest
+	// source_paths.
+	return normalized.replace(/^\.[/\\]/, '').replace(/[/\\]+/g, '/');
 }
 
 /**
@@ -170,45 +171,37 @@ function buildExtraArgs(args: ReindexArgs, forceDryRun: boolean): string[] {
  * old→new rename map the renderer needs for selection re-pinning.
  */
 export async function reindex(args: ReindexArgs): Promise<ReindexResult> {
-	let planData: ReindexData;
-	if (args.dryRun) {
-		const envelope = await runSimpleGal<ReindexData>('reindex', {
-			source: args.home,
-			extraArgs: buildExtraArgs(args, true)
-		});
-		if (!envelope.ok) return { ok: false, kind: envelope.kind, message: envelope.message };
-		planData = envelope.data;
-	} else {
-		const dryEnvelope = await runSimpleGal<ReindexData>('reindex', {
-			source: args.home,
-			extraArgs: buildExtraArgs(args, true)
-		});
-		if (!dryEnvelope.ok) return { ok: false, kind: dryEnvelope.kind, message: dryEnvelope.message };
-		planData = dryEnvelope.data;
+	// `dryData` is always the pre-apply snapshot and is the only reliable
+	// input for the rename map (see comment above — inner `per_directory`
+	// entries on the apply envelope use post-rename names).
+	const dryEnvelope = await runSimpleGal<ReindexData>('reindex', {
+		source: args.home,
+		extraArgs: buildExtraArgs(args, true)
+	});
+	if (!dryEnvelope.ok) return { ok: false, kind: dryEnvelope.kind, message: dryEnvelope.message };
+	const dryData = dryEnvelope.data;
+	const renameMap = buildRenameMap(args.home, dryData);
 
-		const applyEnvelope = await runSimpleGal<ReindexData>('reindex', {
-			source: args.home,
-			extraArgs: buildExtraArgs(args, false)
-		});
-		if (!applyEnvelope.ok)
-			return { ok: false, kind: applyEnvelope.kind, message: applyEnvelope.message };
-		// Hand the caller the apply envelope so `applied: true` is visible,
-		// but keep the dry-run plan around for the rename-map we're about
-		// to build.
-		planData = { ...applyEnvelope.data, per_directory: planData.per_directory };
-		planData.dry_run = false;
+	if (args.dryRun) {
+		return { ok: true, data: dryData, renameMap };
 	}
 
-	const renameMap = buildRenameMap(args.home, planData);
+	const applyEnvelope = await runSimpleGal<ReindexData>('reindex', {
+		source: args.home,
+		extraArgs: buildExtraArgs(args, false)
+	});
+	if (!applyEnvelope.ok)
+		return { ok: false, kind: applyEnvelope.kind, message: applyEnvelope.message };
 
 	// Mark every rename as a self-write so the chokidar watcher doesn't
 	// stampede us with a rescan+rebuild storm for renames we triggered.
-	if (!args.dryRun) {
-		for (const [from, to] of Object.entries(renameMap)) {
-			markSelfWrite(path.join(args.home, from));
-			markSelfWrite(path.join(args.home, to));
-		}
+	for (const [from, to] of Object.entries(renameMap)) {
+		markSelfWrite(path.join(args.home, from));
+		markSelfWrite(path.join(args.home, to));
 	}
 
-	return { ok: true, data: planData, renameMap };
+	// Return the apply envelope unchanged so callers see the true `applied`
+	// flags and post-rename directory names. The rename map is always
+	// keyed on pre-apply paths, regardless of whether it was a dry-run.
+	return { ok: true, data: applyEnvelope.data, renameMap };
 }
