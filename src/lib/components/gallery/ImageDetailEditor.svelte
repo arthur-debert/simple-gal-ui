@@ -10,7 +10,7 @@
 	import ReplaceModeDialog from '$lib/components/dialogs/ReplaceModeDialog.svelte';
 	import IconImage from '~icons/lucide/image';
 	import IconRefresh from '~icons/lucide/refresh-cw';
-	import { anyHasNumericPrefix, filterSupportedImages } from '$lib/utils/replaceFlow';
+	import { anyHasNumericPrefix, basenameOf, filterSupportedImages } from '$lib/utils/replaceFlow';
 
 	interface Props {
 		albumPath: string;
@@ -107,7 +107,7 @@
 			showToast({
 				kind: 'error',
 				title: 'Unsupported image type',
-				body: `${picked[0].split('/').pop()} is not a supported image format.`
+				body: `${basenameOf(picked[0])} is not a supported image format.`
 			});
 			return;
 		}
@@ -247,7 +247,7 @@
 <ReplaceModeDialog
 	open={replaceDialogOpen}
 	sampleTarget={image.filename}
-	sampleReplacement={pendingReplacement?.split('/').pop() ?? ''}
+	sampleReplacement={pendingReplacement ? basenameOf(pendingReplacement) : ''}
 	onChoose={onReplaceConfirm}
 	onCancel={onReplaceCancel}
 />

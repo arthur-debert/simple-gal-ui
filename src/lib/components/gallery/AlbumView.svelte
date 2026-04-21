@@ -15,6 +15,7 @@
 	import { cn } from '$lib/utils';
 	import {
 		anyHasNumericPrefix,
+		basenameOf,
 		filterSupportedImages,
 		pairReplacements
 	} from '$lib/utils/replaceFlow';
@@ -198,8 +199,8 @@
 			// Ask the user whether to keep slot numbering or take filename
 			// numbering. Parking the pairs here; `onReplaceConfirm` below
 			// executes once the user chooses.
-			const sampleTarget = pairs[0].targetSourcePath.split('/').pop() ?? '';
-			const sampleReplacement = pairs[0].replacementPath.split('/').pop() ?? '';
+			const sampleTarget = basenameOf(pairs[0].targetSourcePath);
+			const sampleReplacement = basenameOf(pairs[0].replacementPath);
 			pendingReplace = { pairs, sampleTarget, sampleReplacement };
 			return;
 		}
