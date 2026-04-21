@@ -20,6 +20,7 @@ import {
 	importImages,
 	deleteImage,
 	reorderImages,
+	replaceImages,
 	writeDescription,
 	createAlbum,
 	createPage,
@@ -29,6 +30,7 @@ import {
 	reorderTreeEntries,
 	findPageFile,
 	setAlbumThumbnail,
+	IMAGE_FILTER_EXTENSIONS,
 	type WriteSidecarArgs,
 	type WriteSidecarResult,
 	type RenameImageArgs,
@@ -39,6 +41,8 @@ import {
 	type DeleteImageResult,
 	type ReorderImagesArgs,
 	type ReorderImagesResult,
+	type ReplaceImagesArgs,
+	type ReplaceImagesResult,
 	type WriteDescriptionArgs,
 	type WriteDescriptionResult,
 	type CreateAlbumArgs,
@@ -323,6 +327,23 @@ function registerIpcHandlers(): void {
 		async (_ev, args: SetAlbumThumbnailArgs): Promise<SetAlbumThumbnailResult> =>
 			setAlbumThumbnail(args)
 	);
+
+	ipcMain.handle(
+		'fs:replaceImages',
+		async (_ev, args: ReplaceImagesArgs): Promise<ReplaceImagesResult> => replaceImages(args)
+	);
+
+	ipcMain.handle('fs:pickImages', async (ev, opts: { multi: boolean }): Promise<string[]> => {
+		const focused = BrowserWindow.fromWebContents(ev.sender) ?? mainWindow;
+		if (!focused) return [];
+		const result = await dialog.showOpenDialog(focused, {
+			title: opts.multi ? 'Choose replacement images' : 'Choose replacement image',
+			properties: opts.multi ? ['openFile', 'multiSelections'] : ['openFile'],
+			filters: [{ name: 'Images', extensions: IMAGE_FILTER_EXTENSIONS }]
+		});
+		if (result.canceled) return [];
+		return result.filePaths;
+	});
 
 	ipcMain.handle('config:schema', async (): Promise<FetchSchemaResult> => fetchConfigSchema());
 
