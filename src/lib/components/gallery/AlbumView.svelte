@@ -426,6 +426,15 @@
 			showToast({ kind: 'warning', title: 'No valid file paths found' });
 			return;
 		}
+
+		// If the user has images selected, an OS file drop means "replace these
+		// slots" rather than "append to the album". Route through the same
+		// count-matching + strategy-prompt flow as the Replace button.
+		if (selected.size > 0) {
+			await startReplaceFromOsDrop(sourcePaths);
+			return;
+		}
+
 		try {
 			const result = await api.fs.importImages({
 				home: site.home,
@@ -441,6 +450,44 @@
 		} catch (err) {
 			showToast({ kind: 'error', title: 'Import failed', body: (err as Error).message });
 		}
+	}
+
+	/**
+	 * Handle an OS-file drop when the user has selected thumbs. Filters
+	 * out unsupported extensions, enforces the count-match rule, and then
+	 * either prompts for the slot/filename strategy (if any replacement
+	 * has its own numeric prefix) or runs the replace directly.
+	 */
+	async function startReplaceFromOsDrop(sourcePaths: string[]): Promise<void> {
+		const valid = filterSupportedImages(sourcePaths);
+		if (valid.length !== sourcePaths.length) {
+			const dropped = sourcePaths.length - valid.length;
+			showToast({
+				kind: 'warning',
+				title: 'Some drops were skipped',
+				body: `${dropped} file${dropped === 1 ? '' : 's'} not a supported image type.`
+			});
+		}
+		if (valid.length === 0) return;
+		if (valid.length !== selected.size) {
+			showToast({
+				kind: 'error',
+				title: 'Drop count mismatch',
+				body: `Selected ${selected.size} image${selected.size === 1 ? '' : 's'}, but dropped ${valid.length}. Drop exactly ${selected.size}.`
+			});
+			return;
+		}
+
+		const orderedTargets = album.images.map((i) => i.source_path).filter((p) => selected.has(p));
+		const pairs = pairReplacements(orderedTargets, valid);
+
+		if (anyHasNumericPrefix(valid)) {
+			const sampleTarget = pairs[0].targetSourcePath.split('/').pop() ?? '';
+			const sampleReplacement = pairs[0].replacementPath.split('/').pop() ?? '';
+			pendingReplace = { pairs, sampleTarget, sampleReplacement };
+			return;
+		}
+		await runReplace(pairs, 'slot');
 	}
 
 	// --- Thumbnail reorder drag ------------------------------------------
@@ -667,8 +714,11 @@
 		<div
 			class="border-drop bg-accent-muted text-text-primary pointer-events-none absolute inset-4 flex items-center justify-center rounded-md border-2 border-dashed text-[length:var(--text-label)] font-semibold"
 			data-testid="drop-overlay"
+			data-drop-mode={selected.size > 0 ? 'replace' : 'import'}
 		>
-			Drop images to import
+			{selected.size > 0
+				? `Drop ${selected.size} image${selected.size === 1 ? '' : 's'} to replace selected`
+				: 'Drop images to import'}
 		</div>
 	{/if}
 </div>
