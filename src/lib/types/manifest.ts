@@ -34,9 +34,9 @@ export interface ManifestImage {
 	title?: string;
 	description?: string;
 	/**
-	 * SHA-256 of the image bytes. Matches an entry in
-	 * `Manifest.canonical_images`. Added in simple-gal v0.18; `undefined`
-	 * for manifests emitted before that.
+	 * SHA-256 of the image bytes. Keys into `Manifest.canonical_images`.
+	 * Emitted by simple-gal's data-model refactor (landed across v0.18
+	 * → v0.20); `undefined` on manifests from earlier releases.
 	 */
 	canonical_id?: string;
 }
@@ -86,9 +86,9 @@ export interface ManifestGroup {
  * `ManifestImage` for those copies shares the same `canonical_id` and
  * the extra source paths show up in `aliases`.
  *
- * Added in simple-gal v0.18; both scan and process manifests include
- * it. Process output enriches the same records with IPTC / dimensions
- * once they've been decoded.
+ * Landed across the simple-gal v0.18 → v0.20 data-model refactor; both
+ * scan and process manifests include it. Process output enriches the
+ * same records with IPTC / dimensions once they've been decoded.
  */
 export interface CanonicalImage {
 	id: string;

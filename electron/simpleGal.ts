@@ -190,7 +190,8 @@ export interface ManifestImage {
 	description?: string;
 	/**
 	 * SHA-256 of the image bytes; keys into `Manifest.canonical_images`.
-	 * Added in simple-gal v0.18; absent on older manifests.
+	 * Emitted by simple-gal's data-model refactor (v0.18 → v0.20);
+	 * absent on older manifests.
 	 */
 	canonical_id?: string;
 }
