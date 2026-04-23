@@ -6,6 +6,7 @@
 	import type { ManifestAlbum, ManifestImage } from '$lib/types/manifest';
 	import InlineDescriptionEdit from './InlineDescriptionEdit.svelte';
 	import InlineTitleEdit from './InlineTitleEdit.svelte';
+	import ThumbCornerMark from './ThumbCornerMark.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import ReplaceModeDialog from '$lib/components/dialogs/ReplaceModeDialog.svelte';
 	import IconTrash from '~icons/lucide/trash-2';
@@ -20,6 +21,7 @@
 		filterSupportedImages,
 		pairReplacements
 	} from '$lib/utils/replaceFlow';
+	import { displayImageTitle, isAlbumThumbnail, isThumbFilename } from '$lib/utils/thumbnail';
 
 	interface Props {
 		album: ManifestAlbum;
@@ -51,22 +53,19 @@
 		return idx === -1 ? '' : firstPath.slice(0, idx);
 	});
 
-	// An image is the designated album thumbnail when its filename matches
-	// `NNN-thumb(-…)?.ext` — the marker simple-gal looks for. Keep this in
-	// sync with the regex in electron/fs.ts#setAlbumThumbnail.
-	const THUMB_FILENAME_RE = /^(\d+)-thumb(?:-.*)?\.[^.]+$/i;
-	const isThumbFilename = (filename: string) => THUMB_FILENAME_RE.test(filename);
-
+	// The authoritative "what the site will use as this album's thumbnail"
+	// is simple-gal's `preview_image` — it captures both the explicit
+	// `NNN-thumb-…` marker AND the first-image fallback when nothing is
+	// marked. Use this for every visual affordance (avatar, corner chip).
 	const currentThumbImage = $derived.by(() => {
-		const marked = album.images.find((i) => isThumbFilename(i.filename));
-		if (marked) return marked;
-		if (album.preview_image) {
-			return album.images.find((i) => i.source_path === album.preview_image) ?? null;
-		}
-		return null;
+		if (!album.preview_image) return null;
+		return album.images.find((i) => i.source_path === album.preview_image) ?? null;
 	});
 
-	const selectedIsCurrentThumb = $derived.by(() => {
+	// Hiding the "Use as Thumbnail" button uses the FILENAME marker, not
+	// preview_image — on a first-image-fallback, clicking the button is
+	// meaningful (it writes the marker), so we must keep it visible there.
+	const selectedIsExplicitThumb = $derived.by(() => {
 		if (selected.size !== 1) return false;
 		const [p] = [...selected];
 		const img = album.images.find((i) => i.source_path === p);
@@ -625,7 +624,7 @@
 			</div>
 		</div>
 		<div class="flex shrink-0 items-center gap-2">
-			{#if selected.size === 1 && !selectedIsCurrentThumb}
+			{#if selected.size === 1 && !selectedIsExplicitThumb}
 				<Button
 					variant="outline"
 					size="sm"
@@ -694,12 +693,14 @@
 			{#each album.images as img, i (img.source_path)}
 				{@const isSel = selected.has(img.source_path)}
 				{@const isDrag = draggingSet?.includes(img.source_path) ?? false}
+				{@const isThumb = isAlbumThumbnail(album, img)}
 				<div
 					class={cn(
 						'group bg-surface-1 relative flex flex-col rounded-md border transition-colors',
 						isSel ? 'border-accent ring-accent ring-2' : 'border-border hover:border-border-strong',
 						isDrag ? 'opacity-40' : null
 					)}
+					data-is-thumbnail={isThumb ? 'true' : 'false'}
 					draggable="true"
 					ondragstart={(e) => onThumbDragStart(img, e)}
 					ondragover={(e) => onThumbDragOver(i, e)}
@@ -733,15 +734,18 @@
 						<div class="bg-surface-2 relative aspect-[4/5] w-full overflow-hidden">
 							<img
 								src={fileUrlFor(img)}
-								alt={img.title ?? img.filename}
+								alt={displayImageTitle(img)}
 								class="h-full w-full object-cover"
 								loading="lazy"
 								draggable="false"
 							/>
+							{#if isThumb}
+								<ThumbCornerMark />
+							{/if}
 						</div>
 						<div class="flex items-center justify-between gap-1 px-2 py-1.5">
 							<span class="text-text-secondary truncate text-[length:var(--text-caption)]">
-								{img.title ?? img.filename}
+								{displayImageTitle(img)}
 							</span>
 							<span class="text-text-faint shrink-0 text-[length:var(--text-micro)]">
 								#{img.number}

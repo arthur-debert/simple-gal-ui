@@ -106,13 +106,24 @@ export async function renameImage(args: RenameImageArgs): Promise<RenameImageRes
 	// Extract NNN- prefix if present
 	const prefixMatch = oldBase.match(/^(\d+)(?:-(.*))?$/);
 	const prefix = prefixMatch ? prefixMatch[1] : null;
+	const oldTail = prefixMatch ? (prefixMatch[2] ?? '') : '';
+	// A file of the form `NNN-thumb…` carries the album-thumbnail marker;
+	// a rename must preserve it, otherwise the user silently demotes the
+	// thumbnail just by cleaning up its caption.
+	const hasThumbMarker = /^thumb(?:-|$)/i.test(oldTail);
 
 	const titlePart = args.newTitle
 		.trim()
 		.replace(/\s+/g, '-')
 		.replace(/[^\w.-]/g, '');
 
-	const newBase = prefix ? `${prefix}-${titlePart}` : titlePart || oldBase;
+	let effectiveTitle = titlePart;
+	if (hasThumbMarker) {
+		const cleaned = titlePart.replace(/^thumb-?/i, '');
+		effectiveTitle = cleaned ? `thumb-${cleaned}` : 'thumb';
+	}
+
+	const newBase = prefix ? `${prefix}-${effectiveTitle}` : effectiveTitle || oldBase;
 	const newAbs = path.join(dir, `${newBase}${ext}`);
 
 	if (newAbs === oldAbs) {

@@ -16,7 +16,10 @@ All notable UI-facing changes to simple-gal-ui.
   behind the status footer is gone; the `N/M images` detail stays.
 - **Thumbnail avatar in AlbumView.** A small preview of the current album
   thumbnail now sits next to the album title, with a pencil shortcut that
-  sets the selected image as the new thumbnail.
+  sets the selected image as the new thumbnail. A diagonal accent corner
+  chip (star icon) also marks the thumbnail tile in the grid and the
+  image preview in the detail view — including the first-image fallback
+  when nothing is explicitly marked.
 - **Config editor Back button** in the editor header returns you to the
   previous album/image/page selection. With unsaved edits, a confirm
   modal intercepts with Save / Discard / Cancel and lists the changed
@@ -30,13 +33,21 @@ All notable UI-facing changes to simple-gal-ui.
 - **Build → Update.** The top-bar button and the empty-preview prompt
   now say "Update" / "Update now", matching what the action actually
   does on a re-run.
-- **Use-as-Thumbnail button hides when already the thumbnail.** In the
-  image detail editor the button is replaced by a read-only "Album
-  thumbnail" badge; in the album view the button just doesn't show when
-  the selected image is already the thumb.
+- **Use-as-Thumbnail button hides when already explicitly marked.** In
+  both the album view and the image detail editor, the button only shows
+  when clicking it would actually do something. The thumbnail itself is
+  now flagged by the diagonal corner chip, not a text badge.
 - **Document / window title** tracks the current gallery home.
 
 ### Fixed
+
+- **Image title no longer shows `thumb` after promotion.** Displayed
+  titles strip the `thumb` / `thumb-` tokens so a photo keeps its real
+  name in the UI whether it's the thumbnail or not.
+- **Renaming a thumb-marked image preserves the marker.** Previously,
+  editing the title of `001-thumb-dawn.jpg` to "Dawn Light" silently
+  demoted the thumbnail to `001-Dawn-Light.jpg`. The rename now keeps
+  the marker: `001-thumb-Dawn-Light.jpg`.
 
 - **Broken gallery thumbnails in dev.** `webSecurity` is now disabled in
   `pnpm dev` so `file://` image srcs load against the dev server origin

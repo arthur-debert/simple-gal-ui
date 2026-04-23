@@ -70,7 +70,7 @@ test('album view shows the thumbnail avatar + pencil', async () => {
 	await page.screenshot({ path: path.join(screenshotDir, 'album-thumbnail-avatar.png') });
 });
 
-test('image detail view shows the Album thumbnail badge when the image is already the thumb', async () => {
+test('image detail view shows the corner mark on the album thumbnail', async () => {
 	await page.getByTestId('tree-album').filter({ hasText: 'Landscapes' }).click();
 	// 005-thumb.jpg is the fixture thumbnail.
 	const thumbTile = page
@@ -78,8 +78,10 @@ test('image detail view shows the Album thumbnail badge when the image is alread
 		.first();
 	await thumbTile.dblclick();
 	await expect(page.getByTestId('image-detail-editor')).toBeVisible();
-	await expect(page.getByTestId('image-current-thumb-badge')).toBeVisible();
-	await page.screenshot({ path: path.join(screenshotDir, 'image-detail-thumb-badge.png') });
+	await expect(
+		page.getByTestId('image-detail-editor').getByTestId('thumb-corner-mark')
+	).toBeVisible();
+	await page.screenshot({ path: path.join(screenshotDir, 'image-detail-thumb-corner.png') });
 });
 
 test('config editor exposes a Back button', async () => {

@@ -71,12 +71,15 @@ test('editing description writes sidecar on disk', async () => {
 	expect(content).toBe(newCaption);
 });
 
-test('editing title renames the image file', async () => {
-	// Navigate to Landscapes → thumb (005-thumb.jpg has no sidecar)
+test('editing title renames the image file, preserving the thumb- marker', async () => {
+	// Navigate to Landscapes → 005-thumb.jpg (the album's thumbnail).
+	// Renaming must keep the `thumb-` marker in the basename — otherwise
+	// the user silently demotes the thumbnail just by cleaning up its
+	// caption.
 	await page.getByTestId('tree-album').filter({ hasText: 'Landscapes' }).click();
 	await page
-		.getByTestId('album-thumb')
-		.filter({ has: page.locator('text=thumb') })
+		.locator('[data-testid="album-thumb"][data-image-path$="005-thumb.jpg"]')
+		.first()
 		.dblclick();
 	await expect(page.getByTestId('image-detail-editor')).toBeVisible();
 
@@ -87,7 +90,7 @@ test('editing title renames the image file', async () => {
 	await input.fill('The Hero Shot');
 	await input.press('Enter');
 
-	const renamed = path.join(fixtureCopy, '010-Landscapes/005-The-Hero-Shot.jpg');
+	const renamed = path.join(fixtureCopy, '010-Landscapes/005-thumb-The-Hero-Shot.jpg');
 	const old = path.join(fixtureCopy, '010-Landscapes/005-thumb.jpg');
 	await expect.poll(() => fs.existsSync(renamed), { timeout: 5000 }).toBe(true);
 	expect(fs.existsSync(old)).toBe(false);

@@ -7,10 +7,12 @@
 	import Button from '$lib/components/ui/Button.svelte';
 	import InlineTitleEdit from './InlineTitleEdit.svelte';
 	import InlineDescriptionEdit from './InlineDescriptionEdit.svelte';
+	import ThumbCornerMark from './ThumbCornerMark.svelte';
 	import ReplaceModeDialog from '$lib/components/dialogs/ReplaceModeDialog.svelte';
 	import IconImage from '~icons/lucide/image';
 	import IconRefresh from '~icons/lucide/refresh-cw';
 	import { anyHasNumericPrefix, basenameOf, filterSupportedImages } from '$lib/utils/replaceFlow';
+	import { displayImageTitle, isThumbFilename } from '$lib/utils/thumbnail';
 
 	interface Props {
 		albumPath: string;
@@ -25,11 +27,16 @@
 		return `file://${abs.replace(/#/g, '%23').replace(/\?/g, '%3F')}`;
 	});
 
-	// Mirror of the thumbnail regex in electron/fs.ts#setAlbumThumbnail —
-	// an image is already the album thumbnail when its filename carries the
-	// `NNN-thumb-…` marker.
-	const THUMB_FILENAME_RE = /^(\d+)-thumb(?:-.*)?\.[^.]+$/i;
-	const isAlreadyThumb = $derived(THUMB_FILENAME_RE.test(image.filename));
+	// Two different "is this the thumbnail?" checks, intentionally split:
+	//  - `hasExplicitMarker` gates whether Use-as-Thumbnail would no-op,
+	//    so we hide the button in that case (and only that case).
+	//  - `isAlbumThumbnail` reads `preview_image`, which captures both
+	//    the explicit marker AND the first-image fallback. We use it for
+	//    the visual corner mark on the image preview itself.
+	const hasExplicitMarker = $derived(isThumbFilename(image.filename));
+	const albumOfImage = $derived.by(() => site.manifest?.albums.find((a) => a.path === albumPath));
+	const isAlbumThumbnail = $derived.by(() => albumOfImage?.preview_image === image.source_path);
+	const shownTitle = $derived(displayImageTitle(image));
 
 	function backToAlbum(): void {
 		site.selection = { kind: 'album', albumPath };
@@ -201,7 +208,7 @@
 	>
 		<div class="min-w-0 flex-1">
 			<div class="text-text-primary text-[length:var(--text-label)] font-semibold">
-				<InlineTitleEdit value={image.title ?? image.filename} onCommit={onCommitRename} />
+				<InlineTitleEdit value={shownTitle} onCommit={onCommitRename} />
 			</div>
 			<div class="text-text-muted mt-0.5 truncate text-[length:var(--text-caption)]">
 				{image.source_path}
@@ -219,16 +226,7 @@
 			>
 				<IconRefresh class="h-4 w-4" />
 			</Button>
-			{#if isAlreadyThumb}
-				<span
-					class="border-border bg-surface-2 text-text-secondary flex h-7 shrink-0 items-center gap-1.5 rounded-md border px-2 text-[length:var(--text-caption)]"
-					data-testid="image-current-thumb-badge"
-					title="This image is the album thumbnail"
-				>
-					<IconImage class="h-3.5 w-3.5" />
-					Album thumbnail
-				</span>
-			{:else}
+			{#if !hasExplicitMarker}
 				<Button
 					variant="outline"
 					size="sm"
@@ -252,11 +250,16 @@
 
 	<div class="bg-surface-0 min-h-0 flex-1 overflow-y-auto">
 		<div class="flex min-h-[60%] items-center justify-center p-6">
-			<img
-				src={fileUrl}
-				alt={image.title ?? image.filename}
-				class="border-border max-h-[40vh] max-w-full rounded-md border object-contain"
-			/>
+			<div class="relative inline-block">
+				<img
+					src={fileUrl}
+					alt={shownTitle}
+					class="border-border max-h-[40vh] max-w-full rounded-md border object-contain"
+				/>
+				{#if isAlbumThumbnail}
+					<ThumbCornerMark size="h-10 w-10" iconSize="h-4 w-4" />
+				{/if}
+			</div>
 		</div>
 	</div>
 </div>
