@@ -111,7 +111,12 @@ function createMainWindow(): BrowserWindow {
 			preload: path.join(__dirname, 'preload.cjs'),
 			contextIsolation: true,
 			nodeIntegration: false,
-			sandbox: false
+			sandbox: false,
+			// In dev the renderer is served from http://localhost:5173, so
+			// file:// image srcs (gallery thumbnails, detail view) are blocked
+			// as cross-origin. The packaged build loads from file://index.html
+			// and doesn't hit this.
+			webSecurity: !IS_DEV
 		}
 	});
 
