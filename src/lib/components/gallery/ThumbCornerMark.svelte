@@ -1,5 +1,5 @@
 <script lang="ts">
-	import IconStar from '~icons/lucide/star';
+	import IconImage from '~icons/lucide/image';
 
 	interface Props {
 		/** Tailwind size classes for the triangle (default: w-8 h-8). */
@@ -23,5 +23,5 @@
 	title="Album thumbnail"
 >
 	<div class="bg-accent absolute inset-0" style="clip-path: polygon(100% 0, 100% 100%, 0 0)"></div>
-	<IconStar class="text-surface-0 absolute top-1 right-1 {iconSize}" />
+	<IconImage class="text-surface-0 absolute top-1 right-1 {iconSize}" />
 </div>
