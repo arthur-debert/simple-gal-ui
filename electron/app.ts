@@ -10,7 +10,10 @@ import {
 	recordGalleryHome,
 	getPaneState,
 	setPaneState,
-	type PaneState
+	getLastSelection,
+	setLastSelection,
+	type PaneState,
+	type PersistedSelection
 } from './store.js';
 import { build, cancelBuild, type BuildRunResult, type BuildProgress } from './build.js';
 import { ensureServer, stopServer } from './previewServer.js';
@@ -111,7 +114,12 @@ function createMainWindow(): BrowserWindow {
 			preload: path.join(__dirname, 'preload.cjs'),
 			contextIsolation: true,
 			nodeIntegration: false,
-			sandbox: false
+			sandbox: false,
+			// In dev the renderer is served from http://localhost:5173, so
+			// file:// image srcs (gallery thumbnails, detail view) are blocked
+			// as cross-origin. The packaged build loads from file://index.html
+			// and doesn't hit this.
+			webSecurity: !IS_DEV
 		}
 	});
 
@@ -121,6 +129,23 @@ function createMainWindow(): BrowserWindow {
 		const query = initialHome ? `?home=${encodeURIComponent(initialHome)}` : '';
 		win.loadURL(RENDERER_DEV_URL + query);
 		win.webContents.openDevTools({ mode: 'detach' });
+		// Chromium's DevTools front-end sends Autofill.enable / Autofill.setAddresses
+		// protocol messages that Electron doesn't implement, producing a pair of
+		// noisy ERROR:CONSOLE lines on every DevTools open. Silence those specific
+		// messages in the DevTools page's own console; everything else flows through.
+		win.webContents.on('devtools-opened', () => {
+			win.webContents.devToolsWebContents?.executeJavaScript(
+				`(() => {
+					const origError = console.error;
+					console.error = (...args) => {
+						const first = args[0];
+						const s = typeof first === 'string' ? first : '';
+						if (s.includes("Autofill.enable") || s.includes("Autofill.setAddresses")) return;
+						return origError.apply(console, args);
+					};
+				})();`
+			);
+		});
 	} else {
 		win.loadFile(path.join(__dirname, '../dist/index.html'), {
 			query: initialHome ? { home: initialHome } : undefined
@@ -206,6 +231,11 @@ function registerIpcHandlers(): void {
 	ipcMain.handle('app:setPaneState', (_ev, id: string, state: PaneState) => {
 		setPaneState(id, state);
 	});
+
+	ipcMain.handle('app:getLastSelection', (_ev, home: string) => getLastSelection(home));
+	ipcMain.handle('app:setLastSelection', (_ev, sel: PersistedSelection | null) =>
+		setLastSelection(sel)
+	);
 
 	ipcMain.handle('gallery:scan', async (_ev, home: string): Promise<SimpleGalResult<ScanData>> => {
 		return scan(home);

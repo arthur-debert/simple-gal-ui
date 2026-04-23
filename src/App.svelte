@@ -9,13 +9,15 @@
 	import PreviewPane from '$lib/components/preview/PreviewPane.svelte';
 	import StatusBar from '$lib/components/status/StatusBar.svelte';
 	import ConfigErrorModal from '$lib/components/dialogs/ConfigErrorModal.svelte';
-	import ReindexModal from '$lib/components/dialogs/ReindexModal.svelte';
+	import ConfigUnsavedModal from '$lib/components/dialogs/ConfigUnsavedModal.svelte';
 	import ConfigEditor from '$lib/components/config/ConfigEditor.svelte';
+	import IconPencil from '~icons/lucide/pencil';
 	import {
 		site,
 		openGalleryHomeDialog,
 		restoreLastGalleryHome,
-		loadGalleryHome
+		loadGalleryHome,
+		persistCurrentSelection
 	} from '$lib/stores/siteStore.svelte';
 	import { initPreviewStore, preview, runBuild } from '$lib/stores/previewStore.svelte';
 	import { initWatchStore } from '$lib/stores/watchStore.svelte';
@@ -32,8 +34,6 @@
 	const isMac = $derived(appInfo.platform === 'darwin');
 	const headerDragStyle = 'app-region: drag; -webkit-app-region: drag';
 	const noDragStyle = 'app-region: no-drag; -webkit-app-region: no-drag';
-
-	let reindexOpen = $state(false);
 
 	const selectedAlbum = $derived.by(() => {
 		const sel = site.selection;
@@ -58,6 +58,22 @@
 		const manifest = site.manifest;
 		if (!manifest || sel.kind !== 'page') return null;
 		return manifest.pages.find((p) => p.slug === sel.pageSlug) ?? null;
+	});
+
+	const isBuilding = $derived(preview.status === 'building');
+	const buildPct = $derived(
+		isBuilding && preview.progress ? Math.round(preview.progress.percent) : 0
+	);
+
+	const MAX_TITLE_PATH_LEN = 48;
+	const headerPath = $derived.by(() => {
+		if (!site.home) return null;
+		if (site.home.length <= MAX_TITLE_PATH_LEN) return site.home;
+		return '…' + site.home.slice(-(MAX_TITLE_PATH_LEN - 1));
+	});
+
+	$effect(() => {
+		document.title = site.home ? `SimpleGal: ${site.home}` : 'SimpleGal';
 	});
 
 	$effect(() => {
@@ -85,6 +101,14 @@
 			unsubWatch();
 		};
 	});
+
+	$effect(() => {
+		// Touch these so the effect re-runs on any relevant change.
+		void site.selection;
+		void site.home;
+		void site.manifest;
+		persistCurrentSelection();
+	});
 </script>
 
 <div class="flex h-full w-full flex-col">
@@ -96,35 +120,62 @@
 		style={headerDragStyle}
 		data-testid="app-header"
 	>
-		<div class="text-text-primary text-[length:var(--text-label)] font-semibold">simple-gal-ui</div>
+		<div class="flex min-w-0 items-center gap-1.5" data-testid="app-title">
+			<span class="text-text-primary shrink-0 text-[length:var(--text-label)] font-semibold">
+				SimpleGal{headerPath ? ':' : ''}
+			</span>
+			{#if headerPath}
+				<span
+					class="text-text-secondary truncate font-mono text-[length:var(--text-caption)]"
+					title={site.home}
+					data-testid="app-title-path"
+				>
+					{headerPath}
+				</span>
+				<button
+					type="button"
+					class="border-border text-text-muted hover:bg-surface-2 hover:text-text-primary flex h-5 w-5 shrink-0 items-center justify-center rounded border"
+					onclick={openGalleryHomeDialog}
+					style={noDragStyle}
+					aria-label="Change gallery home"
+					title="Change gallery home"
+					data-testid="change-gallery-home-btn"
+				>
+					<IconPencil class="h-3 w-3" />
+				</button>
+			{:else}
+				<button
+					type="button"
+					class="text-text-secondary hover:text-text-primary text-[length:var(--text-caption)] underline"
+					onclick={openGalleryHomeDialog}
+					style={noDragStyle}
+					data-testid="change-gallery-home-btn"
+				>
+					Open gallery home…
+				</button>
+			{/if}
+		</div>
 		<div class="flex-1"></div>
 		<div style={noDragStyle}>
-			<Button variant="outline" size="sm" onclick={openGalleryHomeDialog}>
-				Open gallery home…
-			</Button>
-		</div>
-		<div style={noDragStyle}>
-			<Button
-				variant="outline"
-				size="sm"
-				disabled={!site.home}
-				onclick={() => (reindexOpen = true)}
-				data-testid="reindex-btn"
-				title="Normalize NNN- prefixes across albums, pages, and images"
-			>
-				Re-index…
-			</Button>
-		</div>
-		<div style={noDragStyle}>
-			<Button
-				variant="default"
-				size="sm"
-				disabled={!site.home || preview.status === 'building'}
+			<button
+				type="button"
+				class="border-accent bg-surface-1 text-text-primary hover:bg-surface-2 focus-visible:ring-accent relative inline-flex h-7 items-center justify-center overflow-hidden rounded-md border px-3 text-[length:var(--text-caption)] font-medium transition-colors select-none focus-visible:ring-1 focus-visible:outline-none disabled:opacity-60"
+				disabled={!site.home || isBuilding}
 				onclick={runBuild}
 				data-testid="preview-build-btn"
+				data-progress-pct={buildPct}
 			>
-				{preview.status === 'building' ? 'Building…' : 'Build'}
-			</Button>
+				{#if isBuilding}
+					<span
+						class="bg-accent absolute inset-y-0 left-0 transition-[width] duration-200 ease-linear"
+						style="width: {buildPct}%"
+						aria-hidden="true"
+					></span>
+				{/if}
+				<span class="text-text-primary relative whitespace-nowrap">
+					{isBuilding ? `Updating… ${buildPct}%` : 'Update'}
+				</span>
+			</button>
 		</div>
 	</header>
 
@@ -167,7 +218,7 @@
 			{:else if !site.manifest}
 				<div class="flex h-full flex-col items-center justify-center gap-3 p-6">
 					<div class="text-text-secondary text-[length:var(--text-label)]">
-						Welcome to simple-gal-ui
+						Welcome to SimpleGal
 					</div>
 					<div class="text-text-faint max-w-md text-center text-[length:var(--text-caption)]">
 						Open a gallery home to see its structure. Everything on disk remains the source of
@@ -203,6 +254,6 @@
 
 	<StatusBar />
 	<ConfigErrorModal />
-	<ReindexModal open={reindexOpen} onClose={() => (reindexOpen = false)} />
+	<ConfigUnsavedModal />
 	<Toast />
 </div>

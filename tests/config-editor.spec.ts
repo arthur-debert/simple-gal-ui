@@ -244,6 +244,45 @@ test('sparse cascade regression: album edit + later parent edit both propagate',
 	expect(japanAfter).not.toContain('site_title');
 });
 
+test('Back button returns to previous selection when there are no unsaved changes', async () => {
+	// Select Landscapes as the prior selection, then open its config.
+	const landscapes = page.getByTestId('tree-album').filter({ hasText: 'Landscapes' });
+	await landscapes.click();
+	await expect(page.getByTestId('album-view')).toBeVisible();
+
+	await landscapes.click({ button: 'right' });
+	await page.getByTestId('menu-configure').click();
+	await expect(page.getByTestId('config-editor')).toBeVisible();
+
+	// Back with no edits → goes straight back, no modal.
+	await page.getByTestId('config-editor-back').click();
+	await expect(page.getByTestId('album-view')).toBeVisible();
+	await expect(page.getByTestId('config-unsaved-modal')).toHaveCount(0);
+});
+
+test('Back button with unsaved changes opens the confirm modal and lists changed keys', async () => {
+	const landscapes = page.getByTestId('tree-album').filter({ hasText: 'Landscapes' });
+	await landscapes.click({ button: 'right' });
+	await page.getByTestId('menu-configure').click();
+	await expect(page.getByTestId('config-editor')).toBeVisible();
+
+	// Make one edit.
+	const input = page
+		.locator('[data-testid="config-field-input"][data-config-key="images.quality"]')
+		.first();
+	await input.fill('77');
+	await expect(page.getByTestId('config-editor-save')).toBeEnabled();
+
+	// Click Back → modal appears with the changed key listed.
+	await page.getByTestId('config-editor-back').click();
+	await expect(page.getByTestId('config-unsaved-modal')).toBeVisible();
+	await expect(page.getByTestId('config-unsaved-keys')).toContainText('images.quality');
+
+	// Discard → goes back to previous album without saving.
+	await page.getByTestId('config-unsaved-discard').click();
+	await expect(page.getByTestId('config-unsaved-modal')).toHaveCount(0);
+});
+
 test('resetting a field removes it from the target file, restoring inheritance', async () => {
 	// Landscapes has its own [images] quality AND thumbnails.aspect_ratio.
 	// Reset images.quality: the save should strip it from the file while

@@ -42,8 +42,8 @@
 		<div
 			class="text-text-faint absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center text-[length:var(--text-caption)]"
 		>
-			<div>Click Build in the top bar to render this gallery</div>
-			<Button variant="default" size="sm" onclick={runBuild}>Build now</Button>
+			<div>Click Update in the top bar to render this gallery</div>
+			<Button variant="default" size="sm" onclick={runBuild}>Update now</Button>
 		</div>
 	{/if}
 </div>

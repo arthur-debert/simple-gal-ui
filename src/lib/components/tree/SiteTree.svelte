@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { site, rescanCurrentHome } from '$lib/stores/siteStore.svelte';
+	import { requestLeaveConfig } from '$lib/stores/configEditorStore.svelte';
 	import { api } from '$lib/api';
 	import { showToast } from '$lib/stores/toastStore.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
@@ -85,7 +86,7 @@
 	}
 
 	function select(target: Selection): void {
-		site.selection = target;
+		requestLeaveConfig(target);
 	}
 
 	function toggleGroup(path: string): void {
@@ -145,7 +146,7 @@
 		if (row.kind === 'group') {
 			toggleGroup(row.path);
 		} else {
-			site.selection = { kind: 'album', albumPath: row.path };
+			requestLeaveConfig({ kind: 'album', albumPath: row.path });
 		}
 	}
 

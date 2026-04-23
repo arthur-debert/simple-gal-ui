@@ -6,12 +6,14 @@
 	import type { ManifestAlbum, ManifestImage } from '$lib/types/manifest';
 	import InlineDescriptionEdit from './InlineDescriptionEdit.svelte';
 	import InlineTitleEdit from './InlineTitleEdit.svelte';
+	import ThumbCornerMark from './ThumbCornerMark.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import ReplaceModeDialog from '$lib/components/dialogs/ReplaceModeDialog.svelte';
 	import IconTrash from '~icons/lucide/trash-2';
 	import IconImage from '~icons/lucide/image';
 	import IconSettings from '~icons/lucide/settings';
 	import IconRefresh from '~icons/lucide/refresh-cw';
+	import IconPencil from '~icons/lucide/pencil';
 	import { cn } from '$lib/utils';
 	import {
 		anyHasNumericPrefix,
@@ -19,6 +21,7 @@
 		filterSupportedImages,
 		pairReplacements
 	} from '$lib/utils/replaceFlow';
+	import { displayImageTitle, isAlbumThumbnail, isThumbFilename } from '$lib/utils/thumbnail';
 
 	interface Props {
 		album: ManifestAlbum;
@@ -48,6 +51,25 @@
 		const firstPath = album.images[0].source_path;
 		const idx = firstPath.lastIndexOf('/');
 		return idx === -1 ? '' : firstPath.slice(0, idx);
+	});
+
+	// The authoritative "what the site will use as this album's thumbnail"
+	// is simple-gal's `preview_image` — it captures both the explicit
+	// `NNN-thumb-…` marker AND the first-image fallback when nothing is
+	// marked. Use this for every visual affordance (avatar, corner chip).
+	const currentThumbImage = $derived.by(() => {
+		if (!album.preview_image) return null;
+		return album.images.find((i) => i.source_path === album.preview_image) ?? null;
+	});
+
+	// Hiding the "Use as Thumbnail" button uses the FILENAME marker, not
+	// preview_image — on a first-image-fallback, clicking the button is
+	// meaningful (it writes the marker), so we must keep it visible there.
+	const selectedIsExplicitThumb = $derived.by(() => {
+		if (selected.size !== 1) return false;
+		const [p] = [...selected];
+		const img = album.images.find((i) => i.source_path === p);
+		return img ? isThumbFilename(img.filename) : false;
 	});
 
 	// Prune stale selection members when the album changes out from under us
@@ -276,6 +298,26 @@
 		} catch (err) {
 			showToast({ kind: 'error', title: 'Delete failed', body: (err as Error).message });
 		}
+	}
+
+	async function onPencilPickThumbnail(): Promise<void> {
+		if (selected.size === 0) {
+			showToast({
+				kind: 'info',
+				title: 'Pick an image first',
+				body: 'Click an image in the grid, then click the pencil.'
+			});
+			return;
+		}
+		if (selected.size > 1) {
+			showToast({
+				kind: 'info',
+				title: 'Select just one image',
+				body: 'Only one image can be the album thumbnail.'
+			});
+			return;
+		}
+		await onUseAsThumbnail();
 	}
 
 	async function onUseAsThumbnail(): Promise<void> {
@@ -546,21 +588,43 @@
 	<header
 		class="border-border bg-surface-1 flex shrink-0 items-start justify-between gap-3 border-b px-4 py-3"
 	>
-		<div class="min-w-0 flex-1">
-			<div class="text-text-primary text-[length:var(--text-label)] font-semibold">
-				<InlineTitleEdit value={album.title} onCommit={onCommitRename} />
-			</div>
-			<div class="text-text-muted mt-1 text-[length:var(--text-caption)]">
-				{album.images.length} image{album.images.length === 1 ? '' : 's'}
-				{#if selected.size > 0}
-					<span class="text-accent">· {selected.size} selected</span>
-				{:else}
-					<span class="text-text-faint">· drag images here to import</span>
-				{/if}
+		<div class="flex min-w-0 flex-1 items-start gap-3">
+			{#if currentThumbImage}
+				<div class="relative shrink-0" data-testid="album-thumb-avatar">
+					<img
+						src={fileUrlFor(currentThumbImage)}
+						alt="Album thumbnail"
+						class="border-border h-12 w-12 rounded-md border object-cover"
+						draggable="false"
+					/>
+					<button
+						type="button"
+						class="border-border bg-surface-1 text-text-secondary hover:bg-surface-2 hover:text-text-primary absolute -right-1.5 -bottom-1.5 flex h-5 w-5 items-center justify-center rounded-full border shadow-sm"
+						onclick={onPencilPickThumbnail}
+						aria-label="Pick the album thumbnail"
+						title="Pick the image to use as album thumbnail"
+						data-testid="album-thumb-pencil"
+					>
+						<IconPencil class="h-3 w-3" />
+					</button>
+				</div>
+			{/if}
+			<div class="min-w-0 flex-1">
+				<div class="text-text-primary text-[length:var(--text-label)] font-semibold">
+					<InlineTitleEdit value={album.title} onCommit={onCommitRename} />
+				</div>
+				<div class="text-text-muted mt-1 text-[length:var(--text-caption)]">
+					{album.images.length} image{album.images.length === 1 ? '' : 's'}
+					{#if selected.size > 0}
+						<span class="text-accent">· {selected.size} selected</span>
+					{:else}
+						<span class="text-text-faint">· drag images here to import</span>
+					{/if}
+				</div>
 			</div>
 		</div>
 		<div class="flex shrink-0 items-center gap-2">
-			{#if selected.size === 1}
+			{#if selected.size === 1 && !selectedIsExplicitThumb}
 				<Button
 					variant="outline"
 					size="sm"
@@ -629,12 +693,14 @@
 			{#each album.images as img, i (img.source_path)}
 				{@const isSel = selected.has(img.source_path)}
 				{@const isDrag = draggingSet?.includes(img.source_path) ?? false}
+				{@const isThumb = isAlbumThumbnail(album, img)}
 				<div
 					class={cn(
 						'group bg-surface-1 relative flex flex-col rounded-md border transition-colors',
 						isSel ? 'border-accent ring-accent ring-2' : 'border-border hover:border-border-strong',
 						isDrag ? 'opacity-40' : null
 					)}
+					data-is-thumbnail={isThumb ? 'true' : 'false'}
 					draggable="true"
 					ondragstart={(e) => onThumbDragStart(img, e)}
 					ondragover={(e) => onThumbDragOver(i, e)}
@@ -668,15 +734,18 @@
 						<div class="bg-surface-2 relative aspect-[4/5] w-full overflow-hidden">
 							<img
 								src={fileUrlFor(img)}
-								alt={img.title ?? img.filename}
+								alt={displayImageTitle(img)}
 								class="h-full w-full object-cover"
 								loading="lazy"
 								draggable="false"
 							/>
+							{#if isThumb}
+								<ThumbCornerMark />
+							{/if}
 						</div>
 						<div class="flex items-center justify-between gap-1 px-2 py-1.5">
 							<span class="text-text-secondary truncate text-[length:var(--text-caption)]">
-								{img.title ?? img.filename}
+								{displayImageTitle(img)}
 							</span>
 							<span class="text-text-faint shrink-0 text-[length:var(--text-micro)]">
 								#{img.number}
