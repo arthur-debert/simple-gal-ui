@@ -11,6 +11,7 @@
 	import ConfigErrorModal from '$lib/components/dialogs/ConfigErrorModal.svelte';
 	import ConfigUnsavedModal from '$lib/components/dialogs/ConfigUnsavedModal.svelte';
 	import ConfigEditor from '$lib/components/config/ConfigEditor.svelte';
+	import IconPencil from '~icons/lucide/pencil';
 	import {
 		site,
 		openGalleryHomeDialog,
@@ -64,6 +65,17 @@
 		isBuilding && preview.progress ? Math.round(preview.progress.percent) : 0
 	);
 
+	const MAX_TITLE_PATH_LEN = 48;
+	const headerPath = $derived.by(() => {
+		if (!site.home) return null;
+		if (site.home.length <= MAX_TITLE_PATH_LEN) return site.home;
+		return '…' + site.home.slice(-(MAX_TITLE_PATH_LEN - 1));
+	});
+
+	$effect(() => {
+		document.title = site.home ? `SimpleGal: ${site.home}` : 'SimpleGal';
+	});
+
 	$effect(() => {
 		setPlatform(api.platform);
 		api.app.version().then((v) => setAppVersion(v));
@@ -108,13 +120,42 @@
 		style={headerDragStyle}
 		data-testid="app-header"
 	>
-		<div class="text-text-primary text-[length:var(--text-label)] font-semibold">simple-gal-ui</div>
-		<div class="flex-1"></div>
-		<div style={noDragStyle}>
-			<Button variant="outline" size="sm" onclick={openGalleryHomeDialog}>
-				Open gallery home…
-			</Button>
+		<div class="flex min-w-0 items-center gap-1.5" data-testid="app-title">
+			<span class="text-text-primary shrink-0 text-[length:var(--text-label)] font-semibold">
+				SimpleGal{headerPath ? ':' : ''}
+			</span>
+			{#if headerPath}
+				<span
+					class="text-text-secondary truncate font-mono text-[length:var(--text-caption)]"
+					title={site.home}
+					data-testid="app-title-path"
+				>
+					{headerPath}
+				</span>
+				<button
+					type="button"
+					class="border-border text-text-muted hover:bg-surface-2 hover:text-text-primary flex h-5 w-5 shrink-0 items-center justify-center rounded border"
+					onclick={openGalleryHomeDialog}
+					style={noDragStyle}
+					aria-label="Change gallery home"
+					title="Change gallery home"
+					data-testid="change-gallery-home-btn"
+				>
+					<IconPencil class="h-3 w-3" />
+				</button>
+			{:else}
+				<button
+					type="button"
+					class="text-text-secondary hover:text-text-primary text-[length:var(--text-caption)] underline"
+					onclick={openGalleryHomeDialog}
+					style={noDragStyle}
+					data-testid="change-gallery-home-btn"
+				>
+					Open gallery home…
+				</button>
+			{/if}
 		</div>
+		<div class="flex-1"></div>
 		<div style={noDragStyle}>
 			<button
 				type="button"
@@ -132,7 +173,7 @@
 					></span>
 				{/if}
 				<span class="text-text-primary relative whitespace-nowrap">
-					{isBuilding ? `Building… ${buildPct}%` : 'Build'}
+					{isBuilding ? `Updating… ${buildPct}%` : 'Update'}
 				</span>
 			</button>
 		</div>
@@ -177,7 +218,7 @@
 			{:else if !site.manifest}
 				<div class="flex h-full flex-col items-center justify-center gap-3 p-6">
 					<div class="text-text-secondary text-[length:var(--text-label)]">
-						Welcome to simple-gal-ui
+						Welcome to SimpleGal
 					</div>
 					<div class="text-text-faint max-w-md text-center text-[length:var(--text-caption)]">
 						Open a gallery home to see its structure. Everything on disk remains the source of

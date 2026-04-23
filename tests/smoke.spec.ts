@@ -53,7 +53,7 @@ test('status bar shows app version and simple-gal version on the right', async (
 });
 
 test('welcome message is present', async () => {
-	await expect(page.getByText('Welcome to simple-gal-ui')).toBeVisible();
+	await expect(page.getByText('Welcome to SimpleGal')).toBeVisible();
 });
 
 test('captures screenshot of initial state', async () => {
