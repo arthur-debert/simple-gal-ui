@@ -1,6 +1,7 @@
 import { api } from '$lib/api';
 import type { ConfigCascade } from '$lib/types/configEditor';
 import type { ConfigSchemaNode, ConfigSchemaRoot } from '$lib/types/configSchema';
+import type { Selection } from '$lib/types/manifest';
 import { showToast } from './toastStore.svelte';
 import { site } from './siteStore.svelte';
 
@@ -36,6 +37,9 @@ export interface ConfigEditorState {
 	 *  they were in `loadedKeys`. Reapplying a touch clears this flag. */
 	resetKeys: Set<string>;
 	pendingValues: Map<string, unknown>;
+	/** Set when the user tries to navigate away with unsaved edits. The modal
+	 *  reads this to know where to go after Save/Discard. */
+	leaveTarget: Selection | null;
 }
 
 const state = $state<ConfigEditorState>({
@@ -45,7 +49,8 @@ const state = $state<ConfigEditorState>({
 	error: null,
 	dirtyKeys: new Set(),
 	resetKeys: new Set(),
-	pendingValues: new Map()
+	pendingValues: new Map(),
+	leaveTarget: null
 });
 
 export const configEditor = {
@@ -72,6 +77,17 @@ export const configEditor = {
 	},
 	get hasUnsaved() {
 		return state.dirtyKeys.size > 0 || state.resetKeys.size > 0;
+	},
+	get leaveTarget() {
+		return state.leaveTarget;
+	},
+	/** Keys the user has changed this session (touched or reset). Used by the
+	 *  unsaved-changes modal to show the user exactly what's at stake. */
+	get changedKeys(): string[] {
+		const all = new Set<string>();
+		for (const k of state.dirtyKeys) all.add(k);
+		for (const k of state.resetKeys) all.add(k);
+		return [...all].sort();
 	}
 };
 
@@ -105,6 +121,44 @@ export function closeConfigEditor(): void {
 	state.dirtyKeys = new Set();
 	state.resetKeys = new Set();
 	state.pendingValues = new Map();
+}
+
+/**
+ * Request to leave the config editor for `next`. If there are unsaved
+ * edits, open the confirm modal (the caller's navigation is parked in
+ * `leaveTarget` until the user chooses). Otherwise navigate immediately.
+ *
+ * Callers that might fire while NOT editing config should still go
+ * through here — the guard is a no-op when no config is active.
+ */
+export function requestLeaveConfig(next: Selection): void {
+	const current = site.selection;
+	if (current.kind !== 'config' || !configEditor.hasUnsaved) {
+		site.selection = next;
+		return;
+	}
+	state.leaveTarget = next;
+}
+
+export function cancelLeaveConfig(): void {
+	state.leaveTarget = null;
+}
+
+export function discardLeaveConfig(): void {
+	const next = state.leaveTarget;
+	state.leaveTarget = null;
+	state.dirtyKeys = new Set();
+	state.resetKeys = new Set();
+	state.pendingValues = new Map();
+	if (next) site.selection = next;
+}
+
+export async function saveAndLeaveConfig(): Promise<void> {
+	const next = state.leaveTarget;
+	const ok = await saveConfig();
+	if (!ok) return; // keep the modal open on failure
+	state.leaveTarget = null;
+	if (next) site.selection = next;
 }
 
 /**

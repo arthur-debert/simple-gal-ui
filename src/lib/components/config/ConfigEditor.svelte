@@ -6,9 +6,11 @@
 		resolveEffective,
 		touchField,
 		resetField,
-		saveConfig
+		saveConfig,
+		requestLeaveConfig
 	} from '$lib/stores/configEditorStore.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
+	import IconArrowLeft from '~icons/lucide/arrow-left';
 	import ConfigSection from './ConfigSection.svelte';
 	import ConfigField from './ConfigField.svelte';
 	import type {
@@ -77,6 +79,10 @@
 			? node.description
 			: undefined;
 	}
+
+	function onBack(): void {
+		requestLeaveConfig(site.previousNonConfigSelection);
+	}
 </script>
 
 {#snippet renderNode(dottedKey: string, node: ConfigSchemaNode, depth: number)}
@@ -140,6 +146,18 @@
 	<header
 		class="border-border bg-surface-header flex shrink-0 items-center gap-3 border-b px-4 py-2"
 	>
+		<Button
+			variant="ghost"
+			size="sm"
+			onclick={onBack}
+			data-testid="config-editor-back"
+			aria-label="Back"
+			title="Back"
+			class="shrink-0"
+		>
+			<IconArrowLeft class="h-4 w-4" />
+			Back
+		</Button>
 		<div class="min-w-0 flex-1">
 			<div class="text-text-faint text-[length:var(--text-micro)] tracking-wider uppercase">
 				Config · {levelKind}

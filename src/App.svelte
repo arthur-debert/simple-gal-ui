@@ -9,6 +9,7 @@
 	import PreviewPane from '$lib/components/preview/PreviewPane.svelte';
 	import StatusBar from '$lib/components/status/StatusBar.svelte';
 	import ConfigErrorModal from '$lib/components/dialogs/ConfigErrorModal.svelte';
+	import ConfigUnsavedModal from '$lib/components/dialogs/ConfigUnsavedModal.svelte';
 	import ConfigEditor from '$lib/components/config/ConfigEditor.svelte';
 	import {
 		site,
@@ -212,5 +213,6 @@
 
 	<StatusBar />
 	<ConfigErrorModal />
+	<ConfigUnsavedModal />
 	<Toast />
 </div>

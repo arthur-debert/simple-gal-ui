@@ -17,6 +17,11 @@ interface SiteState {
 	loading: boolean;
 	lastError: string | null;
 	selection: Selection;
+	/**
+	 * The most recent non-config selection. The config editor's Back button
+	 * uses this to return where the user came from.
+	 */
+	previousNonConfigSelection: Selection;
 }
 
 const state = $state<SiteState>({
@@ -24,7 +29,8 @@ const state = $state<SiteState>({
 	manifest: null,
 	loading: false,
 	lastError: null,
-	selection: { kind: 'none' }
+	selection: { kind: 'none' },
+	previousNonConfigSelection: { kind: 'none' }
 });
 
 export const site = {
@@ -44,7 +50,15 @@ export const site = {
 		return state.selection;
 	},
 	set selection(value: Selection) {
+		// Snapshot the outgoing non-config selection so the config editor's
+		// Back button can restore it.
+		if (value.kind === 'config' && state.selection.kind !== 'config') {
+			state.previousNonConfigSelection = state.selection;
+		}
 		state.selection = value;
+	},
+	get previousNonConfigSelection() {
+		return state.previousNonConfigSelection;
 	}
 };
 
