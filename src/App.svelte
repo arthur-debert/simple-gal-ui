@@ -9,7 +9,6 @@
 	import PreviewPane from '$lib/components/preview/PreviewPane.svelte';
 	import StatusBar from '$lib/components/status/StatusBar.svelte';
 	import ConfigErrorModal from '$lib/components/dialogs/ConfigErrorModal.svelte';
-	import ReindexModal from '$lib/components/dialogs/ReindexModal.svelte';
 	import ConfigEditor from '$lib/components/config/ConfigEditor.svelte';
 	import {
 		site,
@@ -33,8 +32,6 @@
 	const isMac = $derived(appInfo.platform === 'darwin');
 	const headerDragStyle = 'app-region: drag; -webkit-app-region: drag';
 	const noDragStyle = 'app-region: no-drag; -webkit-app-region: no-drag';
-
-	let reindexOpen = $state(false);
 
 	const selectedAlbum = $derived.by(() => {
 		const sel = site.selection;
@@ -115,18 +112,6 @@
 		<div style={noDragStyle}>
 			<Button variant="outline" size="sm" onclick={openGalleryHomeDialog}>
 				Open gallery home…
-			</Button>
-		</div>
-		<div style={noDragStyle}>
-			<Button
-				variant="outline"
-				size="sm"
-				disabled={!site.home}
-				onclick={() => (reindexOpen = true)}
-				data-testid="reindex-btn"
-				title="Normalize NNN- prefixes across albums, pages, and images"
-			>
-				Re-index…
 			</Button>
 		</div>
 		<div style={noDragStyle}>
@@ -227,6 +212,5 @@
 
 	<StatusBar />
 	<ConfigErrorModal />
-	<ReindexModal open={reindexOpen} onClose={() => (reindexOpen = false)} />
 	<Toast />
 </div>
