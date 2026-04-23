@@ -119,9 +119,10 @@ test.describe.serial('thumbnail operations', () => {
 		expect(fs.existsSync(path.join(landscapes, '001-thumb-dawn.jpg'))).toBe(false);
 	});
 
-	test('setting an already-thumbnail image is a no-op', async () => {
+	test('current thumbnail shows a badge instead of the Use-as-Thumbnail button', async () => {
 		// After the two previous specs, 002-thumb-dusk.jpg is the current thumb.
-		// Double-click it, click Use as Thumbnail, assert no rename happens.
+		// Opening its detail view should hide the "Use as Thumbnail" button
+		// entirely and show an "Album thumbnail" badge in its place.
 		const landscapes = path.join(fixtureCopy, '010-Landscapes');
 		expect(fs.existsSync(path.join(landscapes, '002-thumb-dusk.jpg'))).toBe(true);
 
@@ -132,10 +133,25 @@ test.describe.serial('thumbnail operations', () => {
 			.first()
 			.dblclick();
 		await expect(page.getByTestId('image-detail-editor')).toBeVisible();
-		await page.getByTestId('image-use-as-thumb-btn').click();
 
-		// Wait a short beat; assert file still exists under the same name.
-		await page.waitForTimeout(300);
+		await expect(page.getByTestId('image-use-as-thumb-btn')).toHaveCount(0);
+		await expect(page.getByTestId('image-current-thumb-badge')).toBeVisible();
+
+		// The file must stay put — no stray rename should have happened.
 		expect(fs.existsSync(path.join(landscapes, '002-thumb-dusk.jpg'))).toBe(true);
+	});
+
+	test('album-view hides Use-as-Thumbnail when the selected image is already the thumb', async () => {
+		// 002-thumb-dusk.jpg is the current thumbnail. Selecting it in the grid
+		// must hide the album header's "Use as Thumbnail" button.
+		await page.getByTestId('tree-album').filter({ hasText: 'Landscapes' }).click();
+		await expect(page.getByTestId('album-view')).toBeVisible();
+
+		await page
+			.getByTestId('album-thumb')
+			.filter({ has: page.locator('text=dusk') })
+			.first()
+			.click();
+		await expect(page.getByTestId('album-use-as-thumb-btn')).toHaveCount(0);
 	});
 }); // end test.describe.serial

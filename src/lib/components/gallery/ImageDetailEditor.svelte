@@ -25,6 +25,12 @@
 		return `file://${abs.replace(/#/g, '%23').replace(/\?/g, '%3F')}`;
 	});
 
+	// Mirror of the thumbnail regex in electron/fs.ts#setAlbumThumbnail —
+	// an image is already the album thumbnail when its filename carries the
+	// `NNN-thumb-…` marker.
+	const THUMB_FILENAME_RE = /^(\d+)-thumb(?:-.*)?\.[^.]+$/i;
+	const isAlreadyThumb = $derived(THUMB_FILENAME_RE.test(image.filename));
+
 	function backToAlbum(): void {
 		site.selection = { kind: 'album', albumPath };
 	}
@@ -213,16 +219,27 @@
 			>
 				<IconRefresh class="h-4 w-4" />
 			</Button>
-			<Button
-				variant="outline"
-				size="sm"
-				onclick={onUseAsThumbnail}
-				data-testid="image-use-as-thumb-btn"
-				class="shrink-0"
-			>
-				<IconImage class="h-3.5 w-3.5" />
-				Use as Thumbnail
-			</Button>
+			{#if isAlreadyThumb}
+				<span
+					class="border-border bg-surface-2 text-text-secondary flex h-7 shrink-0 items-center gap-1.5 rounded-md border px-2 text-[length:var(--text-caption)]"
+					data-testid="image-current-thumb-badge"
+					title="This image is the album thumbnail"
+				>
+					<IconImage class="h-3.5 w-3.5" />
+					Album thumbnail
+				</span>
+			{:else}
+				<Button
+					variant="outline"
+					size="sm"
+					onclick={onUseAsThumbnail}
+					data-testid="image-use-as-thumb-btn"
+					class="shrink-0"
+				>
+					<IconImage class="h-3.5 w-3.5" />
+					Use as Thumbnail
+				</Button>
+			{/if}
 			<Button variant="ghost" size="sm" onclick={backToAlbum}>&#x2190; Album</Button>
 		</div>
 	</header>

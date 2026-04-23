@@ -12,6 +12,7 @@
 	import IconImage from '~icons/lucide/image';
 	import IconSettings from '~icons/lucide/settings';
 	import IconRefresh from '~icons/lucide/refresh-cw';
+	import IconPencil from '~icons/lucide/pencil';
 	import { cn } from '$lib/utils';
 	import {
 		anyHasNumericPrefix,
@@ -48,6 +49,28 @@
 		const firstPath = album.images[0].source_path;
 		const idx = firstPath.lastIndexOf('/');
 		return idx === -1 ? '' : firstPath.slice(0, idx);
+	});
+
+	// An image is the designated album thumbnail when its filename matches
+	// `NNN-thumb(-…)?.ext` — the marker simple-gal looks for. Keep this in
+	// sync with the regex in electron/fs.ts#setAlbumThumbnail.
+	const THUMB_FILENAME_RE = /^(\d+)-thumb(?:-.*)?\.[^.]+$/i;
+	const isThumbFilename = (filename: string) => THUMB_FILENAME_RE.test(filename);
+
+	const currentThumbImage = $derived.by(() => {
+		const marked = album.images.find((i) => isThumbFilename(i.filename));
+		if (marked) return marked;
+		if (album.preview_image) {
+			return album.images.find((i) => i.source_path === album.preview_image) ?? null;
+		}
+		return null;
+	});
+
+	const selectedIsCurrentThumb = $derived.by(() => {
+		if (selected.size !== 1) return false;
+		const [p] = [...selected];
+		const img = album.images.find((i) => i.source_path === p);
+		return img ? isThumbFilename(img.filename) : false;
 	});
 
 	// Prune stale selection members when the album changes out from under us
@@ -276,6 +299,26 @@
 		} catch (err) {
 			showToast({ kind: 'error', title: 'Delete failed', body: (err as Error).message });
 		}
+	}
+
+	async function onPencilPickThumbnail(): Promise<void> {
+		if (selected.size === 0) {
+			showToast({
+				kind: 'info',
+				title: 'Pick an image first',
+				body: 'Click an image in the grid, then click the pencil.'
+			});
+			return;
+		}
+		if (selected.size > 1) {
+			showToast({
+				kind: 'info',
+				title: 'Select just one image',
+				body: 'Only one image can be the album thumbnail.'
+			});
+			return;
+		}
+		await onUseAsThumbnail();
 	}
 
 	async function onUseAsThumbnail(): Promise<void> {
@@ -546,21 +589,43 @@
 	<header
 		class="border-border bg-surface-1 flex shrink-0 items-start justify-between gap-3 border-b px-4 py-3"
 	>
-		<div class="min-w-0 flex-1">
-			<div class="text-text-primary text-[length:var(--text-label)] font-semibold">
-				<InlineTitleEdit value={album.title} onCommit={onCommitRename} />
-			</div>
-			<div class="text-text-muted mt-1 text-[length:var(--text-caption)]">
-				{album.images.length} image{album.images.length === 1 ? '' : 's'}
-				{#if selected.size > 0}
-					<span class="text-accent">· {selected.size} selected</span>
-				{:else}
-					<span class="text-text-faint">· drag images here to import</span>
-				{/if}
+		<div class="flex min-w-0 flex-1 items-start gap-3">
+			{#if currentThumbImage}
+				<div class="relative shrink-0" data-testid="album-thumb-avatar">
+					<img
+						src={fileUrlFor(currentThumbImage)}
+						alt="Album thumbnail"
+						class="border-border h-12 w-12 rounded-md border object-cover"
+						draggable="false"
+					/>
+					<button
+						type="button"
+						class="border-border bg-surface-1 text-text-secondary hover:bg-surface-2 hover:text-text-primary absolute -right-1.5 -bottom-1.5 flex h-5 w-5 items-center justify-center rounded-full border shadow-sm"
+						onclick={onPencilPickThumbnail}
+						aria-label="Pick the album thumbnail"
+						title="Pick the image to use as album thumbnail"
+						data-testid="album-thumb-pencil"
+					>
+						<IconPencil class="h-3 w-3" />
+					</button>
+				</div>
+			{/if}
+			<div class="min-w-0 flex-1">
+				<div class="text-text-primary text-[length:var(--text-label)] font-semibold">
+					<InlineTitleEdit value={album.title} onCommit={onCommitRename} />
+				</div>
+				<div class="text-text-muted mt-1 text-[length:var(--text-caption)]">
+					{album.images.length} image{album.images.length === 1 ? '' : 's'}
+					{#if selected.size > 0}
+						<span class="text-accent">· {selected.size} selected</span>
+					{:else}
+						<span class="text-text-faint">· drag images here to import</span>
+					{/if}
+				</div>
 			</div>
 		</div>
 		<div class="flex shrink-0 items-center gap-2">
-			{#if selected.size === 1}
+			{#if selected.size === 1 && !selectedIsCurrentThumb}
 				<Button
 					variant="outline"
 					size="sm"
