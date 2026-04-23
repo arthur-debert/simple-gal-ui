@@ -61,6 +61,11 @@
 		return manifest.pages.find((p) => p.slug === sel.pageSlug) ?? null;
 	});
 
+	const isBuilding = $derived(preview.status === 'building');
+	const buildPct = $derived(
+		isBuilding && preview.progress ? Math.round(preview.progress.percent) : 0
+	);
+
 	$effect(() => {
 		setPlatform(api.platform);
 		api.app.version().then((v) => setAppVersion(v));
@@ -125,15 +130,25 @@
 			</Button>
 		</div>
 		<div style={noDragStyle}>
-			<Button
-				variant="default"
-				size="sm"
-				disabled={!site.home || preview.status === 'building'}
+			<button
+				type="button"
+				class="border-accent bg-surface-1 text-text-primary hover:bg-surface-2 focus-visible:ring-accent relative inline-flex h-7 items-center justify-center overflow-hidden rounded-md border px-3 text-[length:var(--text-caption)] font-medium transition-colors select-none focus-visible:ring-1 focus-visible:outline-none disabled:opacity-60"
+				disabled={!site.home || isBuilding}
 				onclick={runBuild}
 				data-testid="preview-build-btn"
+				data-progress-pct={buildPct}
 			>
-				{preview.status === 'building' ? 'Building…' : 'Build'}
-			</Button>
+				{#if isBuilding}
+					<span
+						class="bg-accent absolute inset-y-0 left-0 transition-[width] duration-200 ease-linear"
+						style="width: {buildPct}%"
+						aria-hidden="true"
+					></span>
+				{/if}
+				<span class="text-text-primary relative whitespace-nowrap">
+					{isBuilding ? `Building… ${buildPct}%` : 'Build'}
+				</span>
+			</button>
 		</div>
 	</header>
 

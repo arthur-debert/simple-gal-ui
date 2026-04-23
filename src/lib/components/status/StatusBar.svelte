@@ -11,7 +11,7 @@
 				return site.home ? 'ready' : 'no gallery';
 			case 'building':
 				return preview.progress
-					? `${preview.progress.stage} ${preview.progress.percent}%`
+					? `${preview.progress.stage} ${Math.round(preview.progress.percent)}%`
 					: 'building\u2026';
 			case 'ready':
 				return 'preview ready';
@@ -26,24 +26,12 @@
 		if (preview.status === 'ready') return 'bg-success';
 		return 'bg-text-faint';
 	});
-
-	const progressPercent = $derived(
-		preview.status === 'building' && preview.progress ? preview.progress.percent : 0
-	);
 </script>
 
 <footer
 	class="border-border bg-surface-1 text-text-faint relative flex h-6 shrink-0 items-center gap-3 border-t px-3 text-[length:var(--text-micro)]"
 	data-testid="status-bar"
 >
-	{#if preview.status === 'building' && preview.progress}
-		<div
-			class="bg-accent/20 absolute inset-0 origin-left transition-[width] duration-200 ease-linear"
-			style="width: {progressPercent}%"
-			data-testid="build-progress-bar"
-		></div>
-	{/if}
-
 	<span class="relative flex items-center gap-1.5">
 		<span class={cn('h-1.5 w-1.5 rounded-full', dotClass)}></span>
 		<span data-testid="status-label">{statusLabel}</span>
