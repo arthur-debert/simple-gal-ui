@@ -10,7 +10,10 @@ import {
 	recordGalleryHome,
 	getPaneState,
 	setPaneState,
-	type PaneState
+	getLastSelection,
+	setLastSelection,
+	type PaneState,
+	type PersistedSelection
 } from './store.js';
 import { build, cancelBuild, type BuildRunResult, type BuildProgress } from './build.js';
 import { ensureServer, stopServer } from './previewServer.js';
@@ -211,6 +214,11 @@ function registerIpcHandlers(): void {
 	ipcMain.handle('app:setPaneState', (_ev, id: string, state: PaneState) => {
 		setPaneState(id, state);
 	});
+
+	ipcMain.handle('app:getLastSelection', (_ev, home: string) => getLastSelection(home));
+	ipcMain.handle('app:setLastSelection', (_ev, sel: PersistedSelection | null) =>
+		setLastSelection(sel)
+	);
 
 	ipcMain.handle('gallery:scan', async (_ev, home: string): Promise<SimpleGalResult<ScanData>> => {
 		return scan(home);

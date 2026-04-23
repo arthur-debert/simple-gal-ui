@@ -55,6 +55,13 @@ export interface PaneState {
 	rightCollapsed: boolean;
 }
 
+export interface PersistedSelection {
+	home: string;
+	kind: 'album' | 'image';
+	albumTitle: string;
+	imageFilename?: string;
+}
+
 export interface BuildProgress {
 	percent: number;
 	stage: string;
@@ -303,7 +310,11 @@ export const api = {
 		getPaneState: (id: string): Promise<PaneState | null> =>
 			window.api.app.getPaneState(id) as Promise<PaneState | null>,
 		setPaneState: (id: string, state: PaneState): Promise<void> =>
-			window.api.app.setPaneState(id, state)
+			window.api.app.setPaneState(id, state),
+		getLastSelection: (home: string): Promise<PersistedSelection | null> =>
+			window.api.app.getLastSelection(home) as Promise<PersistedSelection | null>,
+		setLastSelection: (sel: PersistedSelection | null): Promise<void> =>
+			window.api.app.setLastSelection(sel)
 	},
 	get platform(): 'darwin' | 'linux' | 'win32' {
 		return window.api.platform;

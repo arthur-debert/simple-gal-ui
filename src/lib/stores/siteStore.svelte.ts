@@ -1,4 +1,4 @@
-import { api } from '$lib/api';
+import { api, type PersistedSelection } from '$lib/api';
 import type { Manifest, ScanData, Selection } from '$lib/types/manifest';
 import { showToast } from './toastStore.svelte';
 
@@ -48,15 +48,37 @@ export const site = {
 	}
 };
 
-export async function loadGalleryHome(home: string): Promise<void> {
+interface LoadOptions {
+	/** If true, try to restore the persisted selection after the scan succeeds. */
+	restoreSelection?: boolean;
+}
+
+function resolveStoredSelection(manifest: Manifest, stored: PersistedSelection): Selection {
+	const album = manifest.albums.find((a) => a.title === stored.albumTitle);
+	if (!album) return { kind: 'none' };
+	if (stored.kind === 'album') {
+		return { kind: 'album', albumPath: album.path };
+	}
+	const img = album.images.find((i) => i.filename === stored.imageFilename);
+	if (!img) return { kind: 'album', albumPath: album.path };
+	return { kind: 'image', albumPath: album.path, imageSourcePath: img.source_path };
+}
+
+export async function loadGalleryHome(home: string, opts: LoadOptions = {}): Promise<void> {
 	state.home = home;
 	state.loading = true;
 	state.lastError = null;
 	try {
 		const result = await api.gallery.scan(home);
 		if (result.ok) {
-			state.manifest = (result.data as ScanData).manifest;
-			state.selection = { kind: 'none' };
+			const manifest = (result.data as ScanData).manifest;
+			state.manifest = manifest;
+			if (opts.restoreSelection) {
+				const stored = await api.app.getLastSelection(home);
+				state.selection = stored ? resolveStoredSelection(manifest, stored) : { kind: 'none' };
+			} else {
+				state.selection = { kind: 'none' };
+			}
 		} else {
 			state.manifest = null;
 			state.lastError = result.message;
@@ -82,7 +104,43 @@ export async function openGalleryHomeDialog(): Promise<void> {
 
 export async function restoreLastGalleryHome(): Promise<void> {
 	const last = await api.gallery.last();
-	if (last) await loadGalleryHome(last);
+	if (last) await loadGalleryHome(last, { restoreSelection: true });
+}
+
+/**
+ * Persist the current selection. Called from App.svelte on every selection
+ * change — exact title/filename matching means a rename between sessions
+ * simply falls back to no selection rather than picking a wrong target.
+ */
+export async function persistCurrentSelection(): Promise<void> {
+	const home = state.home;
+	if (!home) return;
+	const manifest = state.manifest;
+	const sel = state.selection;
+	if (!manifest) {
+		await api.app.setLastSelection(null);
+		return;
+	}
+	if (sel.kind === 'album') {
+		const album = manifest.albums.find((a) => a.path === sel.albumPath);
+		if (album) {
+			await api.app.setLastSelection({ home, kind: 'album', albumTitle: album.title });
+			return;
+		}
+	} else if (sel.kind === 'image') {
+		const album = manifest.albums.find((a) => a.path === sel.albumPath);
+		const img = album?.images.find((i) => i.source_path === sel.imageSourcePath);
+		if (album && img) {
+			await api.app.setLastSelection({
+				home,
+				kind: 'image',
+				albumTitle: album.title,
+				imageFilename: img.filename
+			});
+			return;
+		}
+	}
+	await api.app.setLastSelection(null);
 }
 
 /**

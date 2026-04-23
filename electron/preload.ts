@@ -52,13 +52,24 @@ interface PaneState {
 	rightCollapsed: boolean;
 }
 
+export interface PersistedSelection {
+	home: string;
+	kind: 'album' | 'image';
+	albumTitle: string;
+	imageFilename?: string;
+}
+
 const api = {
 	app: {
 		version: (): Promise<string> => ipcRenderer.invoke('app:version'),
 		getPaneState: (id: string): Promise<PaneState | null> =>
 			ipcRenderer.invoke('app:getPaneState', id),
 		setPaneState: (id: string, state: PaneState): Promise<void> =>
-			ipcRenderer.invoke('app:setPaneState', id, state)
+			ipcRenderer.invoke('app:setPaneState', id, state),
+		getLastSelection: (home: string): Promise<PersistedSelection | null> =>
+			ipcRenderer.invoke('app:getLastSelection', home),
+		setLastSelection: (sel: PersistedSelection | null): Promise<void> =>
+			ipcRenderer.invoke('app:setLastSelection', sel)
 	},
 	platform: process.platform as 'darwin' | 'linux' | 'win32',
 	simpleGal: {

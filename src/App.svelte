@@ -15,7 +15,8 @@
 		site,
 		openGalleryHomeDialog,
 		restoreLastGalleryHome,
-		loadGalleryHome
+		loadGalleryHome,
+		persistCurrentSelection
 	} from '$lib/stores/siteStore.svelte';
 	import { initPreviewStore, preview, runBuild } from '$lib/stores/previewStore.svelte';
 	import { initWatchStore } from '$lib/stores/watchStore.svelte';
@@ -84,6 +85,14 @@
 			unsubPreview();
 			unsubWatch();
 		};
+	});
+
+	$effect(() => {
+		// Touch these so the effect re-runs on any relevant change.
+		void site.selection;
+		void site.home;
+		void site.manifest;
+		persistCurrentSelection();
 	});
 </script>
 
