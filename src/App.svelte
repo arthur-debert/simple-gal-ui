@@ -29,6 +29,14 @@
 	} from '$lib/stores/appInfoStore.svelte';
 	import { api } from '$lib/api';
 
+	// Signal app readiness for E2E tests after the App tree first renders.
+	// See ~/.claude/skills/electron-e2e-testing/SKILL.md — `window.__e2e.ready.app`
+	// is the canonical readiness flag the test fixture polls.
+	$effect(() => {
+		window.__e2e.ready.app = true;
+		window.__e2e.signal('app:ready');
+	});
+
 	// macOS hiddenInset leaves room for traffic-light buttons on the left,
 	// so push header content over on that platform.
 	const isMac = $derived(appInfo.platform === 'darwin');

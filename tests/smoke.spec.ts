@@ -7,6 +7,7 @@ import {
 } from '@playwright/test';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { waitForApp } from './lib/wait';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '..');
@@ -25,7 +26,7 @@ test.beforeAll(async () => {
 		}
 	});
 	page = await app.firstWindow();
-	await page.waitForLoadState('domcontentloaded');
+	await waitForApp(page);
 });
 
 test.afterAll(async () => {
