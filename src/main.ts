@@ -1,6 +1,7 @@
 // Canonical E2E hooks — see ~/.claude/skills/electron-e2e-testing/SKILL.md.
-// Initialized before any code that touches window.__e2e. App.svelte's $effect
-// flips ready.app to true on first paint.
+// Defines the shared window.__e2e state for the renderer. App.svelte's
+// $effect flips ready.app to true on first paint. Initialized before
+// mount() so the App component's first render finds the namespace in place.
 const MAX_E2E_EVENTS = 1000;
 
 window.__e2e = {
