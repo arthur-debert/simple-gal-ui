@@ -103,11 +103,17 @@ const APP_VERSION = readAppVersion();
 let mainWindow: BrowserWindow | null = null;
 
 function createMainWindow(): BrowserWindow {
+	// E2E_HIDE_WINDOW=1 keeps the window invisible during automated tests —
+	// canonical convention shared with lex-fmt/lexed (see
+	// ~/.claude/skills/electron-e2e-testing/SKILL.md).
+	const e2eHideWindow = process.env.E2E_HIDE_WINDOW === '1';
+
 	const win = new BrowserWindow({
 		width: 1400,
 		height: 900,
 		minWidth: 900,
 		minHeight: 600,
+		show: !e2eHideWindow, // hidden when E2E_HIDE_WINDOW=1; otherwise default visible
 		backgroundColor: '#0a0a0a',
 		titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
 		webPreferences: {
