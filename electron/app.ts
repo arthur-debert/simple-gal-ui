@@ -100,6 +100,15 @@ function readAppVersion(): string {
 }
 const APP_VERSION = readAppVersion();
 
+// Hide the macOS dock entry during E2E so test launches don't bounce the
+// dock and steal focus from whatever the developer is working on locally.
+// `show: false` on the BrowserWindow alone doesn't prevent the dock entry —
+// macOS registers it the moment whenReady() resolves. Must run before
+// app.whenReady(). See ~/.claude/skills/electron-e2e-testing/SKILL.md.
+if (process.env.E2E_HIDE_WINDOW === '1' && process.platform === 'darwin') {
+	app.dock?.hide();
+}
+
 let mainWindow: BrowserWindow | null = null;
 
 function createMainWindow(): BrowserWindow {
@@ -114,6 +123,7 @@ function createMainWindow(): BrowserWindow {
 		minWidth: 900,
 		minHeight: 600,
 		show: !e2eHideWindow, // hidden when E2E_HIDE_WINDOW=1; otherwise default visible
+		skipTaskbar: e2eHideWindow, // suppress Windows/Linux taskbar entry under E2E
 		backgroundColor: '#0a0a0a',
 		titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
 		webPreferences: {
