@@ -37,7 +37,7 @@
 		"@tailwindcss/vite": "^4.0.0",
 		"@types/iarna__toml": "^2.0.5",
 		"@types/node": "^22.10.5",
-		"electron": "^33.3.1",
+		"electron": "^39.8.5",
 		"electron-builder": "^26.8.1",
 		"eslint": "^9.17.0",
 		"eslint-plugin-svelte": "^2.46.1",
