@@ -8,3 +8,25 @@ test-results/
 playwright-report/
 pnpm-lock.yaml
 *.md
+
+# Canonical files managed by arthur-debert/release release-sync — they
+# have their own formatting conventions (yamllint/markdownlint) and
+# re-formatting them per the consumer's prettier config would drift
+# them from canonical, breaking the next release-sync re-sync.
+.markdownlint.json
+.shellcheckrc
+.yamllint
+.editorconfig
+lefthook.yml
+.release-sync-state.yaml
+.github/copilot-instructions.md
+.github/pull_request_template.md
+.github/CODEOWNERS
+.github/dependabot.yml
+.github/workflows/copilot-review.yml
+bin/check
+bin/check-fmt
+bin/check-lint
+bin/check-tests
+bin/diff-since-release
+scripts/setup-dev-env.sh

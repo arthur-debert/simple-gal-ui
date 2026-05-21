@@ -1,18 +1,42 @@
 name: Test
 
-# Every push + PR runs the full Playwright suite on macOS (the only target
-# this round supports for packaging). When the release target expands to
-# Linux/Windows in a future round the matrix comes back.
+# Thin caller for the canonical reusable electron-app CI workflow at
+# arthur-debert/release. The `check` job replaces the previously
+# hand-rolled setup-node + pnpm install + format:check + lint +
+# typecheck sequence.
+#
+# The `e2e` job stays bespoke — it needs macOS (the only target this
+# round supports for packaging), downloads the simple-gal sibling
+# release binary, builds the renderer, and runs Playwright in
+# electron-launch mode. None of that fits the reusable workflow's
+# input surface cleanly.
+#
+# See docs/per-stack/electron-ci.md in arthur-debert/release for the
+# full input reference. Sibling adopter: lex-fmt/lexed.
 
 on:
   push:
     branches: ['**']
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
-  test:
+  check:
+    uses: arthur-debert/release/.github/workflows/electron-ci.yml@v1
+    with:
+      node-version: '22'
+      # No shared-build-dir (no monorepo subpackage), no submodules,
+      # no pre-test (binary fetch is only needed for the e2e job),
+      # no playwright (the bespoke e2e job below does the install).
+      # Package manager (pnpm) is auto-detected from pnpm-lock.yaml.
+
+  e2e:
     runs-on: macos-latest
     timeout-minutes: 20
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
@@ -27,10 +51,10 @@ jobs:
 
       - name: Install dependencies
         env:
-          # Skip the postinstall binary download on CI — the test job doesn't
-          # need a packaged binary, and letting the fetch script run would
-          # require cargo OR network access to GitHub releases. The binPath
-          # resolver will pick up the sibling build / SIMPLE_GAL_PATH below.
+          # Skip the postinstall binary download here — the dedicated
+          # fetch step below handles it with explicit auth. Letting
+          # postinstall run would either fail (no auth) or require
+          # cargo, neither of which we want gating dependency install.
           SIMPLE_GAL_PATH: ''
         run: pnpm install --frozen-lockfile
 
@@ -40,15 +64,6 @@ jobs:
       - name: Point SIMPLE_GAL_PATH at the downloaded binary
         run: |
           echo "SIMPLE_GAL_PATH=$GITHUB_WORKSPACE/resources/bin/darwin-arm64/simple-gal" >> $GITHUB_ENV
-
-      - name: Format check
-        run: pnpm run format:check
-
-      - name: Lint
-        run: pnpm run lint
-
-      - name: Type check
-        run: pnpm run check
 
       - name: Build
         run: pnpm run build
