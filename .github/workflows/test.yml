@@ -40,9 +40,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # No explicit `version:` — package.json's `packageManager` field
+      # is the single source of truth (Corepack convention). Setting
+      # `version:` here while package.json also pins triggers
+      # ERR_PNPM_BAD_PM_VERSION. Same fix as the canonical
+      # electron-ci.yml's `Setup pnpm` step.
       - uses: pnpm/action-setup@v4
-        with:
-          version: 10
 
       - uses: actions/setup-node@v4
         with:
