@@ -65,8 +65,11 @@ jobs:
         run: |
           echo "SIMPLE_GAL_PATH=$GITHUB_WORKSPACE/resources/bin/darwin-arm64/simple-gal" >> $GITHUB_ENV
 
-      - name: Build
-        run: pnpm run build
+      # Renderer + main only — e2e launches Electron from
+      # dist-electron/main.js, not from a packaged build, so we skip
+      # `pnpm run build`'s chained electron-builder step.
+      - name: Build (vite only)
+        run: pnpm exec vite build
 
       - name: Playwright (Electron smoke + full UI suite)
         run: pnpm run test:e2e

@@ -2,7 +2,7 @@
 
 All notable UI-facing changes to simple-gal-ui.
 
-## Unreleased — visual-adj
+## [Unreleased]
 
 ### Added
 

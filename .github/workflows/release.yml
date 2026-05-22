@@ -1,248 +1,53 @@
-name: Release
+# Release simple-gal-ui — thin caller into the canonical electron-app
+# reusable workflow at
+# `arthur-debert/release/.github/workflows/electron-app.yml`.
+#
+# Trigger model: **workflow_dispatch**. Fire via
+#   gh workflow run release.yml -f version=<X.Y.Z>
+# The reusable workflow's prepare-release-npm action bumps
+# package.json, rolls CHANGELOG.md's `## [Unreleased]` section,
+# commits, tags `v<X.Y.Z>`, pushes, then drives per-arch build →
+# sign → notarize (macOS submit/poll/staple) → GitHub release.
+#
+# Migration history: replaces an in-tree per-platform matrix
+# workflow that tag-triggered on `v*.*.*`. The bespoke version
+# duplicated logic shared across electron-app consumers (lexed,
+# simple-gal-ui); fixes now land once in release/ instead of N
+# times across consumers.
 
-# Triggered by pushing a `v*.*.*` tag. Produces installers for
-# macOS arm64 (.dmg, signed + notarized), Linux x64 (AppImage), and
-# Windows x64 (NSIS .exe), smoke-tests each packaged binary on its own
-# runner, then creates a single draft GitHub Release with all three
-# artifacts attached.
-#
-# macOS signing + notarization requires these repository secrets:
-#   APPLE_CERTIFICATE_P12_BASE64, APPLE_CERTIFICATE_PASSWORD (code signing)
-#   ASC_API_KEY_BASE64, ASC_API_KEY_ID, ASC_API_ISSUER_ID (notarization)
-#
-# Usage:
-#   1. Bump `version` in package.json (and `simpleGalVersion` if pinning
-#      a newer simple-gal).
-#   2. Commit and tag: `git tag v0.1.0 && git push --tags`
-#   3. Watch https://github.com/arthur-debert/simple-gal-ui/actions
-#   4. On success, a draft release appears at /releases; edit the notes
-#      and click Publish.
+name: Release simple-gal-ui
 
 on:
-  push:
-    tags:
-      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (bare semver, e.g. 0.1.0 — no leading v)'
+        required: true
+        type: string
 
 permissions:
   contents: write
 
 jobs:
-  package:
-    name: ${{ matrix.label }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - label: macOS arm64
-            os: macos-latest
-            target: mac
-            builder_args: --mac --arm64
-            packaged_app_path: release/mac-arm64/simple-gal-ui.app/Contents/MacOS/simple-gal-ui
-            smoke_prefix: '' # runs directly
-            artifact_glob: release/*.dmg
-            artifact_name: dist-mac-arm64
-          - label: Linux x64
-            os: ubuntu-latest
-            target: linux
-            builder_args: --linux --x64
-            packaged_app_path: release/linux-unpacked/simple-gal-ui
-            smoke_prefix: 'xvfb-run -a' # headless display wrapper
-            artifact_glob: release/*.AppImage
-            artifact_name: dist-linux-x64
-          - label: Windows x64
-            os: windows-latest
-            target: win
-            builder_args: --win --x64
-            packaged_app_path: release\win-unpacked\simple-gal-ui.exe
-            smoke_prefix: '' # runs directly
-            artifact_glob: release/*.exe
-            artifact_name: dist-win-x64
-
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 45
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-
-      - name: Install dependencies
-        shell: bash
-        env:
-          SIMPLE_GAL_PATH: ''
-        run: pnpm install --frozen-lockfile
-
-      - name: Download simple-gal release binary
-        shell: bash
-        run: node scripts/fetch-simple-gal.mjs
-
-      - name: Build renderer + main
-        shell: bash
-        run: pnpm run build
-
-      - name: Package (${{ matrix.label }})
-        shell: bash
-        env:
-          # macOS signing: electron-builder manages its own temp keychain
-          # from the base64-encoded p12 in CSC_LINK + CSC_KEY_PASSWORD.
-          # The p12 must use legacy encryption (-legacy flag in openssl)
-          # because macOS Security framework rejects AES-256-CBC PKCS12.
-          # Notarization is handled in separate steps below (not by
-          # electron-builder) so we get submit/poll visibility.
-          CSC_LINK: ${{ matrix.target == 'mac' && secrets.APPLE_CERTIFICATE_P12_BASE64 || '' }}
-          CSC_KEY_PASSWORD: ${{ matrix.target == 'mac' && secrets.APPLE_CERTIFICATE_PASSWORD || '' }}
-        run: pnpm exec electron-builder ${{ matrix.builder_args }} --publish never
-
-      - name: List release artifacts
-        shell: bash
-        run: ls -la release/ || dir release
-
-      - name: Smoke-test the packaged binary
-        shell: bash
-        env:
-          PACKAGED_APP_PATH: ${{ matrix.packaged_app_path }}
-        run: ${{ matrix.smoke_prefix }} pnpm exec playwright test --project=packaged
-
-      # --- macOS notarization (submit → poll → staple) ---
-      # Split from electron-builder so we get per-step visibility and
-      # don't block the whole job on Apple's queue.
-      # --- macOS notarization via App Store Connect API key ---
-      # API key auth is recommended over Apple ID + app-specific password
-      # for CI: no credential rotation, better queue recognition.
-      - name: Write App Store Connect API key
-        if: matrix.target == 'mac'
-        shell: bash
-        env:
-          ASC_API_KEY_BASE64: ${{ secrets.ASC_API_KEY_BASE64 }}
-        run: |
-          echo "$ASC_API_KEY_BASE64" | base64 --decode > "$RUNNER_TEMP/AuthKey.p8"
-
-      - name: Submit DMG for notarization
-        id: notarize-submit
-        if: matrix.target == 'mac'
-        shell: bash
-        run: |
-          DMG=$(ls release/*.dmg | head -1)
-          echo "Submitting $DMG for notarization..."
-          RESULT=$(xcrun notarytool submit "$DMG" \
-            --key "$RUNNER_TEMP/AuthKey.p8" \
-            --key-id "${{ secrets.ASC_API_KEY_ID }}" \
-            --issuer "${{ secrets.ASC_API_ISSUER_ID }}" \
-            --output-format json \
-            --no-wait)
-          echo "$RESULT"
-          ID=$(echo "$RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
-          echo "submission-id=$ID" >> "$GITHUB_OUTPUT"
-          echo "Submission ID: $ID"
-
-      - name: Wait for notarization
-        if: matrix.target == 'mac'
-        shell: bash
-        run: |
-          ID="${{ steps.notarize-submit.outputs.submission-id }}"
-          echo "Polling notarization status for $ID..."
-          for i in $(seq 1 60); do
-            RESULT=$(xcrun notarytool info "$ID" \
-              --key "$RUNNER_TEMP/AuthKey.p8" \
-              --key-id "${{ secrets.ASC_API_KEY_ID }}" \
-              --issuer "${{ secrets.ASC_API_ISSUER_ID }}" \
-              --output-format json 2>&1) || true
-            STATUS=$(echo "$RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('status','Unknown'))" 2>/dev/null || echo "Unknown")
-            echo "  [$i/60] status=$STATUS ($(date -u +%H:%M:%S))"
-            if [ "$STATUS" = "Accepted" ]; then
-              echo "Notarization accepted!"
-              exit 0
-            elif [ "$STATUS" = "Invalid" ] || [ "$STATUS" = "Rejected" ]; then
-              echo "Notarization failed with status: $STATUS"
-              xcrun notarytool log "$ID" \
-                --key "$RUNNER_TEMP/AuthKey.p8" \
-                --key-id "${{ secrets.ASC_API_KEY_ID }}" \
-                --issuer "${{ secrets.ASC_API_ISSUER_ID }}" 2>&1 || true
-              exit 1
-            fi
-            sleep 30
-          done
-          echo "::warning::Timed out waiting for notarization after 30 minutes. The DMG is signed but not notarized — staple manually once Apple finishes processing (submission ID: $ID)."
-
-      - name: Staple notarization ticket
-        if: matrix.target == 'mac' && steps.notarize-submit.outcome == 'success'
-        shell: bash
-        run: |
-          DMG=$(ls release/*.dmg | head -1)
-          echo "Stapling $DMG..."
-          xcrun stapler staple "$DMG" || echo "::warning::Staple failed — notarization may not be complete yet. DMG is still signed."
-          xcrun stapler validate "$DMG" || true
-
-      - name: Upload packaged screenshot
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: packaged-screenshot-${{ matrix.target }}
-          path: tests/__screenshots__/fb2/
-          if-no-files-found: ignore
-
-      - name: Upload startup error logs on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: startup-error-logs-${{ matrix.target }}
-          path: ~/.config/simple-gal-ui/logs/
-          if-no-files-found: ignore
-
-      - name: Upload installer artifact
-        if: always() && !cancelled()
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.artifact_name }}
-          path: ${{ matrix.artifact_glob }}
-          if-no-files-found: error
-
   release:
-    name: Draft GitHub Release
-    needs: package
-    if: always() && !cancelled()
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Download all platform artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: release-artifacts/
-          pattern: dist-*
-          merge-multiple: false
-
-      - name: Show collected artifacts
-        run: |
-          find release-artifacts -type f -name '*.dmg' -o -name '*.AppImage' -o -name '*.exe' \
-            | tee /tmp/artifact-list.txt
-
-      - name: Create draft GitHub Release with all artifacts
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          TAG="${GITHUB_REF#refs/tags/}"
-          FILES=$(find release-artifacts -type f \
-            \( -name '*.dmg' -o -name '*.AppImage' -o -name '*.exe' \))
-          if [ -z "$FILES" ]; then
-            echo "No installer artifacts collected — aborting."
-            exit 1
-          fi
-          # shellcheck disable=SC2086
-          gh release create "$TAG" $FILES \
-            --draft \
-            --title "$TAG" \
-            --generate-notes
+    uses: arthur-debert/release/.github/workflows/electron-app.yml@v1
+    with:
+      version: ${{ inputs.version }}
+      app-name: simple-gal-ui
+      bundle-id: com.arthur-debert.simple-gal-ui
+      darwin-archs: arm64
+      linux-archs: x64
+      windows-archs: x64
+      changelog-path: CHANGELOG.md
+      # electron-builder directories.output → "release" per
+      # electron-builder.yml. The canonical workflow defaults to "dist".
+      output-dir: release
+      # Force-enable macOS notarization in CI. The repo has all five
+      # required secrets configured (APPLE_CERTIFICATE_P12_BASE64,
+      # APPLE_CERTIFICATE_PASSWORD, ASC_API_KEY_BASE64, ASC_API_KEY_ID,
+      # ASC_API_ISSUER_ID); the canonical workflow fails fast if any
+      # are missing. `build.mac.notarize` is `false` in
+      # electron-builder.yml — the canonical handles notarize via
+      # `xcrun notarytool` (submit/poll/staple) for queue visibility.
+      notarize: 'true'
+    secrets: inherit
