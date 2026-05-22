@@ -3,6 +3,7 @@
 	"version": "0.1.0",
 	"description": "Desktop UI for simple-gal — a minimal static gallery generator for photographers",
 	"private": true,
+	"packageManager": "pnpm@10.29.3",
 	"type": "module",
 	"main": "dist-electron/main.js",
 	"scripts": {
