@@ -6,11 +6,14 @@ import {
 	type Page
 } from '@playwright/test';
 import path from 'node:path';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { waitForApp } from './lib/wait';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '..');
+const pkgVersion = JSON.parse(readFileSync(path.join(repoRoot, 'package.json'), 'utf8'))
+	.version as string;
 
 let app: ElectronApplication;
 let page: Page;
@@ -50,7 +53,7 @@ test('status bar shows app version and simple-gal version on the right', async (
 	await expect(page.getByTestId('footer-app-version')).toBeVisible();
 	await expect(page.getByTestId('footer-sg-version')).toBeVisible();
 	// The app version comes from package.json (not Electron's runtime version).
-	await expect(page.getByTestId('footer-app-version')).toHaveText('v0.1.0');
+	await expect(page.getByTestId('footer-app-version')).toHaveText(`v${pkgVersion}`);
 });
 
 test('welcome message is present', async () => {
