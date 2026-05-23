@@ -4,6 +4,14 @@ All notable UI-facing changes to simple-gal-ui.
 
 ## [Unreleased]
 
+### Changed
+
+- Retire the bespoke `e2e` job in `.github/workflows/test.yml` in favor
+  of the canonical `e2e: true` input on `electron-ci.yml@v1` (landed in
+  arthur-debert/release#185). The job now runs from the reusable
+  workflow with the consumer-specific glue (`vite build` + setting
+  `SIMPLE_GAL_PATH`) moved into the `pre-test` hook.
+
 ## [0.1.3] - 2026-05-23
 
 
@@ -13,6 +21,7 @@ All notable UI-facing changes to simple-gal-ui.
   the strip-leading-`--` fix that prevents pnpm consumers from
   silently swallowing `--publish never` and falling back to
   CI-implicit publish.
+
 ## [0.1.0] - 2026-05-23
 
 

@@ -5,11 +5,14 @@ name: Test
 # hand-rolled setup-node + pnpm install + format:check + lint +
 # typecheck sequence.
 #
-# The `e2e` job stays bespoke — it needs macOS (the only target this
-# round supports for packaging), downloads the simple-gal sibling
-# release binary, builds the renderer, and runs Playwright in
-# electron-launch mode. None of that fits the reusable workflow's
-# input surface cleanly.
+# The `e2e` job is also canonical now (since release@v1 gained the
+# `e2e: true` opt-in input in arthur-debert/release#185). The bespoke
+# Mac-only e2e job that previously lived here is retired; macOS is
+# selected via the `runner:` input, and the consumer-specific glue
+# (vite build of the renderer + pointing SIMPLE_GAL_PATH at the
+# fetched simple-gal binary) runs in the `pre-test` hook. The simple-gal
+# sibling release binary is downloaded by the package.json `postinstall`
+# hook (it's a public repo, so the default GITHUB_TOKEN is sufficient).
 #
 # See docs/per-stack/electron-ci.md in arthur-debert/release for the
 # full input reference. Sibling adopter: lex-fmt/lexed.
@@ -27,68 +30,16 @@ jobs:
     uses: arthur-debert/release/.github/workflows/electron-ci.yml@v1
     with:
       node-version: '22'
-      # No shared-build-dir (no monorepo subpackage), no submodules,
-      # no pre-test (binary fetch is only needed for the e2e job),
-      # no playwright (the bespoke e2e job below does the install).
+      # macOS is required for the e2e suite: tests launch Electron
+      # against `dist-electron/main.js` and load the platform-matching
+      # simple-gal native binary under `resources/bin/darwin-arm64/`.
+      runner: macos-latest
+      e2e: true
+      # The e2e job needs the renderer built (tests load
+      # dist-electron/main.js) and SIMPLE_GAL_PATH pointing at the
+      # platform-matched binary fetched by postinstall.
+      pre-test: |
+        pnpm exec vite build
+        echo "SIMPLE_GAL_PATH=$GITHUB_WORKSPACE/resources/bin/darwin-arm64/simple-gal" >> "$GITHUB_ENV"
+      # No shared-build-dir (no monorepo subpackage), no submodules.
       # Package manager (pnpm) is auto-detected from pnpm-lock.yaml.
-
-  e2e:
-    runs-on: macos-latest
-    timeout-minutes: 20
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v4
-
-      # No explicit `version:` — package.json's `packageManager` field
-      # is the single source of truth (Corepack convention). Setting
-      # `version:` here while package.json also pins triggers
-      # ERR_PNPM_BAD_PM_VERSION. Same fix as the canonical
-      # electron-ci.yml's `Setup pnpm` step.
-      - uses: pnpm/action-setup@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-
-      - name: Install dependencies
-        env:
-          # Skip the postinstall binary download here — the dedicated
-          # fetch step below handles it with explicit auth. Letting
-          # postinstall run would either fail (no auth) or require
-          # cargo, neither of which we want gating dependency install.
-          SIMPLE_GAL_PATH: ''
-        run: pnpm install --frozen-lockfile
-
-      - name: Download simple-gal release binary
-        run: node scripts/fetch-simple-gal.mjs
-
-      - name: Point SIMPLE_GAL_PATH at the downloaded binary
-        run: |
-          echo "SIMPLE_GAL_PATH=$GITHUB_WORKSPACE/resources/bin/darwin-arm64/simple-gal" >> $GITHUB_ENV
-
-      # Renderer + main only — e2e launches Electron from
-      # dist-electron/main.js, not from a packaged build, so we skip
-      # `pnpm run build`'s chained electron-builder step.
-      - name: Build (vite only)
-        run: pnpm exec vite build
-
-      - name: Playwright (Electron smoke + full UI suite)
-        run: pnpm run test:e2e
-
-      - name: Upload screenshots
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: screenshots
-          path: tests/__screenshots__/
-          if-no-files-found: ignore
-
-      - name: Upload Playwright report on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-report
-          path: playwright-report/
-          if-no-files-found: ignore
