@@ -8,7 +8,7 @@
 	"main": "dist-electron/main.js",
 	"scripts": {
 		"dev": "vite",
-		"build": "node scripts/fetch-simple-gal.mjs && vite build && electron-builder",
+		"build": "node scripts/build.mjs",
 		"preview": "vite preview",
 		"start": "electron .",
 		"check": "svelte-check --tsconfig ./tsconfig.json",
