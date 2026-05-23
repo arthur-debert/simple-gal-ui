@@ -12,7 +12,12 @@ name: Test
 # (vite build of the renderer + pointing SIMPLE_GAL_PATH at the
 # fetched simple-gal binary) runs in the `pre-test` hook. The simple-gal
 # sibling release binary is downloaded by the package.json `postinstall`
-# hook (it's a public repo, so the default GITHUB_TOKEN is sufficient).
+# hook using unauthenticated `fetch()` against `arthur-debert/simple-gal`
+# (a public repo); no GitHub auth is involved. Failures in postinstall
+# are non-fatal — the script is invoked as `node ... || true` — and the
+# pre-test hook below assumes the binary made it onto disk. If a future
+# regression in the fetcher silently drops the binary, the Electron
+# tests fail at app launch (binary missing) rather than at install.
 #
 # See docs/per-stack/electron-ci.md in arthur-debert/release for the
 # full input reference. Sibling adopter: lex-fmt/lexed.
@@ -30,10 +35,15 @@ jobs:
     uses: arthur-debert/release/.github/workflows/electron-ci.yml@v1
     with:
       node-version: '22'
-      # macOS is required for the e2e suite: tests launch Electron
-      # against `dist-electron/main.js` and load the platform-matching
-      # simple-gal native binary under `resources/bin/darwin-arm64/`.
-      runner: macos-latest
+      # macOS arm64 is required for the e2e suite: tests launch
+      # Electron against `dist-electron/main.js` and load the
+      # platform-matched simple-gal native binary under
+      # `resources/bin/darwin-arm64/`. We pin `macos-14` (the GitHub
+      # arm64 SKU) explicitly rather than relying on `macos-latest`,
+      # which GitHub may flip between arm64 and x64 over time — and
+      # `scripts/fetch-simple-gal.mjs` only knows the darwin-arm64
+      # asset name, so a x64 runner would fail at fetch time.
+      runner: macos-14
       e2e: true
       # The e2e job needs the renderer built (tests load
       # dist-electron/main.js) and SIMPLE_GAL_PATH pointing at the
