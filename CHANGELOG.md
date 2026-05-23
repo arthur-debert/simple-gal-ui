@@ -4,6 +4,13 @@ All notable UI-facing changes to simple-gal-ui.
 
 ## [Unreleased]
 
+### Changed
+
+- Sync canonical `bin/build` from `arthur-debert/release@v1` — picks up
+  the strip-leading-`--` fix that prevents pnpm consumers from
+  silently swallowing `--publish never` and falling back to
+  CI-implicit publish.
+
 ## [0.1.0] - 2026-05-23
 
 
