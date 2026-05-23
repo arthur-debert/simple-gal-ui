@@ -38,16 +38,16 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       # No explicit `version:` — package.json's `packageManager` field
       # is the single source of truth (Corepack convention). Setting
       # `version:` here while package.json also pins triggers
       # ERR_PNPM_BAD_PM_VERSION. Same fix as the canonical
       # electron-ci.yml's `Setup pnpm` step.
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: pnpm
@@ -79,7 +79,7 @@ jobs:
 
       - name: Upload screenshots
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: screenshots
           path: tests/__screenshots__/
@@ -87,7 +87,7 @@ jobs:
 
       - name: Upload Playwright report on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-report
           path: playwright-report/
