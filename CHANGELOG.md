@@ -4,6 +4,9 @@ All notable UI-facing changes to simple-gal-ui.
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-05-23
+
+
 ### Added
 
 - **Remember last-opened album / image.** The app now restores the
