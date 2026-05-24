@@ -49,5 +49,5 @@ PM=$(detect_pm)
 echo "Running e2e tests via ${PM} run test:e2e..."
 case "${PM}" in
     npm)        exec npm run --silent test:e2e -- "$@" ;;
-    pnpm|yarn)  exec "${PM}" run test:e2e "$@" ;;
+    pnpm|yarn)  exec "${PM}" test:e2e "$@" ;;
 esac
