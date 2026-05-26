@@ -8,7 +8,7 @@
 	"main": "dist-electron/main.js",
 	"scripts": {
 		"dev": "vite",
-		"build": "node scripts/fetch-simple-gal.mjs && vite build && electron-builder",
+		"build": "node app-bin/fetch-simple-gal.mjs && vite build && electron-builder",
 		"preview": "vite preview",
 		"start": "electron .",
 		"check": "svelte-check --tsconfig ./tsconfig.json",
@@ -23,7 +23,7 @@
 		"package:linux": "pnpm run build -- --linux --x64",
 		"package:win": "pnpm run build -- --win --x64",
 		"prepare": "lefthook install || true",
-		"postinstall": "node scripts/fetch-simple-gal.mjs || true"
+		"postinstall": "node app-bin/fetch-simple-gal.mjs || true"
 	},
 	"simpleGalVersion": "0.20.0",
 	"pnpm": {

@@ -41,7 +41,7 @@ jobs:
       # `resources/bin/darwin-arm64/`. We pin `macos-14` (the GitHub
       # arm64 SKU) explicitly rather than relying on `macos-latest`,
       # which GitHub may flip between arm64 and x64 over time — and
-      # `scripts/fetch-simple-gal.mjs` only knows the darwin-arm64
+      # `app-bin/fetch-simple-gal.mjs` only knows the darwin-arm64
       # asset name, so a x64 runner would fail at fetch time.
       runner: macos-14
       e2e: true
