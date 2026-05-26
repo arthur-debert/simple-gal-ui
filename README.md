@@ -13,7 +13,7 @@ In active development. Delivered as a series of stacked PRs that each leave the 
 - PR3 — Preview pipeline: Click Build, run `simple-gal build --format json` into a per-home tmp dir, serve the rendered dist over a local HTTP server, and show it in an iframe in the right pane with a phase-aware status bar and config-error overlay.
 - PR4 — Image title & caption editing: Editable title + caption form that writes sidecar `.txt` files and renames image files while preserving `NNN-` prefixes. Chokidar watches the gallery home and triggers debounced auto-build so the preview follows changes.
 - PR5 — Image management within an album: Drag-drop OS images into an album (copied with next-available `NNN-` prefix), delete-to-trash on hover, drag-reorder thumbnails with sparse renumbering (10/20/30…), and an album `description.md` editor.
-- **PR6 — Site structure editing** *(current)*: Create / rename / delete albums and pages from the site tree (right-click context menu and header buttons), plus a markdown editor for about pages.
+- **PR6 — Site structure editing** _(current)_: Create / rename / delete albums and pages from the site tree (right-click context menu and header buttons), plus a markdown editor for about pages.
 
 ## Stack
 

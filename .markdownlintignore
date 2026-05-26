@@ -4,3 +4,6 @@
 # Per arthur-debert/release#237.
 CHANGELOG.md
 CHANGELOG/
+
+# Test fixtures are sample gallery content, not authored docs.
+tests/fixtures/
