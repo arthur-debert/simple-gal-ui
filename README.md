@@ -38,7 +38,7 @@ pnpm run lint
 pnpm run test:e2e # Playwright smoke test (builds first)
 ```
 
-Future PRs will add a `scripts/fetch-simple-gal.mjs` that downloads pinned release binaries into `resources/bin/<platform>-<arch>/` so no local install is needed.
+`app-bin/fetch-simple-gal.mjs` downloads pinned release binaries into `resources/bin/<platform>-<arch>/` so no local install is needed.
 
 ## Design principles
 
