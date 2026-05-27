@@ -1,8 +1,8 @@
 # Managed by release-sync. Do not edit.
 synced_from: arthur-debert/release
 ref: origin/main
-sha: 0d360eb3775a912e9e89e4a53f46b7e0a8139750
-synced_at: 2026-05-27T01:00:59Z
+sha: b1143fc0ffc1474530b001f935f364d4270e4db5
+synced_at: 2026-05-27T01:39:44Z
 stack: electron-app
 components:
   - shell-quality
