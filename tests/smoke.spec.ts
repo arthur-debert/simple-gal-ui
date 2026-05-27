@@ -1,9 +1,9 @@
 import {
-	_electron as electron,
-	expect,
-	test,
-	type ElectronApplication,
-	type Page
+  _electron as electron,
+  expect,
+  test,
+  type ElectronApplication,
+  type Page
 } from '@playwright/test';
 import path from 'node:path';
 import { readFileSync } from 'node:fs';
@@ -13,54 +13,54 @@ import { waitForApp } from './lib/wait';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '..');
 const pkgVersion = JSON.parse(readFileSync(path.join(repoRoot, 'package.json'), 'utf8'))
-	.version as string;
+  .version as string;
 
 let app: ElectronApplication;
 let page: Page;
 
 test.beforeAll(async () => {
-	app = await electron.launch({
-		args: [path.join(repoRoot, 'dist-electron/main.js')],
-		cwd: repoRoot,
-		env: {
-			...process.env,
-			NODE_ENV: 'production',
-			SIMPLE_GAL_PATH: process.env.SIMPLE_GAL_PATH ?? ''
-		}
-	});
-	page = await app.firstWindow();
-	await waitForApp(page);
+  app = await electron.launch({
+    args: [path.join(repoRoot, 'dist-electron/main.js')],
+    cwd: repoRoot,
+    env: {
+      ...process.env,
+      NODE_ENV: 'production',
+      SIMPLE_GAL_PATH: process.env.SIMPLE_GAL_PATH ?? ''
+    }
+  });
+  page = await app.firstWindow();
+  await waitForApp(page);
 });
 
 test.afterAll(async () => {
-	await app?.close();
+  await app?.close();
 });
 
 test('window opens and renders three panes', async () => {
-	await expect(page.getByTestId('app-header')).toBeVisible();
-	await expect(page.getByTestId('pane-left')).toBeVisible();
-	await expect(page.getByTestId('pane-center')).toBeVisible();
-	await expect(page.getByTestId('pane-right')).toBeVisible();
-	await expect(page.getByTestId('status-bar')).toBeVisible();
+  await expect(page.getByTestId('app-header')).toBeVisible();
+  await expect(page.getByTestId('pane-left')).toBeVisible();
+  await expect(page.getByTestId('pane-center')).toBeVisible();
+  await expect(page.getByTestId('pane-right')).toBeVisible();
+  await expect(page.getByTestId('status-bar')).toBeVisible();
 });
 
 test('app header is draggable for native window move', async () => {
-	const headerStyle = await page.getByTestId('app-header').getAttribute('style');
-	expect(headerStyle ?? '').toContain('app-region: drag');
+  const headerStyle = await page.getByTestId('app-header').getAttribute('style');
+  expect(headerStyle ?? '').toContain('app-region: drag');
 });
 
 test('status bar shows app version and simple-gal version on the right', async () => {
-	await expect(page.getByTestId('footer-app-version')).toBeVisible();
-	await expect(page.getByTestId('footer-sg-version')).toBeVisible();
-	// The app version comes from package.json (not Electron's runtime version).
-	await expect(page.getByTestId('footer-app-version')).toHaveText(`v${pkgVersion}`);
+  await expect(page.getByTestId('footer-app-version')).toBeVisible();
+  await expect(page.getByTestId('footer-sg-version')).toBeVisible();
+  // The app version comes from package.json (not Electron's runtime version).
+  await expect(page.getByTestId('footer-app-version')).toHaveText(`v${pkgVersion}`);
 });
 
 test('welcome message is present', async () => {
-	await expect(page.getByText('Welcome to SimpleGal')).toBeVisible();
+  await expect(page.getByText('Welcome to SimpleGal')).toBeVisible();
 });
 
 test('captures screenshot of initial state', async () => {
-	const outDir = path.join(repoRoot, 'tests/__screenshots__/pr1');
-	await page.screenshot({ path: path.join(outDir, 'initial.png'), fullPage: true });
+  const outDir = path.join(repoRoot, 'tests/__screenshots__/pr1');
+  await page.screenshot({ path: path.join(outDir, 'initial.png'), fullPage: true });
 });

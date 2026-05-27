@@ -1,267 +1,267 @@
 <script lang="ts">
-	import ResizablePanes from '$lib/components/ui/ResizablePanes.svelte';
-	import Button from '$lib/components/ui/Button.svelte';
-	import Toast from '$lib/components/ui/Toast.svelte';
-	import SiteTree from '$lib/components/tree/SiteTree.svelte';
-	import AlbumView from '$lib/components/gallery/AlbumView.svelte';
-	import ImageDetailEditor from '$lib/components/gallery/ImageDetailEditor.svelte';
-	import PageEditor from '$lib/components/pages/PageEditor.svelte';
-	import PreviewPane from '$lib/components/preview/PreviewPane.svelte';
-	import StatusBar from '$lib/components/status/StatusBar.svelte';
-	import ConfigErrorModal from '$lib/components/dialogs/ConfigErrorModal.svelte';
-	import ConfigUnsavedModal from '$lib/components/dialogs/ConfigUnsavedModal.svelte';
-	import ConfigEditor from '$lib/components/config/ConfigEditor.svelte';
-	import IconPencil from '~icons/lucide/pencil';
-	import {
-		site,
-		openGalleryHomeDialog,
-		restoreLastGalleryHome,
-		loadGalleryHome,
-		persistCurrentSelection
-	} from '$lib/stores/siteStore.svelte';
-	import { initPreviewStore, preview, runBuild } from '$lib/stores/previewStore.svelte';
-	import { initWatchStore } from '$lib/stores/watchStore.svelte';
-	import {
-		appInfo,
-		setAppVersion,
-		setSimpleGalVersion,
-		setPlatform
-	} from '$lib/stores/appInfoStore.svelte';
-	import { api } from '$lib/api';
+  import ResizablePanes from '$lib/components/ui/ResizablePanes.svelte';
+  import Button from '$lib/components/ui/Button.svelte';
+  import Toast from '$lib/components/ui/Toast.svelte';
+  import SiteTree from '$lib/components/tree/SiteTree.svelte';
+  import AlbumView from '$lib/components/gallery/AlbumView.svelte';
+  import ImageDetailEditor from '$lib/components/gallery/ImageDetailEditor.svelte';
+  import PageEditor from '$lib/components/pages/PageEditor.svelte';
+  import PreviewPane from '$lib/components/preview/PreviewPane.svelte';
+  import StatusBar from '$lib/components/status/StatusBar.svelte';
+  import ConfigErrorModal from '$lib/components/dialogs/ConfigErrorModal.svelte';
+  import ConfigUnsavedModal from '$lib/components/dialogs/ConfigUnsavedModal.svelte';
+  import ConfigEditor from '$lib/components/config/ConfigEditor.svelte';
+  import IconPencil from '~icons/lucide/pencil';
+  import {
+    site,
+    openGalleryHomeDialog,
+    restoreLastGalleryHome,
+    loadGalleryHome,
+    persistCurrentSelection
+  } from '$lib/stores/siteStore.svelte';
+  import { initPreviewStore, preview, runBuild } from '$lib/stores/previewStore.svelte';
+  import { initWatchStore } from '$lib/stores/watchStore.svelte';
+  import {
+    appInfo,
+    setAppVersion,
+    setSimpleGalVersion,
+    setPlatform
+  } from '$lib/stores/appInfoStore.svelte';
+  import { api } from '$lib/api';
 
-	// Signal app readiness for E2E tests after the App tree first renders.
-	// See ~/.claude/skills/electron-e2e-testing/SKILL.md — `window.__e2e.ready.app`
-	// is the canonical readiness flag the test fixture polls.
-	$effect(() => {
-		window.__e2e.ready.app = true;
-		window.__e2e.signal('app:ready');
-	});
+  // Signal app readiness for E2E tests after the App tree first renders.
+  // See ~/.claude/skills/electron-e2e-testing/SKILL.md — `window.__e2e.ready.app`
+  // is the canonical readiness flag the test fixture polls.
+  $effect(() => {
+    window.__e2e.ready.app = true;
+    window.__e2e.signal('app:ready');
+  });
 
-	// macOS hiddenInset leaves room for traffic-light buttons on the left,
-	// so push header content over on that platform.
-	const isMac = $derived(appInfo.platform === 'darwin');
-	const headerDragStyle = 'app-region: drag; -webkit-app-region: drag';
-	const noDragStyle = 'app-region: no-drag; -webkit-app-region: no-drag';
+  // macOS hiddenInset leaves room for traffic-light buttons on the left,
+  // so push header content over on that platform.
+  const isMac = $derived(appInfo.platform === 'darwin');
+  const headerDragStyle = 'app-region: drag; -webkit-app-region: drag';
+  const noDragStyle = 'app-region: no-drag; -webkit-app-region: no-drag';
 
-	const selectedAlbum = $derived.by(() => {
-		const sel = site.selection;
-		const manifest = site.manifest;
-		if (!manifest) return null;
-		if (sel.kind === 'album' || sel.kind === 'image') {
-			return manifest.albums.find((a) => a.path === sel.albumPath) ?? null;
-		}
-		return null;
-	});
+  const selectedAlbum = $derived.by(() => {
+    const sel = site.selection;
+    const manifest = site.manifest;
+    if (!manifest) return null;
+    if (sel.kind === 'album' || sel.kind === 'image') {
+      return manifest.albums.find((a) => a.path === sel.albumPath) ?? null;
+    }
+    return null;
+  });
 
-	const selectedImage = $derived.by(() => {
-		const sel = site.selection;
-		const manifest = site.manifest;
-		if (!manifest || sel.kind !== 'image') return null;
-		const album = manifest.albums.find((a) => a.path === sel.albumPath);
-		return album?.images.find((i) => i.source_path === sel.imageSourcePath) ?? null;
-	});
+  const selectedImage = $derived.by(() => {
+    const sel = site.selection;
+    const manifest = site.manifest;
+    if (!manifest || sel.kind !== 'image') return null;
+    const album = manifest.albums.find((a) => a.path === sel.albumPath);
+    return album?.images.find((i) => i.source_path === sel.imageSourcePath) ?? null;
+  });
 
-	const selectedPage = $derived.by(() => {
-		const sel = site.selection;
-		const manifest = site.manifest;
-		if (!manifest || sel.kind !== 'page') return null;
-		return manifest.pages.find((p) => p.slug === sel.pageSlug) ?? null;
-	});
+  const selectedPage = $derived.by(() => {
+    const sel = site.selection;
+    const manifest = site.manifest;
+    if (!manifest || sel.kind !== 'page') return null;
+    return manifest.pages.find((p) => p.slug === sel.pageSlug) ?? null;
+  });
 
-	const isBuilding = $derived(preview.status === 'building');
-	const buildPct = $derived(
-		isBuilding && preview.progress ? Math.round(preview.progress.percent) : 0
-	);
+  const isBuilding = $derived(preview.status === 'building');
+  const buildPct = $derived(
+    isBuilding && preview.progress ? Math.round(preview.progress.percent) : 0
+  );
 
-	const MAX_TITLE_PATH_LEN = 48;
-	const headerPath = $derived.by(() => {
-		if (!site.home) return null;
-		if (site.home.length <= MAX_TITLE_PATH_LEN) return site.home;
-		return '…' + site.home.slice(-(MAX_TITLE_PATH_LEN - 1));
-	});
+  const MAX_TITLE_PATH_LEN = 48;
+  const headerPath = $derived.by(() => {
+    if (!site.home) return null;
+    if (site.home.length <= MAX_TITLE_PATH_LEN) return site.home;
+    return '…' + site.home.slice(-(MAX_TITLE_PATH_LEN - 1));
+  });
 
-	$effect(() => {
-		document.title = site.home ? `SimpleGal: ${site.home}` : 'SimpleGal';
-	});
+  $effect(() => {
+    document.title = site.home ? `SimpleGal: ${site.home}` : 'SimpleGal';
+  });
 
-	$effect(() => {
-		setPlatform(api.platform);
-		api.app.version().then((v) => setAppVersion(v));
-		api.simpleGal.version().then((r) => {
-			if (r.ok) {
-				setSimpleGalVersion(r.version ?? '', null);
-			} else {
-				setSimpleGalVersion('not found', r.error ?? 'simple-gal binary not found');
-			}
-		});
-		const envHome = new URLSearchParams(window.location.search).get('home');
-		if (envHome) {
-			loadGalleryHome(envHome);
-		} else {
-			restoreLastGalleryHome();
-		}
-		const unsubHome = api.gallery.onHomeChanged((p) => loadGalleryHome(p));
-		const unsubPreview = initPreviewStore();
-		const unsubWatch = initWatchStore();
-		return () => {
-			unsubHome();
-			unsubPreview();
-			unsubWatch();
-		};
-	});
+  $effect(() => {
+    setPlatform(api.platform);
+    api.app.version().then((v) => setAppVersion(v));
+    api.simpleGal.version().then((r) => {
+      if (r.ok) {
+        setSimpleGalVersion(r.version ?? '', null);
+      } else {
+        setSimpleGalVersion('not found', r.error ?? 'simple-gal binary not found');
+      }
+    });
+    const envHome = new URLSearchParams(window.location.search).get('home');
+    if (envHome) {
+      loadGalleryHome(envHome);
+    } else {
+      restoreLastGalleryHome();
+    }
+    const unsubHome = api.gallery.onHomeChanged((p) => loadGalleryHome(p));
+    const unsubPreview = initPreviewStore();
+    const unsubWatch = initWatchStore();
+    return () => {
+      unsubHome();
+      unsubPreview();
+      unsubWatch();
+    };
+  });
 
-	$effect(() => {
-		// Touch these so the effect re-runs on any relevant change.
-		void site.selection;
-		void site.home;
-		void site.manifest;
-		persistCurrentSelection();
-	});
+  $effect(() => {
+    // Touch these so the effect re-runs on any relevant change.
+    void site.selection;
+    void site.home;
+    void site.manifest;
+    persistCurrentSelection();
+  });
 </script>
 
 <div class="flex h-full w-full flex-col">
-	<header
-		class={[
-			'border-border bg-surface-header flex h-10 shrink-0 items-center gap-3 border-b px-3 backdrop-blur',
-			isMac ? 'pl-20' : ''
-		].join(' ')}
-		style={headerDragStyle}
-		data-testid="app-header"
-	>
-		<div class="flex min-w-0 items-center gap-1.5" data-testid="app-title">
-			<span class="text-text-primary shrink-0 text-[length:var(--text-label)] font-semibold">
-				SimpleGal{headerPath ? ':' : ''}
-			</span>
-			{#if headerPath}
-				<span
-					class="text-text-secondary truncate font-mono text-[length:var(--text-caption)]"
-					title={site.home}
-					data-testid="app-title-path"
-				>
-					{headerPath}
-				</span>
-				<button
-					type="button"
-					class="border-border text-text-muted hover:bg-surface-2 hover:text-text-primary flex h-5 w-5 shrink-0 items-center justify-center rounded border"
-					onclick={openGalleryHomeDialog}
-					style={noDragStyle}
-					aria-label="Change gallery home"
-					title="Change gallery home"
-					data-testid="change-gallery-home-btn"
-				>
-					<IconPencil class="h-3 w-3" />
-				</button>
-			{:else}
-				<button
-					type="button"
-					class="text-text-secondary hover:text-text-primary text-[length:var(--text-caption)] underline"
-					onclick={openGalleryHomeDialog}
-					style={noDragStyle}
-					data-testid="change-gallery-home-btn"
-				>
-					Open gallery home…
-				</button>
-			{/if}
-		</div>
-		<div class="flex-1"></div>
-		<div style={noDragStyle}>
-			<button
-				type="button"
-				class="border-accent bg-surface-1 text-text-primary hover:bg-surface-2 focus-visible:ring-accent relative inline-flex h-7 items-center justify-center overflow-hidden rounded-md border px-3 text-[length:var(--text-caption)] font-medium transition-colors select-none focus-visible:ring-1 focus-visible:outline-none disabled:opacity-60"
-				disabled={!site.home || isBuilding}
-				onclick={runBuild}
-				data-testid="preview-build-btn"
-				data-progress-pct={buildPct}
-			>
-				{#if isBuilding}
-					<span
-						class="bg-accent absolute inset-y-0 left-0 transition-[width] duration-200 ease-linear"
-						style="width: {buildPct}%"
-						aria-hidden="true"
-					></span>
-				{/if}
-				<span class="text-text-primary relative whitespace-nowrap">
-					{isBuilding ? `Updating… ${buildPct}%` : 'Update'}
-				</span>
-			</button>
-		</div>
-	</header>
+  <header
+    class={[
+      'border-border bg-surface-header flex h-10 shrink-0 items-center gap-3 border-b px-3 backdrop-blur',
+      isMac ? 'pl-20' : ''
+    ].join(' ')}
+    style={headerDragStyle}
+    data-testid="app-header"
+  >
+    <div class="flex min-w-0 items-center gap-1.5" data-testid="app-title">
+      <span class="text-text-primary shrink-0 text-[length:var(--text-label)] font-semibold">
+        SimpleGal{headerPath ? ':' : ''}
+      </span>
+      {#if headerPath}
+        <span
+          class="text-text-secondary truncate font-mono text-[length:var(--text-caption)]"
+          title={site.home}
+          data-testid="app-title-path"
+        >
+          {headerPath}
+        </span>
+        <button
+          type="button"
+          class="border-border text-text-muted hover:bg-surface-2 hover:text-text-primary flex h-5 w-5 shrink-0 items-center justify-center rounded border"
+          onclick={openGalleryHomeDialog}
+          style={noDragStyle}
+          aria-label="Change gallery home"
+          title="Change gallery home"
+          data-testid="change-gallery-home-btn"
+        >
+          <IconPencil class="h-3 w-3" />
+        </button>
+      {:else}
+        <button
+          type="button"
+          class="text-text-secondary hover:text-text-primary text-[length:var(--text-caption)] underline"
+          onclick={openGalleryHomeDialog}
+          style={noDragStyle}
+          data-testid="change-gallery-home-btn"
+        >
+          Open gallery home…
+        </button>
+      {/if}
+    </div>
+    <div class="flex-1"></div>
+    <div style={noDragStyle}>
+      <button
+        type="button"
+        class="border-accent bg-surface-1 text-text-primary hover:bg-surface-2 focus-visible:ring-accent relative inline-flex h-7 items-center justify-center overflow-hidden rounded-md border px-3 text-[length:var(--text-caption)] font-medium transition-colors select-none focus-visible:ring-1 focus-visible:outline-none disabled:opacity-60"
+        disabled={!site.home || isBuilding}
+        onclick={runBuild}
+        data-testid="preview-build-btn"
+        data-progress-pct={buildPct}
+      >
+        {#if isBuilding}
+          <span
+            class="bg-accent absolute inset-y-0 left-0 transition-[width] duration-200 ease-linear"
+            style="width: {buildPct}%"
+            aria-hidden="true"
+          ></span>
+        {/if}
+        <span class="text-text-primary relative whitespace-nowrap">
+          {isBuilding ? `Updating… ${buildPct}%` : 'Update'}
+        </span>
+      </button>
+    </div>
+  </header>
 
-	{#if appInfo.simpleGalMissing}
-		<div
-			class="border-danger/60 bg-danger/10 text-text-primary flex shrink-0 items-start gap-3 border-b px-4 py-3"
-			data-testid="simple-gal-missing-banner"
-		>
-			<div class="text-danger text-[length:var(--text-label)] font-semibold">⚠</div>
-			<div class="min-w-0 flex-1">
-				<div class="text-[length:var(--text-label)] font-semibold">simple-gal binary not found</div>
-				<div class="text-text-muted mt-1 text-[length:var(--text-caption)]">
-					{appInfo.simpleGalMissing}
-				</div>
-				<div class="text-text-muted mt-2 text-[length:var(--text-caption)]">
-					Install it with
-					<code class="bg-surface-2 rounded px-1 font-mono"
-						>cargo install --git https://github.com/arthur-debert/simple-gal.git simple-gal</code
-					>
-					or set
-					<code class="bg-surface-2 rounded px-1 font-mono">SIMPLE_GAL_PATH</code>
-					before launching.
-				</div>
-			</div>
-		</div>
-	{/if}
+  {#if appInfo.simpleGalMissing}
+    <div
+      class="border-danger/60 bg-danger/10 text-text-primary flex shrink-0 items-start gap-3 border-b px-4 py-3"
+      data-testid="simple-gal-missing-banner"
+    >
+      <div class="text-danger text-[length:var(--text-label)] font-semibold">⚠</div>
+      <div class="min-w-0 flex-1">
+        <div class="text-[length:var(--text-label)] font-semibold">simple-gal binary not found</div>
+        <div class="text-text-muted mt-1 text-[length:var(--text-caption)]">
+          {appInfo.simpleGalMissing}
+        </div>
+        <div class="text-text-muted mt-2 text-[length:var(--text-caption)]">
+          Install it with
+          <code class="bg-surface-2 rounded px-1 font-mono"
+            >cargo install --git https://github.com/arthur-debert/simple-gal.git simple-gal</code
+          >
+          or set
+          <code class="bg-surface-2 rounded px-1 font-mono">SIMPLE_GAL_PATH</code>
+          before launching.
+        </div>
+      </div>
+    </div>
+  {/if}
 
-	<div class="min-h-0 flex-1">
-		{#snippet left()}
-			<SiteTree />
-		{/snippet}
+  <div class="min-h-0 flex-1">
+    {#snippet left()}
+      <SiteTree />
+    {/snippet}
 
-		{#snippet center()}
-			{#if site.loading}
-				<div
-					class="text-text-muted flex h-full items-center justify-center text-[length:var(--text-caption)]"
-				>
-					Scanning gallery…
-				</div>
-			{:else if !site.manifest}
-				<div class="flex h-full flex-col items-center justify-center gap-3 p-6">
-					<div class="text-text-secondary text-[length:var(--text-label)]">
-						Welcome to SimpleGal
-					</div>
-					<div class="text-text-faint max-w-md text-center text-[length:var(--text-caption)]">
-						Open a gallery home to see its structure. Everything on disk remains the source of
-						truth.
-					</div>
-					<Button variant="default" size="md" onclick={openGalleryHomeDialog}>
-						Open gallery home…
-					</Button>
-				</div>
-			{:else if site.selection.kind === 'image' && selectedImage && selectedAlbum}
-				<ImageDetailEditor albumPath={selectedAlbum.path} image={selectedImage} />
-			{:else if site.selection.kind === 'album' && selectedAlbum}
-				<AlbumView album={selectedAlbum} />
-			{:else if site.selection.kind === 'page' && selectedPage}
-				<PageEditor page={selectedPage} />
-			{:else if site.selection.kind === 'config'}
-				<ConfigEditor dirPath={site.selection.dirPath} levelKind={site.selection.levelKind} />
-			{:else}
-				<div
-					class="text-text-faint flex h-full items-center justify-center text-[length:var(--text-caption)]"
-				>
-					Select an album or page in the left pane
-				</div>
-			{/if}
-		{/snippet}
+    {#snippet center()}
+      {#if site.loading}
+        <div
+          class="text-text-muted flex h-full items-center justify-center text-[length:var(--text-caption)]"
+        >
+          Scanning gallery…
+        </div>
+      {:else if !site.manifest}
+        <div class="flex h-full flex-col items-center justify-center gap-3 p-6">
+          <div class="text-text-secondary text-[length:var(--text-label)]">
+            Welcome to SimpleGal
+          </div>
+          <div class="text-text-faint max-w-md text-center text-[length:var(--text-caption)]">
+            Open a gallery home to see its structure. Everything on disk remains the source of
+            truth.
+          </div>
+          <Button variant="default" size="md" onclick={openGalleryHomeDialog}>
+            Open gallery home…
+          </Button>
+        </div>
+      {:else if site.selection.kind === 'image' && selectedImage && selectedAlbum}
+        <ImageDetailEditor albumPath={selectedAlbum.path} image={selectedImage} />
+      {:else if site.selection.kind === 'album' && selectedAlbum}
+        <AlbumView album={selectedAlbum} />
+      {:else if site.selection.kind === 'page' && selectedPage}
+        <PageEditor page={selectedPage} />
+      {:else if site.selection.kind === 'config'}
+        <ConfigEditor dirPath={site.selection.dirPath} levelKind={site.selection.levelKind} />
+      {:else}
+        <div
+          class="text-text-faint flex h-full items-center justify-center text-[length:var(--text-caption)]"
+        >
+          Select an album or page in the left pane
+        </div>
+      {/if}
+    {/snippet}
 
-		{#snippet right()}
-			<PreviewPane />
-		{/snippet}
+    {#snippet right()}
+      <PreviewPane />
+    {/snippet}
 
-		<ResizablePanes id="main" {left} {center} {right} />
-	</div>
+    <ResizablePanes id="main" {left} {center} {right} />
+  </div>
 
-	<StatusBar />
-	<ConfigErrorModal />
-	<ConfigUnsavedModal />
-	<Toast />
+  <StatusBar />
+  <ConfigErrorModal />
+  <ConfigUnsavedModal />
+  <Toast />
 </div>

@@ -14,40 +14,40 @@ let unsubHome: (() => void) | null = null;
 const REBUILD_DEBOUNCE_MS = 500;
 
 function scheduleBuild(): void {
-	if (buildDebounce) clearTimeout(buildDebounce);
-	buildDebounce = setTimeout(() => {
-		buildDebounce = null;
-		if (site.home) runBuild();
-	}, REBUILD_DEBOUNCE_MS);
+  if (buildDebounce) clearTimeout(buildDebounce);
+  buildDebounce = setTimeout(() => {
+    buildDebounce = null;
+    if (site.home) runBuild();
+  }, REBUILD_DEBOUNCE_MS);
 }
 
 async function startWatchingCurrent(): Promise<void> {
-	if (site.home) {
-		await api.watch.start(site.home);
-	} else {
-		await api.watch.stop();
-	}
+  if (site.home) {
+    await api.watch.start(site.home);
+  } else {
+    await api.watch.stop();
+  }
 }
 
 export function initWatchStore(): () => void {
-	void startWatchingCurrent().catch(() => {});
+  void startWatchingCurrent().catch(() => {});
 
-	unsubChanged = api.watch.onChanged(async ({ home }) => {
-		if (home !== site.home) return;
-		await rescanCurrentHome();
-		scheduleBuild();
-	});
+  unsubChanged = api.watch.onChanged(async ({ home }) => {
+    if (home !== site.home) return;
+    await rescanCurrentHome();
+    scheduleBuild();
+  });
 
-	unsubHome = api.gallery.onHomeChanged(() => {
-		void startWatchingCurrent().catch(() => {});
-	});
+  unsubHome = api.gallery.onHomeChanged(() => {
+    void startWatchingCurrent().catch(() => {});
+  });
 
-	return () => {
-		unsubChanged?.();
-		unsubHome?.();
-		unsubChanged = null;
-		unsubHome = null;
-		if (buildDebounce) clearTimeout(buildDebounce);
-		buildDebounce = null;
-	};
+  return () => {
+    unsubChanged?.();
+    unsubHome?.();
+    unsubChanged = null;
+    unsubHome = null;
+    if (buildDebounce) clearTimeout(buildDebounce);
+    buildDebounce = null;
+  };
 }

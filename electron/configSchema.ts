@@ -9,26 +9,26 @@ import type { ConfigSchemaRoot } from '../src/lib/types/configSchema.js';
  * lifetime, so a single spawn per session is all we need.
  */
 interface CacheEntry {
-	binPath: string;
-	schema: ConfigSchemaRoot;
+  binPath: string;
+  schema: ConfigSchemaRoot;
 }
 
 let cached: CacheEntry | null = null;
 
 interface ConfigSchemaPayload {
-	action: 'schema';
-	schema: ConfigSchemaRoot;
+  action: 'schema';
+  schema: ConfigSchemaRoot;
 }
 
 export interface FetchSchemaOk {
-	ok: true;
-	schema: ConfigSchemaRoot;
-	binPath: string;
+  ok: true;
+  schema: ConfigSchemaRoot;
+  binPath: string;
 }
 
 export interface FetchSchemaErr {
-	ok: false;
-	error: string;
+  ok: false;
+  error: string;
 }
 
 export type FetchSchemaResult = FetchSchemaOk | FetchSchemaErr;
@@ -39,37 +39,37 @@ export type FetchSchemaResult = FetchSchemaOk | FetchSchemaErr;
  * session return the cached value as long as the binary path is unchanged.
  */
 export async function fetchConfigSchema(): Promise<FetchSchemaResult> {
-	let binPath: string;
-	try {
-		binPath = resolveSimpleGalBin();
-	} catch (err) {
-		return { ok: false, error: (err as Error).message };
-	}
+  let binPath: string;
+  try {
+    binPath = resolveSimpleGalBin();
+  } catch (err) {
+    return { ok: false, error: (err as Error).message };
+  }
 
-	if (cached && cached.binPath === binPath) {
-		return { ok: true, schema: cached.schema, binPath };
-	}
+  if (cached && cached.binPath === binPath) {
+    return { ok: true, schema: cached.schema, binPath };
+  }
 
-	const result = await runSimpleGal<ConfigSchemaPayload>('config', {
-		extraArgs: ['schema']
-	});
+  const result = await runSimpleGal<ConfigSchemaPayload>('config', {
+    extraArgs: ['schema']
+  });
 
-	if (!result.ok) {
-		return { ok: false, error: result.message };
-	}
+  if (!result.ok) {
+    return { ok: false, error: result.message };
+  }
 
-	const schema = result.data?.schema;
-	if (!schema || schema.type !== 'object' || !schema.properties) {
-		return {
-			ok: false,
-			error: 'simple-gal config schema returned an unexpected payload shape'
-		};
-	}
+  const schema = result.data?.schema;
+  if (!schema || schema.type !== 'object' || !schema.properties) {
+    return {
+      ok: false,
+      error: 'simple-gal config schema returned an unexpected payload shape'
+    };
+  }
 
-	cached = { binPath, schema };
-	return { ok: true, schema, binPath };
+  cached = { binPath, schema };
+  return { ok: true, schema, binPath };
 }
 
 export function clearConfigSchemaCache(): void {
-	cached = null;
+  cached = null;
 }

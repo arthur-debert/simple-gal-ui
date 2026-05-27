@@ -23,119 +23,119 @@ import { markSelfWrite } from './fs.js';
  */
 
 export interface SaveConfigArgs {
-	home: string;
-	dirPath: string;
-	payload: Record<string, unknown> | null;
+  home: string;
+  dirPath: string;
+  payload: Record<string, unknown> | null;
 }
 
 export interface SaveConfigOk {
-	ok: true;
-	written: boolean;
-	deleted: boolean;
+  ok: true;
+  written: boolean;
+  deleted: boolean;
 }
 
 export interface SaveConfigErr {
-	ok: false;
-	error: string;
-	configError?: {
-		path: string;
-		line?: number;
-		column?: number;
-		snippet?: string;
-	};
+  ok: false;
+  error: string;
+  configError?: {
+    path: string;
+    line?: number;
+    column?: number;
+    snippet?: string;
+  };
 }
 
 export type SaveConfigResult = SaveConfigOk | SaveConfigErr;
 
 async function readSnapshot(filePath: string): Promise<string | null> {
-	try {
-		return await fs.readFile(filePath, 'utf8');
-	} catch (err) {
-		if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null;
-		throw err;
-	}
+  try {
+    return await fs.readFile(filePath, 'utf8');
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null;
+    throw err;
+  }
 }
 
 async function restoreSnapshot(filePath: string, snapshot: string | null): Promise<void> {
-	if (snapshot === null) {
-		try {
-			await fs.unlink(filePath);
-		} catch {
-			// ignore
-		}
-		return;
-	}
-	const tmpPath = filePath + '.sgui-tmp';
-	await fs.writeFile(tmpPath, snapshot, 'utf8');
-	await fs.rename(tmpPath, filePath);
+  if (snapshot === null) {
+    try {
+      await fs.unlink(filePath);
+    } catch {
+      // ignore
+    }
+    return;
+  }
+  const tmpPath = filePath + '.sgui-tmp';
+  await fs.writeFile(tmpPath, snapshot, 'utf8');
+  await fs.rename(tmpPath, filePath);
 }
 
 export async function saveConfig(args: SaveConfigArgs): Promise<SaveConfigResult> {
-	const { home, dirPath, payload } = args;
+  const { home, dirPath, payload } = args;
 
-	// Path traversal guard: dirPath must resolve inside home.
-	const resolvedHome = path.resolve(home);
-	const resolvedDir = path.resolve(dirPath);
-	const rel = path.relative(resolvedHome, resolvedDir);
-	if (rel.startsWith('..') || path.isAbsolute(rel)) {
-		return { ok: false, error: `dirPath ${resolvedDir} is not inside home ${resolvedHome}` };
-	}
+  // Path traversal guard: dirPath must resolve inside home.
+  const resolvedHome = path.resolve(home);
+  const resolvedDir = path.resolve(dirPath);
+  const rel = path.relative(resolvedHome, resolvedDir);
+  if (rel.startsWith('..') || path.isAbsolute(rel)) {
+    return { ok: false, error: `dirPath ${resolvedDir} is not inside home ${resolvedHome}` };
+  }
 
-	const configPath = path.join(dirPath, 'config.toml');
+  const configPath = path.join(dirPath, 'config.toml');
 
-	let snapshot: string | null;
-	try {
-		snapshot = await readSnapshot(configPath);
-	} catch (err) {
-		return { ok: false, error: `failed to read ${configPath}: ${(err as Error).message}` };
-	}
+  let snapshot: string | null;
+  try {
+    snapshot = await readSnapshot(configPath);
+  } catch (err) {
+    return { ok: false, error: `failed to read ${configPath}: ${(err as Error).message}` };
+  }
 
-	// Suppress watcher events for the writes we're about to do.
-	markSelfWrite(configPath);
+  // Suppress watcher events for the writes we're about to do.
+  markSelfWrite(configPath);
 
-	try {
-		if (payload === null || Object.keys(payload).length === 0) {
-			if (snapshot !== null) {
-				await fs.unlink(configPath);
-			}
-		} else {
-			const toml = TOML.stringify(payload as TOML.JsonMap);
-			await fs.mkdir(path.dirname(configPath), { recursive: true });
-			const tmpPath = configPath + '.sgui-tmp';
-			await fs.writeFile(tmpPath, toml, 'utf8');
-			await fs.rename(tmpPath, configPath);
-		}
-	} catch (err) {
-		// Writing the file itself failed — attempt to restore and bail.
-		try {
-			markSelfWrite(configPath);
-			await restoreSnapshot(configPath, snapshot);
-		} catch {
-			// ignore rollback errors
-		}
-		return { ok: false, error: `failed to write ${configPath}: ${(err as Error).message}` };
-	}
+  try {
+    if (payload === null || Object.keys(payload).length === 0) {
+      if (snapshot !== null) {
+        await fs.unlink(configPath);
+      }
+    } else {
+      const toml = TOML.stringify(payload as TOML.JsonMap);
+      await fs.mkdir(path.dirname(configPath), { recursive: true });
+      const tmpPath = configPath + '.sgui-tmp';
+      await fs.writeFile(tmpPath, toml, 'utf8');
+      await fs.rename(tmpPath, configPath);
+    }
+  } catch (err) {
+    // Writing the file itself failed — attempt to restore and bail.
+    try {
+      markSelfWrite(configPath);
+      await restoreSnapshot(configPath, snapshot);
+    } catch {
+      // ignore rollback errors
+    }
+    return { ok: false, error: `failed to write ${configPath}: ${(err as Error).message}` };
+  }
 
-	// Validate via simple-gal check. If the schema rejects the combination
-	// (e.g. a color with the wrong format), we roll back.
-	const check = await runSimpleGal('check', { source: home });
-	if (!check.ok) {
-		try {
-			markSelfWrite(configPath);
-			await restoreSnapshot(configPath, snapshot);
-		} catch {
-			// ignore rollback errors
-		}
-		return {
-			ok: false,
-			error: check.message,
-			configError: check.config
-		};
-	}
+  // Validate via simple-gal check. If the schema rejects the combination
+  // (e.g. a color with the wrong format), we roll back.
+  const check = await runSimpleGal('check', { source: home });
+  if (!check.ok) {
+    try {
+      markSelfWrite(configPath);
+      await restoreSnapshot(configPath, snapshot);
+    } catch {
+      // ignore rollback errors
+    }
+    return {
+      ok: false,
+      error: check.message,
+      configError: check.config
+    };
+  }
 
-	return {
-		ok: true,
-		written: payload !== null && Object.keys(payload ?? {}).length > 0,
-		deleted: payload === null || Object.keys(payload ?? {}).length === 0
-	};
+  return {
+    ok: true,
+    written: payload !== null && Object.keys(payload ?? {}).length > 0,
+    deleted: payload === null || Object.keys(payload ?? {}).length === 0
+  };
 }
