@@ -3,10 +3,10 @@ import path from 'node:path';
 import { readConfigFile } from './configIO.js';
 import { fetchConfigSchema } from './configSchema.js';
 import type {
-	ConfigLevelKind,
-	ConfigLevelRef,
-	LoadedConfigFile,
-	ConfigCascade
+  ConfigLevelKind,
+  ConfigLevelRef,
+  LoadedConfigFile,
+  ConfigCascade
 } from '../src/lib/types/configEditor.js';
 
 /**
@@ -27,79 +27,79 @@ import type {
  */
 
 const IMAGE_EXTS = new Set([
-	'.jpg',
-	'.jpeg',
-	'.png',
-	'.avif',
-	'.webp',
-	'.gif',
-	'.tif',
-	'.tiff',
-	'.heic'
+  '.jpg',
+  '.jpeg',
+  '.png',
+  '.avif',
+  '.webp',
+  '.gif',
+  '.tif',
+  '.tiff',
+  '.heic'
 ]);
 
 async function detectLevelKind(absDir: string, home: string): Promise<ConfigLevelKind> {
-	if (path.resolve(absDir) === path.resolve(home)) return 'root';
+  if (path.resolve(absDir) === path.resolve(home)) return 'root';
 
-	let hasImage = false;
-	let hasSubdir = false;
-	let entries: import('node:fs').Dirent[];
-	try {
-		entries = await fs.readdir(absDir, { withFileTypes: true });
-	} catch {
-		return 'group';
-	}
-	for (const e of entries) {
-		if (e.isFile()) {
-			const ext = path.extname(e.name).toLowerCase();
-			if (IMAGE_EXTS.has(ext)) {
-				hasImage = true;
-				break;
-			}
-		} else if (e.isDirectory()) {
-			hasSubdir = true;
-		}
-	}
-	if (hasImage) return 'album';
-	if (hasSubdir) return 'group';
-	// Empty-ish directory — treat as group (can still own a config.toml that
-	// cascades to future children).
-	return 'group';
+  let hasImage = false;
+  let hasSubdir = false;
+  let entries: import('node:fs').Dirent[];
+  try {
+    entries = await fs.readdir(absDir, { withFileTypes: true });
+  } catch {
+    return 'group';
+  }
+  for (const e of entries) {
+    if (e.isFile()) {
+      const ext = path.extname(e.name).toLowerCase();
+      if (IMAGE_EXTS.has(ext)) {
+        hasImage = true;
+        break;
+      }
+    } else if (e.isDirectory()) {
+      hasSubdir = true;
+    }
+  }
+  if (hasImage) return 'album';
+  if (hasSubdir) return 'group';
+  // Empty-ish directory — treat as group (can still own a config.toml that
+  // cascades to future children).
+  return 'group';
 }
 
 function buildLevelRef(home: string, absDir: string, kind: ConfigLevelKind): ConfigLevelRef {
-	const rel = path.relative(home, absDir);
-	const relPath = rel === '' ? '' : rel.split(path.sep).join('/');
-	const segments = relPath === '' ? [] : relPath.split('/');
-	// Strip NNN- numeric prefix when building a human label, and render the
-	// full trail as 'Travel / Japan' so the UI can print it as-is.
-	const labelSegments = segments.map((s) => s.replace(/^\d+-/, ''));
-	const label = relPath === '' ? 'root' : labelSegments.join(' / ');
-	return {
-		kind,
-		dirPath: absDir,
-		relPath,
-		label,
-		configTomlPath: path.join(absDir, 'config.toml')
-	};
+  const rel = path.relative(home, absDir);
+  const relPath = rel === '' ? '' : rel.split(path.sep).join('/');
+  const segments = relPath === '' ? [] : relPath.split('/');
+  // Strip NNN- numeric prefix when building a human label, and render the
+  // full trail as 'Travel / Japan' so the UI can print it as-is.
+  const labelSegments = segments.map((s) => s.replace(/^\d+-/, ''));
+  const label = relPath === '' ? 'root' : labelSegments.join(' / ');
+  return {
+    kind,
+    dirPath: absDir,
+    relPath,
+    label,
+    configTomlPath: path.join(absDir, 'config.toml')
+  };
 }
 
 async function loadLevel(home: string, absDir: string): Promise<LoadedConfigFile> {
-	const kind = await detectLevelKind(absDir, home);
-	const level = buildLevelRef(home, absDir, kind);
-	const fileResult = await readConfigFile(level.configTomlPath);
-	return {
-		level,
-		exists: fileResult.exists,
-		raw: fileResult.raw,
-		parsed: fileResult.parsed,
-		loadedKeys: fileResult.loadedKeys
-	};
+  const kind = await detectLevelKind(absDir, home);
+  const level = buildLevelRef(home, absDir, kind);
+  const fileResult = await readConfigFile(level.configTomlPath);
+  return {
+    level,
+    exists: fileResult.exists,
+    raw: fileResult.raw,
+    parsed: fileResult.parsed,
+    loadedKeys: fileResult.loadedKeys
+  };
 }
 
 export interface LoadCascadeArgs {
-	home: string;
-	dirPath: string; // absolute target directory, must be inside home
+  home: string;
+  dirPath: string; // absolute target directory, must be inside home
 }
 
 export type LoadCascadeResult = { ok: true; cascade: ConfigCascade } | { ok: false; error: string };
@@ -110,46 +110,46 @@ export type LoadCascadeResult = { ok: true; cascade: ConfigCascade } | { ok: fal
  * inside `home`.
  */
 export async function loadCascade(args: LoadCascadeArgs): Promise<LoadCascadeResult> {
-	const home = path.resolve(args.home);
-	const target = path.resolve(args.dirPath);
+  const home = path.resolve(args.home);
+  const target = path.resolve(args.dirPath);
 
-	const rel = path.relative(home, target);
-	if (rel.startsWith('..') || path.isAbsolute(rel)) {
-		return { ok: false, error: `dirPath ${target} is not inside home ${home}` };
-	}
+  const rel = path.relative(home, target);
+  if (rel.startsWith('..') || path.isAbsolute(rel)) {
+    return { ok: false, error: `dirPath ${target} is not inside home ${home}` };
+  }
 
-	const schemaResult = await fetchConfigSchema();
-	if (!schemaResult.ok) {
-		return { ok: false, error: schemaResult.error };
-	}
+  const schemaResult = await fetchConfigSchema();
+  if (!schemaResult.ok) {
+    return { ok: false, error: schemaResult.error };
+  }
 
-	// Build the list of directories from root to target. `path.relative`
-	// gives us 'Travel/Japan' — split on the OS separator (already handled
-	// by path.relative) to stage each intermediate level.
-	const segments = rel === '' ? [] : rel.split(path.sep);
-	const dirs: string[] = [home];
-	for (let i = 0; i < segments.length; i++) {
-		dirs.push(path.join(home, ...segments.slice(0, i + 1)));
-	}
+  // Build the list of directories from root to target. `path.relative`
+  // gives us 'Travel/Japan' — split on the OS separator (already handled
+  // by path.relative) to stage each intermediate level.
+  const segments = rel === '' ? [] : rel.split(path.sep);
+  const dirs: string[] = [home];
+  for (let i = 0; i < segments.length; i++) {
+    dirs.push(path.join(home, ...segments.slice(0, i + 1)));
+  }
 
-	const chain: LoadedConfigFile[] = [];
-	for (const d of dirs) {
-		try {
-			chain.push(await loadLevel(home, d));
-		} catch (err) {
-			return {
-				ok: false,
-				error: `failed to load ${path.join(d, 'config.toml')}: ${(err as Error).message}`
-			};
-		}
-	}
+  const chain: LoadedConfigFile[] = [];
+  for (const d of dirs) {
+    try {
+      chain.push(await loadLevel(home, d));
+    } catch (err) {
+      return {
+        ok: false,
+        error: `failed to load ${path.join(d, 'config.toml')}: ${(err as Error).message}`
+      };
+    }
+  }
 
-	return {
-		ok: true,
-		cascade: {
-			schema: schemaResult.schema,
-			target: chain[chain.length - 1].level,
-			chain
-		}
-	};
+  return {
+    ok: true,
+    cascade: {
+      schema: schemaResult.schema,
+      target: chain[chain.length - 1].level,
+      chain
+    }
+  };
 }

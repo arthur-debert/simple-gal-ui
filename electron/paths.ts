@@ -12,21 +12,21 @@ import path from 'node:path';
  */
 
 function hashHome(home: string): string {
-	return createHash('sha256').update(path.resolve(home)).digest('hex').slice(0, 16);
+  return createHash('sha256').update(path.resolve(home)).digest('hex').slice(0, 16);
 }
 
 export interface HomeWorkPaths {
-	root: string;
-	dist: string;
-	temp: string;
+  root: string;
+  dist: string;
+  temp: string;
 }
 
 export function workPathsForHome(home: string): HomeWorkPaths {
-	const id = hashHome(home);
-	const root = path.join(app.getPath('userData'), 'galleries', id);
-	const dist = path.join(root, 'dist');
-	const temp = path.join(root, 'temp');
-	mkdirSync(dist, { recursive: true });
-	mkdirSync(temp, { recursive: true });
-	return { root, dist, temp };
+  const id = hashHome(home);
+  const root = path.join(app.getPath('userData'), 'galleries', id);
+  const dist = path.join(root, 'dist');
+  const temp = path.join(root, 'temp');
+  mkdirSync(dist, { recursive: true });
+  mkdirSync(temp, { recursive: true });
+  return { root, dist, temp };
 }

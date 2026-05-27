@@ -13,7 +13,7 @@ import type { ManifestAlbum, ManifestImage } from '$lib/types/manifest';
 export const THUMB_FILENAME_RE = /^(\d+)-thumb(?:-.*)?\.[^.]+$/i;
 
 export function isThumbFilename(filename: string): boolean {
-	return THUMB_FILENAME_RE.test(filename);
+  return THUMB_FILENAME_RE.test(filename);
 }
 
 /**
@@ -23,7 +23,7 @@ export function isThumbFilename(filename: string): boolean {
  * (simple-gal's fallback).
  */
 export function isAlbumThumbnail(album: ManifestAlbum, img: ManifestImage): boolean {
-	return album.preview_image === img.source_path;
+  return album.preview_image === img.source_path;
 }
 
 /**
@@ -33,13 +33,13 @@ export function isAlbumThumbnail(album: ManifestAlbum, img: ManifestImage): bool
  * demoting an image doesn't change the name the user sees.
  */
 export function displayImageTitle(img: ManifestImage): string {
-	const base = img.title ?? img.filename.replace(/\.[^.]+$/, '');
-	if (!isThumbFilename(img.filename)) return base;
-	const stripped = base
-		.replace(/^thumb[-\s]+/i, '')
-		.replace(/[-\s]+thumb$/i, '')
-		.replace(/\bthumb\b/i, '')
-		.replace(/\s{2,}/g, ' ')
-		.trim();
-	return stripped || base;
+  const base = img.title ?? img.filename.replace(/\.[^.]+$/, '');
+  if (!isThumbFilename(img.filename)) return base;
+  const stripped = base
+    .replace(/^thumb[-\s]+/i, '')
+    .replace(/[-\s]+thumb$/i, '')
+    .replace(/\bthumb\b/i, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+  return stripped || base;
 }

@@ -13,51 +13,51 @@ let currentRoot: string | null = null;
 let currentUrl: string | null = null;
 
 export function getCurrentRoot(): string | null {
-	return currentRoot;
+  return currentRoot;
 }
 
 export function getCurrentUrl(): string | null {
-	return currentUrl;
+  return currentUrl;
 }
 
 export async function ensureServer(root: string): Promise<string> {
-	currentRoot = root;
-	if (server) return currentUrl!;
+  currentRoot = root;
+  if (server) return currentUrl!;
 
-	server = http.createServer((req, res) => {
-		serveHandler(req, res, {
-			public: currentRoot ?? root,
-			directoryListing: false
-		}).catch((err) => {
-			console.error('[preview-server] serve-handler error', err);
-			if (!res.headersSent) {
-				res.writeHead(500);
-				res.end('preview server error');
-			}
-		});
-	});
+  server = http.createServer((req, res) => {
+    serveHandler(req, res, {
+      public: currentRoot ?? root,
+      directoryListing: false
+    }).catch((err) => {
+      console.error('[preview-server] serve-handler error', err);
+      if (!res.headersSent) {
+        res.writeHead(500);
+        res.end('preview server error');
+      }
+    });
+  });
 
-	await new Promise<void>((resolve, reject) => {
-		server!.once('error', reject);
-		server!.listen(0, '127.0.0.1', () => {
-			server!.removeListener('error', reject);
-			resolve();
-		});
-	});
+  await new Promise<void>((resolve, reject) => {
+    server!.once('error', reject);
+    server!.listen(0, '127.0.0.1', () => {
+      server!.removeListener('error', reject);
+      resolve();
+    });
+  });
 
-	const addr = server.address() as AddressInfo;
-	currentUrl = `http://127.0.0.1:${addr.port}/`;
-	return currentUrl;
+  const addr = server.address() as AddressInfo;
+  currentUrl = `http://127.0.0.1:${addr.port}/`;
+  return currentUrl;
 }
 
 export function setRoot(root: string): void {
-	currentRoot = root;
+  currentRoot = root;
 }
 
 export async function stopServer(): Promise<void> {
-	if (!server) return;
-	await new Promise<void>((resolve) => server!.close(() => resolve()));
-	server = null;
-	currentRoot = null;
-	currentUrl = null;
+  if (!server) return;
+  await new Promise<void>((resolve) => server!.close(() => resolve()));
+  server = null;
+  currentRoot = null;
+  currentUrl = null;
 }

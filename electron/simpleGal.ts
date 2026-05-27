@@ -10,45 +10,45 @@ import { resolveSimpleGalBin } from './binPath.js';
  */
 
 export interface SimpleGalOk<TData = unknown> {
-	ok: true;
-	command: string;
-	data: TData;
+  ok: true;
+  command: string;
+  data: TData;
 }
 
 export interface SimpleGalConfigError {
-	path: string;
-	line?: number;
-	column?: number;
-	snippet?: string;
+  path: string;
+  line?: number;
+  column?: number;
+  snippet?: string;
 }
 
 export interface SimpleGalErr {
-	ok: false;
-	kind: string;
-	message: string;
-	causes?: string[];
-	config?: SimpleGalConfigError;
+  ok: false;
+  kind: string;
+  message: string;
+  causes?: string[];
+  config?: SimpleGalConfigError;
 }
 
 export type SimpleGalResult<TData = unknown> = SimpleGalOk<TData> | SimpleGalErr;
 
 export interface RunOptions {
-	source?: string;
-	output?: string;
-	tempDir?: string;
-	extraArgs?: string[];
-	cwd?: string;
+  source?: string;
+  output?: string;
+  tempDir?: string;
+  extraArgs?: string[];
+  cwd?: string;
 }
 
 function buildArgs(command: string, opts: RunOptions): string[] {
-	const args: string[] = [];
-	if (opts.source) args.push('--source', opts.source);
-	if (opts.output) args.push('--output', opts.output);
-	if (opts.tempDir) args.push('--temp-dir', opts.tempDir);
-	args.push('--format', 'json');
-	args.push(command);
-	if (opts.extraArgs) args.push(...opts.extraArgs);
-	return args;
+  const args: string[] = [];
+  if (opts.source) args.push('--source', opts.source);
+  if (opts.output) args.push('--output', opts.output);
+  if (opts.tempDir) args.push('--temp-dir', opts.tempDir);
+  args.push('--format', 'json');
+  args.push(command);
+  if (opts.extraArgs) args.push(...opts.extraArgs);
+  return args;
 }
 
 /**
@@ -58,9 +58,9 @@ function buildArgs(command: string, opts: RunOptions): string[] {
  * with a synthetic `{kind: 'cancelled'}` envelope.
  */
 export interface SimpleGalHandle<TData = unknown> {
-	result: Promise<SimpleGalResult<TData>>;
-	cancel: () => void;
-	child: ChildProcess;
+  result: Promise<SimpleGalResult<TData>>;
+  cancel: () => void;
+  child: ChildProcess;
 }
 
 /**
@@ -69,10 +69,10 @@ export interface SimpleGalHandle<TData = unknown> {
  * support.
  */
 export async function runSimpleGal<TData = unknown>(
-	command: string,
-	opts: RunOptions = {}
+  command: string,
+  opts: RunOptions = {}
 ): Promise<SimpleGalResult<TData>> {
-	return spawnSimpleGal<TData>(command, opts).result;
+  return spawnSimpleGal<TData>(command, opts).result;
 }
 
 /**
@@ -83,187 +83,187 @@ export async function runSimpleGal<TData = unknown>(
  * receives SIGTERM and (if still alive after 2s) SIGKILL.
  */
 export function spawnSimpleGal<TData = unknown>(
-	command: string,
-	opts: RunOptions = {}
+  command: string,
+  opts: RunOptions = {}
 ): SimpleGalHandle<TData> {
-	const bin = resolveSimpleGalBin();
-	const args = buildArgs(command, opts);
+  const bin = resolveSimpleGalBin();
+  const args = buildArgs(command, opts);
 
-	let cancelled = false;
-	let killTimer: NodeJS.Timeout | null = null;
+  let cancelled = false;
+  let killTimer: NodeJS.Timeout | null = null;
 
-	const child = spawn(bin, args, {
-		cwd: opts.cwd,
-		stdio: ['ignore', 'pipe', 'pipe']
-	});
+  const child = spawn(bin, args, {
+    cwd: opts.cwd,
+    stdio: ['ignore', 'pipe', 'pipe']
+  });
 
-	let stdout = '';
-	let stderr = '';
-	child.stdout?.on('data', (buf) => {
-		stdout += buf.toString();
-	});
-	child.stderr?.on('data', (buf) => {
-		stderr += buf.toString();
-	});
+  let stdout = '';
+  let stderr = '';
+  child.stdout?.on('data', (buf) => {
+    stdout += buf.toString();
+  });
+  child.stderr?.on('data', (buf) => {
+    stderr += buf.toString();
+  });
 
-	const result = new Promise<SimpleGalResult<TData>>((resolve) => {
-		child.on('error', (err) => {
-			if (killTimer) clearTimeout(killTimer);
-			resolve({
-				ok: false,
-				kind: 'spawn_error',
-				message: err.message
-			});
-		});
-		child.on('close', (code) => {
-			if (killTimer) clearTimeout(killTimer);
-			if (cancelled) {
-				resolve({
-					ok: false,
-					kind: 'cancelled',
-					message: 'Build was cancelled'
-				});
-				return;
-			}
-			if (code === 0) {
-				try {
-					resolve(JSON.parse(stdout) as SimpleGalOk<TData>);
-					return;
-				} catch (err) {
-					resolve({
-						ok: false,
-						kind: 'parse_error',
-						message: (err as Error).message,
-						causes: [stdout.slice(0, 400)]
-					});
-					return;
-				}
-			}
-			// Non-zero exit: try to parse the error envelope from stderr
-			if (stderr.trim().startsWith('{')) {
-				try {
-					resolve(JSON.parse(stderr) as SimpleGalErr);
-					return;
-				} catch {
-					// fall through
-				}
-			}
-			resolve({
-				ok: false,
-				kind: 'spawn_error',
-				message: `simple-gal exited with code ${code}`,
-				causes: stderr ? [stderr] : undefined
-			});
-		});
-	});
+  const result = new Promise<SimpleGalResult<TData>>((resolve) => {
+    child.on('error', (err) => {
+      if (killTimer) clearTimeout(killTimer);
+      resolve({
+        ok: false,
+        kind: 'spawn_error',
+        message: err.message
+      });
+    });
+    child.on('close', (code) => {
+      if (killTimer) clearTimeout(killTimer);
+      if (cancelled) {
+        resolve({
+          ok: false,
+          kind: 'cancelled',
+          message: 'Build was cancelled'
+        });
+        return;
+      }
+      if (code === 0) {
+        try {
+          resolve(JSON.parse(stdout) as SimpleGalOk<TData>);
+          return;
+        } catch (err) {
+          resolve({
+            ok: false,
+            kind: 'parse_error',
+            message: (err as Error).message,
+            causes: [stdout.slice(0, 400)]
+          });
+          return;
+        }
+      }
+      // Non-zero exit: try to parse the error envelope from stderr
+      if (stderr.trim().startsWith('{')) {
+        try {
+          resolve(JSON.parse(stderr) as SimpleGalErr);
+          return;
+        } catch {
+          // fall through
+        }
+      }
+      resolve({
+        ok: false,
+        kind: 'spawn_error',
+        message: `simple-gal exited with code ${code}`,
+        causes: stderr ? [stderr] : undefined
+      });
+    });
+  });
 
-	function cancel(): void {
-		if (cancelled || child.exitCode !== null) return;
-		cancelled = true;
-		try {
-			child.kill('SIGTERM');
-		} catch {
-			// ignore
-		}
-		killTimer = setTimeout(() => {
-			if (child.exitCode === null) {
-				try {
-					child.kill('SIGKILL');
-				} catch {
-					// ignore
-				}
-			}
-		}, 2000);
-	}
+  function cancel(): void {
+    if (cancelled || child.exitCode !== null) return;
+    cancelled = true;
+    try {
+      child.kill('SIGTERM');
+    } catch {
+      // ignore
+    }
+    killTimer = setTimeout(() => {
+      if (child.exitCode === null) {
+        try {
+          child.kill('SIGKILL');
+        } catch {
+          // ignore
+        }
+      }
+    }, 2000);
+  }
 
-	return { result, cancel, child };
+  return { result, cancel, child };
 }
 
 // --- Typed accessors for known commands ----------------------------------
 
 export interface ManifestImage {
-	number: number;
-	source_path: string;
-	filename: string;
-	slug: string;
-	title?: string;
-	description?: string;
-	/**
-	 * SHA-256 of the image bytes; keys into `Manifest.canonical_images`.
-	 * Emitted by simple-gal's data-model refactor (v0.18 → v0.20);
-	 * absent on older manifests.
-	 */
-	canonical_id?: string;
+  number: number;
+  source_path: string;
+  filename: string;
+  slug: string;
+  title?: string;
+  description?: string;
+  /**
+   * SHA-256 of the image bytes; keys into `Manifest.canonical_images`.
+   * Emitted by simple-gal's data-model refactor (v0.18 → v0.20);
+   * absent on older manifests.
+   */
+  canonical_id?: string;
 }
 
 export interface ManifestNavItem {
-	title: string;
-	path: string;
-	source_dir: string;
+  title: string;
+  path: string;
+  source_dir: string;
 }
 
 export interface ManifestPage {
-	title: string;
-	link_title: string;
-	slug: string;
-	body: string;
-	in_nav: boolean;
-	sort_key: number;
-	is_link: boolean;
-	url?: string;
+  title: string;
+  link_title: string;
+  slug: string;
+  body: string;
+  in_nav: boolean;
+  sort_key: number;
+  is_link: boolean;
+  url?: string;
 }
 
 export type ResolvedConfig = Record<string, unknown>;
 
 export interface ManifestAlbum {
-	path: string;
-	title: string;
-	preview_image?: string;
-	images: ManifestImage[];
-	in_nav: boolean;
-	config: ResolvedConfig;
-	description?: string;
+  path: string;
+  title: string;
+  preview_image?: string;
+  images: ManifestImage[];
+  in_nav: boolean;
+  config: ResolvedConfig;
+  description?: string;
 }
 
 export interface ManifestGroup {
-	path: string;
-	title: string;
-	in_nav: boolean;
-	config: ResolvedConfig;
-	description?: string;
+  path: string;
+  title: string;
+  in_nav: boolean;
+  config: ResolvedConfig;
+  description?: string;
 }
 
 export interface CanonicalImage {
-	id: string;
-	source_path: string;
-	aliases?: string[];
-	iptc_title?: string;
-	iptc_description?: string;
-	width?: number;
-	height?: number;
+  id: string;
+  source_path: string;
+  aliases?: string[];
+  iptc_title?: string;
+  iptc_description?: string;
+  width?: number;
+  height?: number;
 }
 
 export interface Manifest {
-	navigation: ManifestNavItem[];
-	albums: ManifestAlbum[];
-	pages: ManifestPage[];
-	groups?: ManifestGroup[];
-	config: ResolvedConfig;
-	canonical_images?: CanonicalImage[];
+  navigation: ManifestNavItem[];
+  albums: ManifestAlbum[];
+  pages: ManifestPage[];
+  groups?: ManifestGroup[];
+  config: ResolvedConfig;
+  canonical_images?: CanonicalImage[];
 }
 
 export interface ScanCounts {
-	albums: number;
-	images: number;
-	pages: number;
+  albums: number;
+  images: number;
+  pages: number;
 }
 
 export interface ScanData {
-	source: string;
-	counts: ScanCounts;
-	manifest: Manifest;
+  source: string;
+  counts: ScanCounts;
+  manifest: Manifest;
 }
 
 export function scan(source: string): Promise<SimpleGalResult<ScanData>> {
-	return runSimpleGal<ScanData>('scan', { source });
+  return runSimpleGal<ScanData>('scan', { source });
 }

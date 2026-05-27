@@ -5,65 +5,65 @@ import { readFileSync } from 'node:fs';
 import { resolveSimpleGalBin, getSimpleGalVersion } from './binPath.js';
 import { scan, type SimpleGalResult, type ScanData } from './simpleGal.js';
 import {
-	getLastGalleryHome,
-	getRecentGalleryHomes,
-	recordGalleryHome,
-	getPaneState,
-	setPaneState,
-	getLastSelection,
-	setLastSelection,
-	type PaneState,
-	type PersistedSelection
+  getLastGalleryHome,
+  getRecentGalleryHomes,
+  recordGalleryHome,
+  getPaneState,
+  setPaneState,
+  getLastSelection,
+  setLastSelection,
+  type PaneState,
+  type PersistedSelection
 } from './store.js';
 import { build, cancelBuild, type BuildRunResult, type BuildProgress } from './build.js';
 import { ensureServer, stopServer } from './previewServer.js';
 import {
-	writeSidecar,
-	renameImage,
-	importImages,
-	deleteImage,
-	reorderImages,
-	replaceImages,
-	writeDescription,
-	createAlbum,
-	createPage,
-	renameEntry,
-	deleteEntry,
-	writePage,
-	reorderTreeEntries,
-	findPageFile,
-	setAlbumThumbnail,
-	IMAGE_FILTER_EXTENSIONS,
-	type WriteSidecarArgs,
-	type WriteSidecarResult,
-	type RenameImageArgs,
-	type RenameImageResult,
-	type ImportImagesArgs,
-	type ImportImagesResult,
-	type DeleteImageArgs,
-	type DeleteImageResult,
-	type ReorderImagesArgs,
-	type ReorderImagesResult,
-	type ReplaceImagesArgs,
-	type ReplaceImagesResult,
-	type WriteDescriptionArgs,
-	type WriteDescriptionResult,
-	type CreateAlbumArgs,
-	type CreateAlbumResult,
-	type CreatePageArgs,
-	type CreatePageResult,
-	type RenameEntryArgs,
-	type RenameEntryResult,
-	type DeleteEntryArgs,
-	type DeleteEntryResult,
-	type WritePageArgs,
-	type WritePageResult,
-	type ReorderTreeEntriesArgs,
-	type ReorderTreeEntriesResult,
-	type FindPageFileArgs,
-	type FindPageFileResult,
-	type SetAlbumThumbnailArgs,
-	type SetAlbumThumbnailResult
+  writeSidecar,
+  renameImage,
+  importImages,
+  deleteImage,
+  reorderImages,
+  replaceImages,
+  writeDescription,
+  createAlbum,
+  createPage,
+  renameEntry,
+  deleteEntry,
+  writePage,
+  reorderTreeEntries,
+  findPageFile,
+  setAlbumThumbnail,
+  IMAGE_FILTER_EXTENSIONS,
+  type WriteSidecarArgs,
+  type WriteSidecarResult,
+  type RenameImageArgs,
+  type RenameImageResult,
+  type ImportImagesArgs,
+  type ImportImagesResult,
+  type DeleteImageArgs,
+  type DeleteImageResult,
+  type ReorderImagesArgs,
+  type ReorderImagesResult,
+  type ReplaceImagesArgs,
+  type ReplaceImagesResult,
+  type WriteDescriptionArgs,
+  type WriteDescriptionResult,
+  type CreateAlbumArgs,
+  type CreateAlbumResult,
+  type CreatePageArgs,
+  type CreatePageResult,
+  type RenameEntryArgs,
+  type RenameEntryResult,
+  type DeleteEntryArgs,
+  type DeleteEntryResult,
+  type WritePageArgs,
+  type WritePageResult,
+  type ReorderTreeEntriesArgs,
+  type ReorderTreeEntriesResult,
+  type FindPageFileArgs,
+  type FindPageFileResult,
+  type SetAlbumThumbnailArgs,
+  type SetAlbumThumbnailResult
 } from './fs.js';
 import { watchHome, stopWatching } from './watch.js';
 import { fetchConfigSchema, type FetchSchemaResult } from './configSchema.js';
@@ -83,65 +83,65 @@ const IS_DEV = !!RENDERER_DEV_URL;
  * the asar / resources dir in packaged builds.
  */
 function readAppVersion(): string {
-	const candidates = [
-		path.join(__dirname, '..', 'package.json'), // dist-electron → repo root
-		path.join(app.getAppPath(), 'package.json')
-	];
-	for (const p of candidates) {
-		try {
-			const parsed = JSON.parse(readFileSync(p, 'utf8')) as { version?: string };
-			if (parsed.version) return parsed.version;
-		} catch {
-			// try the next one
-		}
-	}
-	// Final fallback: whatever Electron thinks
-	return app.getVersion();
+  const candidates = [
+    path.join(__dirname, '..', 'package.json'), // dist-electron → repo root
+    path.join(app.getAppPath(), 'package.json')
+  ];
+  for (const p of candidates) {
+    try {
+      const parsed = JSON.parse(readFileSync(p, 'utf8')) as { version?: string };
+      if (parsed.version) return parsed.version;
+    } catch {
+      // try the next one
+    }
+  }
+  // Final fallback: whatever Electron thinks
+  return app.getVersion();
 }
 const APP_VERSION = readAppVersion();
 
 let mainWindow: BrowserWindow | null = null;
 
 function createMainWindow(): BrowserWindow {
-	// E2E_HIDE_WINDOW=1 keeps the window invisible during automated tests —
-	// canonical convention shared with lex-fmt/lexed (see
-	// ~/.claude/skills/electron-e2e-testing/SKILL.md).
-	const e2eHideWindow = process.env.E2E_HIDE_WINDOW === '1';
+  // E2E_HIDE_WINDOW=1 keeps the window invisible during automated tests —
+  // canonical convention shared with lex-fmt/lexed (see
+  // ~/.claude/skills/electron-e2e-testing/SKILL.md).
+  const e2eHideWindow = process.env.E2E_HIDE_WINDOW === '1';
 
-	const win = new BrowserWindow({
-		width: 1400,
-		height: 900,
-		minWidth: 900,
-		minHeight: 600,
-		show: !e2eHideWindow, // hidden when E2E_HIDE_WINDOW=1; otherwise default visible
-		backgroundColor: '#0a0a0a',
-		titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
-		webPreferences: {
-			preload: path.join(__dirname, 'preload.cjs'),
-			contextIsolation: true,
-			nodeIntegration: false,
-			sandbox: false,
-			// In dev the renderer is served from http://localhost:5173, so
-			// file:// image srcs (gallery thumbnails, detail view) are blocked
-			// as cross-origin. The packaged build loads from file://index.html
-			// and doesn't hit this.
-			webSecurity: !IS_DEV
-		}
-	});
+  const win = new BrowserWindow({
+    width: 1400,
+    height: 900,
+    minWidth: 900,
+    minHeight: 600,
+    show: !e2eHideWindow, // hidden when E2E_HIDE_WINDOW=1; otherwise default visible
+    backgroundColor: '#0a0a0a',
+    titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.cjs'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: false,
+      // In dev the renderer is served from http://localhost:5173, so
+      // file:// image srcs (gallery thumbnails, detail view) are blocked
+      // as cross-origin. The packaged build loads from file://index.html
+      // and doesn't hit this.
+      webSecurity: !IS_DEV
+    }
+  });
 
-	const initialHome = process.env.SGUI_INITIAL_HOME;
+  const initialHome = process.env.SGUI_INITIAL_HOME;
 
-	if (IS_DEV && RENDERER_DEV_URL) {
-		const query = initialHome ? `?home=${encodeURIComponent(initialHome)}` : '';
-		win.loadURL(RENDERER_DEV_URL + query);
-		win.webContents.openDevTools({ mode: 'detach' });
-		// Chromium's DevTools front-end sends Autofill.enable / Autofill.setAddresses
-		// protocol messages that Electron doesn't implement, producing a pair of
-		// noisy ERROR:CONSOLE lines on every DevTools open. Silence those specific
-		// messages in the DevTools page's own console; everything else flows through.
-		win.webContents.on('devtools-opened', () => {
-			win.webContents.devToolsWebContents?.executeJavaScript(
-				`(() => {
+  if (IS_DEV && RENDERER_DEV_URL) {
+    const query = initialHome ? `?home=${encodeURIComponent(initialHome)}` : '';
+    win.loadURL(RENDERER_DEV_URL + query);
+    win.webContents.openDevTools({ mode: 'detach' });
+    // Chromium's DevTools front-end sends Autofill.enable / Autofill.setAddresses
+    // protocol messages that Electron doesn't implement, producing a pair of
+    // noisy ERROR:CONSOLE lines on every DevTools open. Silence those specific
+    // messages in the DevTools page's own console; everything else flows through.
+    win.webContents.on('devtools-opened', () => {
+      win.webContents.devToolsWebContents?.executeJavaScript(
+        `(() => {
 					const origError = console.error;
 					console.error = (...args) => {
 						const first = args[0];
@@ -150,276 +150,276 @@ function createMainWindow(): BrowserWindow {
 						return origError.apply(console, args);
 					};
 				})();`
-			);
-		});
-	} else {
-		win.loadFile(path.join(__dirname, '../dist/index.html'), {
-			query: initialHome ? { home: initialHome } : undefined
-		});
-	}
+      );
+    });
+  } else {
+    win.loadFile(path.join(__dirname, '../dist/index.html'), {
+      query: initialHome ? { home: initialHome } : undefined
+    });
+  }
 
-	win.webContents.setWindowOpenHandler(({ url }) => {
-		shell.openExternal(url);
-		return { action: 'deny' };
-	});
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    shell.openExternal(url);
+    return { action: 'deny' };
+  });
 
-	mainWindow = win;
-	win.on('closed', () => {
-		if (mainWindow === win) mainWindow = null;
-	});
+  mainWindow = win;
+  win.on('closed', () => {
+    if (mainWindow === win) mainWindow = null;
+  });
 
-	return win;
+  return win;
 }
 
 function buildMenu(): void {
-	const template: Electron.MenuItemConstructorOptions[] = [
-		...(process.platform === 'darwin'
-			? ([{ role: 'appMenu' }] as Electron.MenuItemConstructorOptions[])
-			: []),
-		{
-			label: 'File',
-			submenu: [
-				{
-					label: 'Open Gallery Home…',
-					accelerator: 'CmdOrCtrl+O',
-					click: async () => {
-						if (mainWindow) await openGalleryHomeDialog(mainWindow);
-					}
-				},
-				{ type: 'separator' },
-				process.platform === 'darwin' ? { role: 'close' } : { role: 'quit' }
-			]
-		},
-		{ role: 'editMenu' },
-		{ role: 'viewMenu' },
-		{ role: 'windowMenu' }
-	];
-	Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+  const template: Electron.MenuItemConstructorOptions[] = [
+    ...(process.platform === 'darwin'
+      ? ([{ role: 'appMenu' }] as Electron.MenuItemConstructorOptions[])
+      : []),
+    {
+      label: 'File',
+      submenu: [
+        {
+          label: 'Open Gallery Home…',
+          accelerator: 'CmdOrCtrl+O',
+          click: async () => {
+            if (mainWindow) await openGalleryHomeDialog(mainWindow);
+          }
+        },
+        { type: 'separator' },
+        process.platform === 'darwin' ? { role: 'close' } : { role: 'quit' }
+      ]
+    },
+    { role: 'editMenu' },
+    { role: 'viewMenu' },
+    { role: 'windowMenu' }
+  ];
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
 async function openGalleryHomeDialog(win: BrowserWindow): Promise<string | null> {
-	const result = await dialog.showOpenDialog(win, {
-		title: 'Open Gallery Home',
-		properties: ['openDirectory', 'createDirectory'],
-		buttonLabel: 'Open'
-	});
-	if (result.canceled || result.filePaths.length === 0) return null;
-	const picked = result.filePaths[0];
-	recordGalleryHome(picked);
-	await watchHome(picked, win);
-	win.webContents.send('gallery:home-changed', picked);
-	return picked;
+  const result = await dialog.showOpenDialog(win, {
+    title: 'Open Gallery Home',
+    properties: ['openDirectory', 'createDirectory'],
+    buttonLabel: 'Open'
+  });
+  if (result.canceled || result.filePaths.length === 0) return null;
+  const picked = result.filePaths[0];
+  recordGalleryHome(picked);
+  await watchHome(picked, win);
+  win.webContents.send('gallery:home-changed', picked);
+  return picked;
 }
 
 function registerIpcHandlers(): void {
-	ipcMain.handle('app:version', () => APP_VERSION);
+  ipcMain.handle('app:version', () => APP_VERSION);
 
-	ipcMain.handle('simpleGal:version', async () => {
-		try {
-			const bin = resolveSimpleGalBin();
-			const version = await getSimpleGalVersion(bin);
-			return { ok: true, binPath: bin, version };
-		} catch (err) {
-			return { ok: false, error: (err as Error).message };
-		}
-	});
+  ipcMain.handle('simpleGal:version', async () => {
+    try {
+      const bin = resolveSimpleGalBin();
+      const version = await getSimpleGalVersion(bin);
+      return { ok: true, binPath: bin, version };
+    } catch (err) {
+      return { ok: false, error: (err as Error).message };
+    }
+  });
 
-	ipcMain.handle('gallery:openDialog', async () => {
-		const focused = BrowserWindow.getFocusedWindow() ?? mainWindow;
-		if (!focused) return null;
-		return openGalleryHomeDialog(focused);
-	});
+  ipcMain.handle('gallery:openDialog', async () => {
+    const focused = BrowserWindow.getFocusedWindow() ?? mainWindow;
+    if (!focused) return null;
+    return openGalleryHomeDialog(focused);
+  });
 
-	ipcMain.handle('gallery:last', () => getLastGalleryHome() ?? null);
-	ipcMain.handle('gallery:recent', () => getRecentGalleryHomes());
+  ipcMain.handle('gallery:last', () => getLastGalleryHome() ?? null);
+  ipcMain.handle('gallery:recent', () => getRecentGalleryHomes());
 
-	ipcMain.handle('app:getPaneState', (_ev, id: string) => getPaneState(id));
-	ipcMain.handle('app:setPaneState', (_ev, id: string, state: PaneState) => {
-		setPaneState(id, state);
-	});
+  ipcMain.handle('app:getPaneState', (_ev, id: string) => getPaneState(id));
+  ipcMain.handle('app:setPaneState', (_ev, id: string, state: PaneState) => {
+    setPaneState(id, state);
+  });
 
-	ipcMain.handle('app:getLastSelection', (_ev, home: string) => getLastSelection(home));
-	ipcMain.handle('app:setLastSelection', (_ev, sel: PersistedSelection | null) =>
-		setLastSelection(sel)
-	);
+  ipcMain.handle('app:getLastSelection', (_ev, home: string) => getLastSelection(home));
+  ipcMain.handle('app:setLastSelection', (_ev, sel: PersistedSelection | null) =>
+    setLastSelection(sel)
+  );
 
-	ipcMain.handle('gallery:scan', async (_ev, home: string): Promise<SimpleGalResult<ScanData>> => {
-		return scan(home);
-	});
+  ipcMain.handle('gallery:scan', async (_ev, home: string): Promise<SimpleGalResult<ScanData>> => {
+    return scan(home);
+  });
 
-	ipcMain.handle('preview:build', async (ev, home: string): Promise<BuildRunResult> => {
-		const result = await build(home, (p: BuildProgress) => {
-			ev.sender.send('preview:build-progress', p);
-		});
-		if (result.ok) {
-			const url = await ensureServer(result.distPath);
-			ev.sender.send('preview:ready', { url, token: Date.now() });
-		}
-		return result;
-	});
+  ipcMain.handle('preview:build', async (ev, home: string): Promise<BuildRunResult> => {
+    const result = await build(home, (p: BuildProgress) => {
+      ev.sender.send('preview:build-progress', p);
+    });
+    if (result.ok) {
+      const url = await ensureServer(result.distPath);
+      ev.sender.send('preview:ready', { url, token: Date.now() });
+    }
+    return result;
+  });
 
-	ipcMain.handle('preview:url', async (): Promise<string | null> => {
-		return null; // url is delivered via preview:ready event; renderer tracks it
-	});
+  ipcMain.handle('preview:url', async (): Promise<string | null> => {
+    return null; // url is delivered via preview:ready event; renderer tracks it
+  });
 
-	ipcMain.handle('preview:stop', async () => {
-		await stopServer();
-	});
+  ipcMain.handle('preview:stop', async () => {
+    await stopServer();
+  });
 
-	ipcMain.handle('preview:cancel', () => {
-		return cancelBuild();
-	});
+  ipcMain.handle('preview:cancel', () => {
+    return cancelBuild();
+  });
 
-	ipcMain.handle(
-		'fs:writeSidecar',
-		async (_ev, args: WriteSidecarArgs): Promise<WriteSidecarResult> => {
-			return writeSidecar(args);
-		}
-	);
+  ipcMain.handle(
+    'fs:writeSidecar',
+    async (_ev, args: WriteSidecarArgs): Promise<WriteSidecarResult> => {
+      return writeSidecar(args);
+    }
+  );
 
-	ipcMain.handle(
-		'fs:renameImage',
-		async (_ev, args: RenameImageArgs): Promise<RenameImageResult> => {
-			return renameImage(args);
-		}
-	);
+  ipcMain.handle(
+    'fs:renameImage',
+    async (_ev, args: RenameImageArgs): Promise<RenameImageResult> => {
+      return renameImage(args);
+    }
+  );
 
-	ipcMain.handle('watch:start', async (ev, home: string) => {
-		const win = BrowserWindow.fromWebContents(ev.sender);
-		if (!win) return;
-		await watchHome(home, win);
-	});
+  ipcMain.handle('watch:start', async (ev, home: string) => {
+    const win = BrowserWindow.fromWebContents(ev.sender);
+    if (!win) return;
+    await watchHome(home, win);
+  });
 
-	ipcMain.handle('watch:stop', async () => {
-		await stopWatching();
-	});
+  ipcMain.handle('watch:stop', async () => {
+    await stopWatching();
+  });
 
-	ipcMain.handle(
-		'fs:importImages',
-		async (_ev, args: ImportImagesArgs): Promise<ImportImagesResult> => {
-			return importImages(args);
-		}
-	);
+  ipcMain.handle(
+    'fs:importImages',
+    async (_ev, args: ImportImagesArgs): Promise<ImportImagesResult> => {
+      return importImages(args);
+    }
+  );
 
-	ipcMain.handle(
-		'fs:deleteImage',
-		async (_ev, args: DeleteImageArgs): Promise<DeleteImageResult> => {
-			return deleteImage(args);
-		}
-	);
+  ipcMain.handle(
+    'fs:deleteImage',
+    async (_ev, args: DeleteImageArgs): Promise<DeleteImageResult> => {
+      return deleteImage(args);
+    }
+  );
 
-	ipcMain.handle(
-		'fs:reorderImages',
-		async (_ev, args: ReorderImagesArgs): Promise<ReorderImagesResult> => {
-			return reorderImages(args);
-		}
-	);
+  ipcMain.handle(
+    'fs:reorderImages',
+    async (_ev, args: ReorderImagesArgs): Promise<ReorderImagesResult> => {
+      return reorderImages(args);
+    }
+  );
 
-	ipcMain.handle(
-		'fs:writeDescription',
-		async (_ev, args: WriteDescriptionArgs): Promise<WriteDescriptionResult> => {
-			return writeDescription(args);
-		}
-	);
+  ipcMain.handle(
+    'fs:writeDescription',
+    async (_ev, args: WriteDescriptionArgs): Promise<WriteDescriptionResult> => {
+      return writeDescription(args);
+    }
+  );
 
-	ipcMain.handle(
-		'fs:createAlbum',
-		async (_ev, args: CreateAlbumArgs): Promise<CreateAlbumResult> => createAlbum(args)
-	);
+  ipcMain.handle(
+    'fs:createAlbum',
+    async (_ev, args: CreateAlbumArgs): Promise<CreateAlbumResult> => createAlbum(args)
+  );
 
-	ipcMain.handle(
-		'fs:createPage',
-		async (_ev, args: CreatePageArgs): Promise<CreatePageResult> => createPage(args)
-	);
+  ipcMain.handle(
+    'fs:createPage',
+    async (_ev, args: CreatePageArgs): Promise<CreatePageResult> => createPage(args)
+  );
 
-	ipcMain.handle(
-		'fs:renameEntry',
-		async (_ev, args: RenameEntryArgs): Promise<RenameEntryResult> => renameEntry(args)
-	);
+  ipcMain.handle(
+    'fs:renameEntry',
+    async (_ev, args: RenameEntryArgs): Promise<RenameEntryResult> => renameEntry(args)
+  );
 
-	ipcMain.handle(
-		'fs:deleteEntry',
-		async (_ev, args: DeleteEntryArgs): Promise<DeleteEntryResult> => deleteEntry(args)
-	);
+  ipcMain.handle(
+    'fs:deleteEntry',
+    async (_ev, args: DeleteEntryArgs): Promise<DeleteEntryResult> => deleteEntry(args)
+  );
 
-	ipcMain.handle(
-		'fs:writePage',
-		async (_ev, args: WritePageArgs): Promise<WritePageResult> => writePage(args)
-	);
+  ipcMain.handle(
+    'fs:writePage',
+    async (_ev, args: WritePageArgs): Promise<WritePageResult> => writePage(args)
+  );
 
-	ipcMain.handle(
-		'fs:reorderTreeEntries',
-		async (_ev, args: ReorderTreeEntriesArgs): Promise<ReorderTreeEntriesResult> =>
-			reorderTreeEntries(args)
-	);
+  ipcMain.handle(
+    'fs:reorderTreeEntries',
+    async (_ev, args: ReorderTreeEntriesArgs): Promise<ReorderTreeEntriesResult> =>
+      reorderTreeEntries(args)
+  );
 
-	ipcMain.handle(
-		'fs:findPageFile',
-		async (_ev, args: FindPageFileArgs): Promise<FindPageFileResult> => findPageFile(args)
-	);
+  ipcMain.handle(
+    'fs:findPageFile',
+    async (_ev, args: FindPageFileArgs): Promise<FindPageFileResult> => findPageFile(args)
+  );
 
-	ipcMain.handle(
-		'fs:setAlbumThumbnail',
-		async (_ev, args: SetAlbumThumbnailArgs): Promise<SetAlbumThumbnailResult> =>
-			setAlbumThumbnail(args)
-	);
+  ipcMain.handle(
+    'fs:setAlbumThumbnail',
+    async (_ev, args: SetAlbumThumbnailArgs): Promise<SetAlbumThumbnailResult> =>
+      setAlbumThumbnail(args)
+  );
 
-	ipcMain.handle(
-		'fs:replaceImages',
-		async (_ev, args: ReplaceImagesArgs): Promise<ReplaceImagesResult> => replaceImages(args)
-	);
+  ipcMain.handle(
+    'fs:replaceImages',
+    async (_ev, args: ReplaceImagesArgs): Promise<ReplaceImagesResult> => replaceImages(args)
+  );
 
-	ipcMain.handle('fs:pickImages', async (ev, opts: { multi: boolean }): Promise<string[]> => {
-		const focused = BrowserWindow.fromWebContents(ev.sender) ?? mainWindow;
-		if (!focused) return [];
-		const result = await dialog.showOpenDialog(focused, {
-			title: opts.multi ? 'Choose replacement images' : 'Choose replacement image',
-			properties: opts.multi ? ['openFile', 'multiSelections'] : ['openFile'],
-			filters: [{ name: 'Images', extensions: IMAGE_FILTER_EXTENSIONS }]
-		});
-		if (result.canceled) return [];
-		return result.filePaths;
-	});
+  ipcMain.handle('fs:pickImages', async (ev, opts: { multi: boolean }): Promise<string[]> => {
+    const focused = BrowserWindow.fromWebContents(ev.sender) ?? mainWindow;
+    if (!focused) return [];
+    const result = await dialog.showOpenDialog(focused, {
+      title: opts.multi ? 'Choose replacement images' : 'Choose replacement image',
+      properties: opts.multi ? ['openFile', 'multiSelections'] : ['openFile'],
+      filters: [{ name: 'Images', extensions: IMAGE_FILTER_EXTENSIONS }]
+    });
+    if (result.canceled) return [];
+    return result.filePaths;
+  });
 
-	ipcMain.handle('config:schema', async (): Promise<FetchSchemaResult> => fetchConfigSchema());
+  ipcMain.handle('config:schema', async (): Promise<FetchSchemaResult> => fetchConfigSchema());
 
-	ipcMain.handle(
-		'fs:reindex',
-		async (_ev, args: ReindexArgs): Promise<ReindexResult> => reindex(args)
-	);
+  ipcMain.handle(
+    'fs:reindex',
+    async (_ev, args: ReindexArgs): Promise<ReindexResult> => reindex(args)
+  );
 
-	ipcMain.handle(
-		'config:loadCascade',
-		async (_ev, args: LoadCascadeArgs): Promise<LoadCascadeResult> => loadCascade(args)
-	);
+  ipcMain.handle(
+    'config:loadCascade',
+    async (_ev, args: LoadCascadeArgs): Promise<LoadCascadeResult> => loadCascade(args)
+  );
 
-	ipcMain.handle(
-		'config:save',
-		async (_ev, args: SaveConfigArgs): Promise<SaveConfigResult> => saveConfig(args)
-	);
+  ipcMain.handle(
+    'config:save',
+    async (_ev, args: SaveConfigArgs): Promise<SaveConfigResult> => saveConfig(args)
+  );
 }
 
 app.whenReady().then(() => {
-	registerIpcHandlers();
-	buildMenu();
-	createMainWindow();
+  registerIpcHandlers();
+  buildMenu();
+  createMainWindow();
 
-	app.on('activate', () => {
-		if (BrowserWindow.getAllWindows().length === 0) createMainWindow();
-	});
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) createMainWindow();
+  });
 });
 
 app.on('window-all-closed', () => {
-	if (process.platform !== 'darwin') app.quit();
+  if (process.platform !== 'darwin') app.quit();
 });
 
 app.on('before-quit', async (e) => {
-	try {
-		e.preventDefault();
-	} catch {
-		// ignore
-	}
-	await stopWatching();
-	await stopServer();
-	app.exit(0);
+  try {
+    e.preventDefault();
+  } catch {
+    // ignore
+  }
+  await stopWatching();
+  await stopServer();
+  app.exit(0);
 });

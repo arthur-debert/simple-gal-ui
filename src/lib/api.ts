@@ -10,385 +10,385 @@ import type { ConfigSchemaRoot } from './types/configSchema';
 import type { ConfigCascade } from './types/configEditor';
 
 export interface FetchSchemaOk {
-	ok: true;
-	schema: ConfigSchemaRoot;
-	binPath: string;
+  ok: true;
+  schema: ConfigSchemaRoot;
+  binPath: string;
 }
 export interface FetchSchemaErr {
-	ok: false;
-	error: string;
+  ok: false;
+  error: string;
 }
 export type FetchSchemaResult = FetchSchemaOk | FetchSchemaErr;
 
 export interface LoadCascadeArgs {
-	home: string;
-	dirPath: string;
+  home: string;
+  dirPath: string;
 }
 export type LoadCascadeResult = { ok: true; cascade: ConfigCascade } | { ok: false; error: string };
 
 export interface SaveConfigArgs {
-	home: string;
-	dirPath: string;
-	payload: Record<string, unknown> | null;
+  home: string;
+  dirPath: string;
+  payload: Record<string, unknown> | null;
 }
 export interface SaveConfigOk {
-	ok: true;
-	written: boolean;
-	deleted: boolean;
+  ok: true;
+  written: boolean;
+  deleted: boolean;
 }
 export interface SaveConfigErr {
-	ok: false;
-	error: string;
-	configError?: {
-		path: string;
-		line?: number;
-		column?: number;
-		snippet?: string;
-	};
+  ok: false;
+  error: string;
+  configError?: {
+    path: string;
+    line?: number;
+    column?: number;
+    snippet?: string;
+  };
 }
 export type SaveConfigResult = SaveConfigOk | SaveConfigErr;
 
 export interface PaneState {
-	leftWidth: number;
-	rightWidth: number;
-	leftCollapsed: boolean;
-	rightCollapsed: boolean;
+  leftWidth: number;
+  rightWidth: number;
+  leftCollapsed: boolean;
+  rightCollapsed: boolean;
 }
 
 export interface PersistedSelection {
-	home: string;
-	kind: 'album' | 'image';
-	albumTitle: string;
-	imageFilename?: string;
+  home: string;
+  kind: 'album' | 'image';
+  albumTitle: string;
+  imageFilename?: string;
 }
 
 export interface BuildProgress {
-	percent: number;
-	stage: string;
-	images_done: number;
-	images_total: number;
-	variants_done: number;
-	variants_total: number;
+  percent: number;
+  stage: string;
+  images_done: number;
+  images_total: number;
+  variants_done: number;
+  variants_total: number;
 }
 
 export interface BuildRunResult {
-	ok: boolean;
-	distPath: string;
-	tempPath: string;
-	durationMs: number;
-	envelope: SimpleGalResult<{
-		source: string;
-		output: string;
-		counts?: { albums: number; image_pages: number; pages: number };
-		cache?: { cached: number; copied: number; encoded: number; total: number };
-	}>;
+  ok: boolean;
+  distPath: string;
+  tempPath: string;
+  durationMs: number;
+  envelope: SimpleGalResult<{
+    source: string;
+    output: string;
+    counts?: { albums: number; image_pages: number; pages: number };
+    cache?: { cached: number; copied: number; encoded: number; total: number };
+  }>;
 }
 
 export interface WriteSidecarArgs {
-	home: string;
-	imageSourcePath: string;
-	caption: string;
+  home: string;
+  imageSourcePath: string;
+  caption: string;
 }
 
 export interface WriteSidecarResult {
-	ok: boolean;
-	sidecarPath: string;
-	existed: boolean;
-	deleted: boolean;
+  ok: boolean;
+  sidecarPath: string;
+  existed: boolean;
+  deleted: boolean;
 }
 
 export interface RenameImageArgs {
-	home: string;
-	imageSourcePath: string;
-	newTitle: string;
+  home: string;
+  imageSourcePath: string;
+  newTitle: string;
 }
 
 export interface RenameImageResult {
-	ok: boolean;
-	oldPath: string;
-	newPath: string;
-	newFilename: string;
-	renamedSidecar: boolean;
+  ok: boolean;
+  oldPath: string;
+  newPath: string;
+  newFilename: string;
+  renamedSidecar: boolean;
 }
 
 export interface ImportImagesArgs {
-	home: string;
-	albumPath: string;
-	sourcePaths: string[];
+  home: string;
+  albumPath: string;
+  sourcePaths: string[];
 }
 
 export interface ImportImagesResult {
-	ok: boolean;
-	imported: { source: string; dest: string; filename: string }[];
-	skipped: { source: string; reason: string }[];
+  ok: boolean;
+  imported: { source: string; dest: string; filename: string }[];
+  skipped: { source: string; reason: string }[];
 }
 
 export interface DeleteImageArgs {
-	home: string;
-	imageSourcePath: string;
+  home: string;
+  imageSourcePath: string;
 }
 
 export interface DeleteImageResult {
-	ok: boolean;
-	trashedSidecar: boolean;
+  ok: boolean;
+  trashedSidecar: boolean;
 }
 
 export interface ReorderImagesArgs {
-	home: string;
-	albumPath: string;
-	orderedSourcePaths: string[];
+  home: string;
+  albumPath: string;
+  orderedSourcePaths: string[];
 }
 
 export interface ReorderImagesResult {
-	ok: boolean;
-	renames: { old: string; new: string }[];
+  ok: boolean;
+  renames: { old: string; new: string }[];
 }
 
 export interface WriteDescriptionArgs {
-	home: string;
-	albumPath: string;
-	body: string;
-	preferMarkdown?: boolean;
+  home: string;
+  albumPath: string;
+  body: string;
+  preferMarkdown?: boolean;
 }
 
 export interface WriteDescriptionResult {
-	ok: boolean;
-	writtenPath: string | null;
-	removedPaths: string[];
+  ok: boolean;
+  writtenPath: string | null;
+  removedPaths: string[];
 }
 
 export interface CreateAlbumArgs {
-	home: string;
-	parentPath: string;
-	title: string;
+  home: string;
+  parentPath: string;
+  title: string;
 }
 
 export interface CreateAlbumResult {
-	ok: boolean;
-	albumPath: string;
-	dirName: string;
+  ok: boolean;
+  albumPath: string;
+  dirName: string;
 }
 
 export interface CreatePageArgs {
-	home: string;
-	title: string;
-	body?: string;
+  home: string;
+  title: string;
+  body?: string;
 }
 
 export interface CreatePageResult {
-	ok: boolean;
-	pagePath: string;
-	fileName: string;
+  ok: boolean;
+  pagePath: string;
+  fileName: string;
 }
 
 export interface RenameEntryArgs {
-	home: string;
-	entryPath: string;
-	newTitle: string;
+  home: string;
+  entryPath: string;
+  newTitle: string;
 }
 
 export interface RenameEntryResult {
-	ok: boolean;
-	oldPath: string;
-	newPath: string;
-	newName: string;
+  ok: boolean;
+  oldPath: string;
+  newPath: string;
+  newName: string;
 }
 
 export interface DeleteEntryArgs {
-	home: string;
-	entryPath: string;
+  home: string;
+  entryPath: string;
 }
 
 export interface DeleteEntryResult {
-	ok: boolean;
+  ok: boolean;
 }
 
 export interface WritePageArgs {
-	home: string;
-	pagePath: string;
-	body: string;
+  home: string;
+  pagePath: string;
+  body: string;
 }
 
 export interface WritePageResult {
-	ok: boolean;
+  ok: boolean;
 }
 
 export interface ReorderTreeEntriesArgs {
-	home: string;
-	parentPath: string;
-	kind: 'dir' | 'file';
-	orderedNames: string[];
+  home: string;
+  parentPath: string;
+  kind: 'dir' | 'file';
+  orderedNames: string[];
 }
 
 export interface ReorderTreeEntriesResult {
-	ok: boolean;
-	renames: { old: string; new: string }[];
+  ok: boolean;
+  renames: { old: string; new: string }[];
 }
 
 export interface FindPageFileArgs {
-	home: string;
-	slug: string;
+  home: string;
+  slug: string;
 }
 
 export interface FindPageFileResult {
-	ok: boolean;
-	filename: string | null;
+  ok: boolean;
+  filename: string | null;
 }
 
 export interface SetAlbumThumbnailArgs {
-	home: string;
-	albumPath: string;
-	imageSourcePath: string;
+  home: string;
+  albumPath: string;
+  imageSourcePath: string;
 }
 
 export interface SetAlbumThumbnailResult {
-	ok: boolean;
-	previousThumb: { old: string; new: string } | null;
-	newThumb: { old: string; new: string };
-	noOp: boolean;
+  ok: boolean;
+  previousThumb: { old: string; new: string } | null;
+  newThumb: { old: string; new: string };
+  noOp: boolean;
 }
 
 export type ReplaceIndexStrategy = 'slot' | 'filename';
 
 export interface ReplacePair {
-	targetSourcePath: string;
-	replacementPath: string;
+  targetSourcePath: string;
+  replacementPath: string;
 }
 
 export interface ReplaceImagesArgs {
-	home: string;
-	albumPath: string;
-	pairs: ReplacePair[];
-	indexStrategy: ReplaceIndexStrategy;
+  home: string;
+  albumPath: string;
+  pairs: ReplacePair[];
+  indexStrategy: ReplaceIndexStrategy;
 }
 
 export interface ReplaceImagesResult {
-	ok: boolean;
-	replaced: { oldPath: string; newPath: string; filename: string }[];
-	skipped: { target: string; replacement: string; reason: string }[];
+  ok: boolean;
+  replaced: { oldPath: string; newPath: string; filename: string }[];
+  skipped: { target: string; replacement: string; reason: string }[];
 }
 
 export interface ReindexRename {
-	from: string;
-	to: string;
+  from: string;
+  to: string;
 }
 
 export interface ReindexPerDirectory {
-	dir: string;
-	applied: boolean;
-	renames: ReindexRename[];
+  dir: string;
+  applied: boolean;
+  renames: ReindexRename[];
 }
 
 export interface ReindexData {
-	dry_run: boolean;
-	spacing: number;
-	padding: number;
-	per_directory: ReindexPerDirectory[];
-	totals: {
-		directories_scanned: number;
-		directories_with_changes: number;
-		total_renames: number;
-	};
+  dry_run: boolean;
+  spacing: number;
+  padding: number;
+  per_directory: ReindexPerDirectory[];
+  totals: {
+    directories_scanned: number;
+    directories_with_changes: number;
+    total_renames: number;
+  };
 }
 
 export interface ReindexArgs {
-	home: string;
-	targetPath?: string;
-	spacing?: number;
-	padding?: number;
-	flat?: boolean;
-	dryRun: boolean;
+  home: string;
+  targetPath?: string;
+  spacing?: number;
+  padding?: number;
+  flat?: boolean;
+  dryRun: boolean;
 }
 
 export type ReindexResult =
-	| { ok: true; data: ReindexData; renameMap: Record<string, string> }
-	| { ok: false; kind: string; message: string };
+  | { ok: true; data: ReindexData; renameMap: Record<string, string> }
+  | { ok: false; kind: string; message: string };
 
 export const api = {
-	app: {
-		version: () => window.api.app.version(),
-		getPaneState: (id: string): Promise<PaneState | null> =>
-			window.api.app.getPaneState(id) as Promise<PaneState | null>,
-		setPaneState: (id: string, state: PaneState): Promise<void> =>
-			window.api.app.setPaneState(id, state),
-		getLastSelection: (home: string): Promise<PersistedSelection | null> =>
-			window.api.app.getLastSelection(home) as Promise<PersistedSelection | null>,
-		setLastSelection: (sel: PersistedSelection | null): Promise<void> =>
-			window.api.app.setLastSelection(sel)
-	},
-	get platform(): 'darwin' | 'linux' | 'win32' {
-		return window.api.platform;
-	},
-	simpleGal: {
-		version: () => window.api.simpleGal.version()
-	},
-	gallery: {
-		openDialog: () => window.api.gallery.openDialog(),
-		last: () => window.api.gallery.last(),
-		recent: () => window.api.gallery.recent(),
-		scan: (home: string): Promise<SimpleGalResult<ScanData>> =>
-			window.api.gallery.scan(home) as Promise<SimpleGalResult<ScanData>>,
-		onHomeChanged: (cb: (path: string) => void) => window.api.gallery.onHomeChanged(cb)
-	},
-	preview: {
-		build: (home: string): Promise<BuildRunResult> =>
-			window.api.preview.build(home) as Promise<BuildRunResult>,
-		stop: (): Promise<void> => window.api.preview.stop(),
-		cancel: (): Promise<boolean> => window.api.preview.cancel(),
-		onReady: (cb: (payload: { url: string; token: number }) => void): (() => void) =>
-			window.api.preview.onReady(cb),
-		onBuildProgress: (cb: (progress: BuildProgress) => void): (() => void) =>
-			window.api.preview.onBuildProgress(cb)
-	},
-	fs: {
-		writeSidecar: (args: WriteSidecarArgs): Promise<WriteSidecarResult> =>
-			window.api.fs.writeSidecar(args) as Promise<WriteSidecarResult>,
-		renameImage: (args: RenameImageArgs): Promise<RenameImageResult> =>
-			window.api.fs.renameImage(args) as Promise<RenameImageResult>,
-		importImages: (args: ImportImagesArgs): Promise<ImportImagesResult> =>
-			window.api.fs.importImages(args) as Promise<ImportImagesResult>,
-		deleteImage: (args: DeleteImageArgs): Promise<DeleteImageResult> =>
-			window.api.fs.deleteImage(args) as Promise<DeleteImageResult>,
-		reorderImages: (args: ReorderImagesArgs): Promise<ReorderImagesResult> =>
-			window.api.fs.reorderImages(args) as Promise<ReorderImagesResult>,
-		writeDescription: (args: WriteDescriptionArgs): Promise<WriteDescriptionResult> =>
-			window.api.fs.writeDescription(args) as Promise<WriteDescriptionResult>,
-		createAlbum: (args: CreateAlbumArgs): Promise<CreateAlbumResult> =>
-			window.api.fs.createAlbum(args) as Promise<CreateAlbumResult>,
-		createPage: (args: CreatePageArgs): Promise<CreatePageResult> =>
-			window.api.fs.createPage(args) as Promise<CreatePageResult>,
-		renameEntry: (args: RenameEntryArgs): Promise<RenameEntryResult> =>
-			window.api.fs.renameEntry(args) as Promise<RenameEntryResult>,
-		deleteEntry: (args: DeleteEntryArgs): Promise<DeleteEntryResult> =>
-			window.api.fs.deleteEntry(args) as Promise<DeleteEntryResult>,
-		writePage: (args: WritePageArgs): Promise<WritePageResult> =>
-			window.api.fs.writePage(args) as Promise<WritePageResult>,
-		reorderTreeEntries: (args: ReorderTreeEntriesArgs): Promise<ReorderTreeEntriesResult> =>
-			window.api.fs.reorderTreeEntries(args) as Promise<ReorderTreeEntriesResult>,
-		findPageFile: (args: FindPageFileArgs): Promise<FindPageFileResult> =>
-			window.api.fs.findPageFile(args) as Promise<FindPageFileResult>,
-		setAlbumThumbnail: (args: SetAlbumThumbnailArgs): Promise<SetAlbumThumbnailResult> =>
-			window.api.fs.setAlbumThumbnail(args) as Promise<SetAlbumThumbnailResult>,
-		replaceImages: (args: ReplaceImagesArgs): Promise<ReplaceImagesResult> =>
-			window.api.fs.replaceImages(args) as Promise<ReplaceImagesResult>,
-		pickImages: (opts: { multi: boolean }): Promise<string[]> =>
-			window.api.fs.pickImages(opts) as Promise<string[]>,
-		reindex: (args: ReindexArgs): Promise<ReindexResult> =>
-			window.api.fs.reindex(args) as Promise<ReindexResult>,
-		getPathForFile: (file: File): string => window.api.fs.getPathForFile(file)
-	},
-	watch: {
-		start: (home: string): Promise<void> => window.api.watch.start(home),
-		stop: (): Promise<void> => window.api.watch.stop(),
-		onChanged: (cb: (payload: { home: string; paths: string[] }) => void): (() => void) =>
-			window.api.watch.onChanged(cb)
-	},
-	config: {
-		schema: (): Promise<FetchSchemaResult> =>
-			window.api.config.schema() as Promise<FetchSchemaResult>,
-		loadCascade: (args: LoadCascadeArgs): Promise<LoadCascadeResult> =>
-			window.api.config.loadCascade(args) as Promise<LoadCascadeResult>,
-		save: (args: SaveConfigArgs): Promise<SaveConfigResult> =>
-			window.api.config.save(args) as Promise<SaveConfigResult>
-	}
+  app: {
+    version: () => window.api.app.version(),
+    getPaneState: (id: string): Promise<PaneState | null> =>
+      window.api.app.getPaneState(id) as Promise<PaneState | null>,
+    setPaneState: (id: string, state: PaneState): Promise<void> =>
+      window.api.app.setPaneState(id, state),
+    getLastSelection: (home: string): Promise<PersistedSelection | null> =>
+      window.api.app.getLastSelection(home) as Promise<PersistedSelection | null>,
+    setLastSelection: (sel: PersistedSelection | null): Promise<void> =>
+      window.api.app.setLastSelection(sel)
+  },
+  get platform(): 'darwin' | 'linux' | 'win32' {
+    return window.api.platform;
+  },
+  simpleGal: {
+    version: () => window.api.simpleGal.version()
+  },
+  gallery: {
+    openDialog: () => window.api.gallery.openDialog(),
+    last: () => window.api.gallery.last(),
+    recent: () => window.api.gallery.recent(),
+    scan: (home: string): Promise<SimpleGalResult<ScanData>> =>
+      window.api.gallery.scan(home) as Promise<SimpleGalResult<ScanData>>,
+    onHomeChanged: (cb: (path: string) => void) => window.api.gallery.onHomeChanged(cb)
+  },
+  preview: {
+    build: (home: string): Promise<BuildRunResult> =>
+      window.api.preview.build(home) as Promise<BuildRunResult>,
+    stop: (): Promise<void> => window.api.preview.stop(),
+    cancel: (): Promise<boolean> => window.api.preview.cancel(),
+    onReady: (cb: (payload: { url: string; token: number }) => void): (() => void) =>
+      window.api.preview.onReady(cb),
+    onBuildProgress: (cb: (progress: BuildProgress) => void): (() => void) =>
+      window.api.preview.onBuildProgress(cb)
+  },
+  fs: {
+    writeSidecar: (args: WriteSidecarArgs): Promise<WriteSidecarResult> =>
+      window.api.fs.writeSidecar(args) as Promise<WriteSidecarResult>,
+    renameImage: (args: RenameImageArgs): Promise<RenameImageResult> =>
+      window.api.fs.renameImage(args) as Promise<RenameImageResult>,
+    importImages: (args: ImportImagesArgs): Promise<ImportImagesResult> =>
+      window.api.fs.importImages(args) as Promise<ImportImagesResult>,
+    deleteImage: (args: DeleteImageArgs): Promise<DeleteImageResult> =>
+      window.api.fs.deleteImage(args) as Promise<DeleteImageResult>,
+    reorderImages: (args: ReorderImagesArgs): Promise<ReorderImagesResult> =>
+      window.api.fs.reorderImages(args) as Promise<ReorderImagesResult>,
+    writeDescription: (args: WriteDescriptionArgs): Promise<WriteDescriptionResult> =>
+      window.api.fs.writeDescription(args) as Promise<WriteDescriptionResult>,
+    createAlbum: (args: CreateAlbumArgs): Promise<CreateAlbumResult> =>
+      window.api.fs.createAlbum(args) as Promise<CreateAlbumResult>,
+    createPage: (args: CreatePageArgs): Promise<CreatePageResult> =>
+      window.api.fs.createPage(args) as Promise<CreatePageResult>,
+    renameEntry: (args: RenameEntryArgs): Promise<RenameEntryResult> =>
+      window.api.fs.renameEntry(args) as Promise<RenameEntryResult>,
+    deleteEntry: (args: DeleteEntryArgs): Promise<DeleteEntryResult> =>
+      window.api.fs.deleteEntry(args) as Promise<DeleteEntryResult>,
+    writePage: (args: WritePageArgs): Promise<WritePageResult> =>
+      window.api.fs.writePage(args) as Promise<WritePageResult>,
+    reorderTreeEntries: (args: ReorderTreeEntriesArgs): Promise<ReorderTreeEntriesResult> =>
+      window.api.fs.reorderTreeEntries(args) as Promise<ReorderTreeEntriesResult>,
+    findPageFile: (args: FindPageFileArgs): Promise<FindPageFileResult> =>
+      window.api.fs.findPageFile(args) as Promise<FindPageFileResult>,
+    setAlbumThumbnail: (args: SetAlbumThumbnailArgs): Promise<SetAlbumThumbnailResult> =>
+      window.api.fs.setAlbumThumbnail(args) as Promise<SetAlbumThumbnailResult>,
+    replaceImages: (args: ReplaceImagesArgs): Promise<ReplaceImagesResult> =>
+      window.api.fs.replaceImages(args) as Promise<ReplaceImagesResult>,
+    pickImages: (opts: { multi: boolean }): Promise<string[]> =>
+      window.api.fs.pickImages(opts) as Promise<string[]>,
+    reindex: (args: ReindexArgs): Promise<ReindexResult> =>
+      window.api.fs.reindex(args) as Promise<ReindexResult>,
+    getPathForFile: (file: File): string => window.api.fs.getPathForFile(file)
+  },
+  watch: {
+    start: (home: string): Promise<void> => window.api.watch.start(home),
+    stop: (): Promise<void> => window.api.watch.stop(),
+    onChanged: (cb: (payload: { home: string; paths: string[] }) => void): (() => void) =>
+      window.api.watch.onChanged(cb)
+  },
+  config: {
+    schema: (): Promise<FetchSchemaResult> =>
+      window.api.config.schema() as Promise<FetchSchemaResult>,
+    loadCascade: (args: LoadCascadeArgs): Promise<LoadCascadeResult> =>
+      window.api.config.loadCascade(args) as Promise<LoadCascadeResult>,
+    save: (args: SaveConfigArgs): Promise<SaveConfigResult> =>
+      window.api.config.save(args) as Promise<SaveConfigResult>
+  }
 };

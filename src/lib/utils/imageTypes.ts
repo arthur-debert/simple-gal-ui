@@ -21,6 +21,6 @@ export const IMAGE_FILTER_EXTENSIONS: string[] = IMAGE_EXT_LIST.map((e) => e.sli
  * separator depends on the host platform.
  */
 export function basenameOf(p: string): string {
-	const parts = p.split(/[\\/]/);
-	return parts[parts.length - 1] ?? p;
+  const parts = p.split(/[\\/]/);
+  return parts[parts.length - 1] ?? p;
 }

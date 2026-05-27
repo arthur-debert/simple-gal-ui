@@ -7,5 +7,5 @@ import type { Page } from '@playwright/test';
  * against component mount + store hydration.
  */
 export async function waitForApp(page: Page, timeout = 15_000): Promise<void> {
-	await page.waitForFunction(() => window.__e2e?.ready?.app === true, null, { timeout });
+  await page.waitForFunction(() => window.__e2e?.ready?.app === true, null, { timeout });
 }
