@@ -1,1 +1,3 @@
-https://github.com/arthur-debert/simple-gal
+# GitHub
+
+<https://github.com/arthur-debert/simple-gal>
