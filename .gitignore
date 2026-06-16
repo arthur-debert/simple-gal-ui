@@ -7,6 +7,9 @@ test-results/
 playwright-report/
 tests/__screenshots__/
 
+# Vitest coverage reports
+coverage/
+
 # Bundled simple-gal binaries (downloaded at install/package time)
 resources/bin/
 

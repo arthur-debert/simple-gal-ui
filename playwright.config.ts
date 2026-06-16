@@ -2,6 +2,11 @@ import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests',
+  // Playwright defaults to matching both *.spec.ts and *.test.ts. The repo
+  // convention is `.spec.ts` for the Electron-driven e2e specs and `.test.ts`
+  // (under `tests/unit/`) for vitest unit suites — pin Playwright to the
+  // former so the two runners never trip over each other's files.
+  testMatch: /\.spec\.ts$/,
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
