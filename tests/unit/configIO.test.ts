@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { randomBytes } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { describe, expect, it } from 'vitest';
 
 import {
   deleteConfigFileIfEmpty,
@@ -13,13 +14,23 @@ import {
   writeConfigFileAtomic
 } from '../../electron/configIO.js';
 
-// `configIO` underpins every config.toml read/write in the app
-// (configLoader, configSave, the config-editor UI). The pure helpers
-// (`flattenDottedKeys`, `getDotted`, `setDotted`, `unsetDotted`) and the
-// atomic-write/empty-prune file ops were previously exercised only via
-// Playwright e2e specs — so a logic bug in, say, the unset prune would
-// surface as a confusing UI-level failure miles from the cause. These
-// tests pin down the contract directly.
+// `configIO` underpins the config-loader read path and the four pure
+// dotted-key helpers (`flattenDottedKeys`, `getDotted`, `setDotted`,
+// `unsetDotted`) used across `configLoader.ts` and the config-editor UI.
+// (Note: `electron/configSave.ts` does its own TOML stringify + tmp
+// rename today rather than calling `writeConfigFileAtomic` — so the
+// write-path coverage here is for the exported primitives, not for the
+// save flow.) These helpers were previously exercised only via
+// Playwright e2e specs — a logic bug in, say, the unset-prune loop
+// would have surfaced as a confusing UI-level failure miles from the
+// cause. These tests pin down the contract directly.
+
+// A collision-proof tmp path for the "this file should be absent" tests
+// below: Date.now() alone can repeat on a single ms tick or be left
+// behind from a prior run, masking a real bug behind a flaky pass.
+function uniqueTmp(prefix: string): string {
+  return path.join(os.tmpdir(), `${prefix}-${Date.now()}-${randomBytes(8).toString('hex')}`);
+}
 
 describe('flattenDottedKeys', () => {
   it('returns an empty list for an empty object', () => {
@@ -142,9 +153,7 @@ describe('unsetDotted', () => {
 
 describe('readConfigFile', () => {
   it('returns exists:false for a missing file (does not throw)', async () => {
-    const result = await readConfigFile(
-      path.join(os.tmpdir(), 'sgui-vitest-missing-' + Date.now())
-    );
+    const result = await readConfigFile(uniqueTmp('sgui-vitest-missing'));
     expect(result.exists).toBe(false);
     expect(result.raw).toBeNull();
     expect(result.parsed).toEqual({});
@@ -234,7 +243,10 @@ describe('writeConfigFileAtomic + deleteConfigFileIfEmpty', () => {
       await fs.writeFile(file, '   \n  \n', 'utf8');
       const removed = await deleteConfigFileIfEmpty(file);
       expect(removed).toBe(true);
-      await expect(fs.access(file)).rejects.toBeDefined();
+      // Tighten the absence check to ENOENT specifically — a permission
+      // error or unmounted volume would also reject and the test would
+      // green-light without proving the file is gone.
+      await expect(fs.access(file)).rejects.toMatchObject({ code: 'ENOENT' });
     } finally {
       await fs.rm(dir, { recursive: true, force: true });
     }
@@ -254,9 +266,7 @@ describe('writeConfigFileAtomic + deleteConfigFileIfEmpty', () => {
   });
 
   it('deleteConfigFileIfEmpty is a no-op (returns false) when the file is absent', async () => {
-    const removed = await deleteConfigFileIfEmpty(
-      path.join(os.tmpdir(), 'sgui-vitest-missing-' + Date.now())
-    );
+    const removed = await deleteConfigFileIfEmpty(uniqueTmp('sgui-vitest-missing'));
     expect(removed).toBe(false);
   });
 });

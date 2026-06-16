@@ -1,0 +1,6 @@
+# CLAUDE.md's release-managed orientation block is written by release-sync
+# and must round-trip byte-for-byte across syncs. Letting prettier "fix" it
+# in the pre-commit hook means a session-start sync that re-stages CLAUDE.md
+# silently slips a formatting drift into whatever PR is currently open.
+# See PR #69.
+CLAUDE.md
