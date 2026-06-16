@@ -1,0 +1,1 @@
+- Add vitest unit suite + coverage for electron/configIO
