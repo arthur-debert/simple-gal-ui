@@ -10,6 +10,7 @@
   `CHANGELOG/unreleased-*.md` fragments; `CHANGELOG.md` is generated
   via `bin/changelog render`. Pre-existing history is captured verbatim
   in `CHANGELOG/legacy.md`. See arthur-debert/release#201.
+
 ### Changed
 
 - Retire the bespoke `e2e` job in `.github/workflows/test.yml` in favor
@@ -18,11 +19,9 @@
   workflow with the consumer-specific glue (`vite build` + setting
   `SIMPLE_GAL_PATH`) moved into the `pre-test` hook.
 
-
 All notable UI-facing changes to simple-gal-ui.
 
 ## [0.1.3] - 2026-05-23
-
 
 ### Changed
 
@@ -32,7 +31,6 @@ All notable UI-facing changes to simple-gal-ui.
   CI-implicit publish.
 
 ## [0.1.0] - 2026-05-23
-
 
 ### Added
 

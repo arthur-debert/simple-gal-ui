@@ -3,7 +3,6 @@ All notable UI-facing changes to simple-gal-ui.
 
 ## [0.1.3] - 2026-05-23
 
-
 ### Changed
 
 - Sync canonical `bin/build` from `arthur-debert/release@v1` — picks up
@@ -12,7 +11,6 @@ All notable UI-facing changes to simple-gal-ui.
   CI-implicit publish.
 
 ## [0.1.0] - 2026-05-23
-
 
 ### Added
 
