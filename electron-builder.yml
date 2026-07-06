@@ -78,7 +78,7 @@ linux:
   artifactName: ${productName}-${version}-${arch}.${ext}
 
 win:
-  icon: resources/icon.png # electron-builder auto-generates .ico from PNG
+  icon: resources/icon.png  # electron-builder auto-generates .ico from PNG
   target:
     - target: nsis
       arch: [x64]
