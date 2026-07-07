@@ -1,23 +1,23 @@
 <script lang="ts">
   interface Props {
-    value: number | undefined;
-    dottedKey: string;
-    integer?: boolean;
-    min?: number;
-    max?: number;
-    oninput: (next: number | undefined) => void;
+    value: number | undefined
+    dottedKey: string
+    integer?: boolean
+    min?: number
+    max?: number
+    oninput: (next: number | undefined) => void
   }
 
-  const { value, dottedKey, integer = false, min, max, oninput }: Props = $props();
+  const { value, dottedKey, integer = false, min, max, oninput }: Props = $props()
 
   function handle(raw: string): void {
     if (raw.trim() === '') {
-      oninput(undefined);
-      return;
+      oninput(undefined)
+      return
     }
-    const parsed = integer ? parseInt(raw, 10) : parseFloat(raw);
-    if (!Number.isFinite(parsed)) return;
-    oninput(parsed);
+    const parsed = integer ? parseInt(raw, 10) : parseFloat(raw)
+    if (!Number.isFinite(parsed)) return
+    oninput(parsed)
   }
 </script>
 

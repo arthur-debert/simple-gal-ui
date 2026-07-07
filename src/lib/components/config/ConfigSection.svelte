@@ -1,16 +1,16 @@
 <script lang="ts">
-  import type { Snippet } from 'svelte';
+  import type { Snippet } from 'svelte'
 
   interface Props {
-    title: string;
-    description?: string;
-    children: Snippet;
-    defaultOpen?: boolean;
+    title: string
+    description?: string
+    children: Snippet
+    defaultOpen?: boolean
   }
 
-  const { title, description, children, defaultOpen = true }: Props = $props();
+  const { title, description, children, defaultOpen = true }: Props = $props()
 
-  let open = $state(defaultOpen);
+  let open = $state(defaultOpen)
 </script>
 
 <section

@@ -1,5 +1,5 @@
 <script lang="ts" module>
-  import { tv, type VariantProps } from 'tailwind-variants';
+  import { tv, type VariantProps } from 'tailwind-variants'
 
   export const buttonVariants = tv({
     base: 'inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent disabled:pointer-events-none disabled:opacity-50 select-none',
@@ -23,25 +23,25 @@
       variant: 'default',
       size: 'md'
     }
-  });
+  })
 
-  export type ButtonVariant = VariantProps<typeof buttonVariants>['variant'];
-  export type ButtonSize = VariantProps<typeof buttonVariants>['size'];
+  export type ButtonVariant = VariantProps<typeof buttonVariants>['variant']
+  export type ButtonSize = VariantProps<typeof buttonVariants>['size']
 </script>
 
 <script lang="ts">
-  import type { HTMLButtonAttributes } from 'svelte/elements';
-  import type { Snippet } from 'svelte';
-  import { cn } from '$lib/utils';
+  import type { HTMLButtonAttributes } from 'svelte/elements'
+  import type { Snippet } from 'svelte'
+  import { cn } from '$lib/utils'
 
   interface Props extends HTMLButtonAttributes {
-    variant?: ButtonVariant;
-    size?: ButtonSize;
-    class?: string;
-    children?: Snippet;
+    variant?: ButtonVariant
+    size?: ButtonSize
+    class?: string
+    children?: Snippet
   }
 
-  let { variant = 'default', size = 'md', class: className, children, ...rest }: Props = $props();
+  let { variant = 'default', size = 'md', class: className, children, ...rest }: Props = $props()
 </script>
 
 <button class={cn(buttonVariants({ variant, size }), className)} {...rest}>

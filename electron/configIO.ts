@@ -1,6 +1,6 @@
-import { promises as fs } from 'node:fs';
-import path from 'node:path';
-import TOML from '@iarna/toml';
+import { promises as fs } from 'node:fs'
+import path from 'node:path'
+import TOML from '@iarna/toml'
 
 /**
  * TOML I/O helpers for `config.toml` files. All operations are on plain
@@ -18,24 +18,24 @@ import TOML from '@iarna/toml';
  * thrown so the caller can surface it with context.
  */
 export interface ReadConfigFileResult {
-  exists: boolean;
-  raw: string | null;
-  parsed: Record<string, unknown>;
-  loadedKeys: string[];
+  exists: boolean
+  raw: string | null
+  parsed: Record<string, unknown>
+  loadedKeys: string[]
 }
 
 export async function readConfigFile(absPath: string): Promise<ReadConfigFileResult> {
-  let raw: string;
+  let raw: string
   try {
-    raw = await fs.readFile(absPath, 'utf8');
+    raw = await fs.readFile(absPath, 'utf8')
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
-      return { exists: false, raw: null, parsed: {}, loadedKeys: [] };
+      return { exists: false, raw: null, parsed: {}, loadedKeys: [] }
     }
-    throw err;
+    throw err
   }
-  const parsed = TOML.parse(raw) as Record<string, unknown>;
-  return { exists: true, raw, parsed, loadedKeys: flattenDottedKeys(parsed) };
+  const parsed = TOML.parse(raw) as Record<string, unknown>
+  return { exists: true, raw, parsed, loadedKeys: flattenDottedKeys(parsed) }
 }
 
 /**
@@ -44,20 +44,20 @@ export async function readConfigFile(absPath: string): Promise<ReadConfigFileRes
  * recurse into their elements.
  */
 export function flattenDottedKeys(obj: Record<string, unknown>, prefix = ''): string[] {
-  const out: string[] = [];
+  const out: string[] = []
   for (const [k, v] of Object.entries(obj)) {
-    const key = prefix ? `${prefix}.${k}` : k;
+    const key = prefix ? `${prefix}.${k}` : k
     if (isPlainObject(v)) {
-      out.push(...flattenDottedKeys(v as Record<string, unknown>, key));
+      out.push(...flattenDottedKeys(v as Record<string, unknown>, key))
     } else {
-      out.push(key);
+      out.push(key)
     }
   }
-  return out;
+  return out
 }
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null && !Array.isArray(v);
+  return typeof v === 'object' && v !== null && !Array.isArray(v)
 }
 
 /**
@@ -65,13 +65,13 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
  * segment along the path is absent.
  */
 export function getDotted(obj: Record<string, unknown>, dottedKey: string): unknown {
-  const parts = dottedKey.split('.');
-  let cur: unknown = obj;
+  const parts = dottedKey.split('.')
+  let cur: unknown = obj
   for (const p of parts) {
-    if (!isPlainObject(cur)) return undefined;
-    cur = (cur as Record<string, unknown>)[p];
+    if (!isPlainObject(cur)) return undefined
+    cur = (cur as Record<string, unknown>)[p]
   }
-  return cur;
+  return cur
 }
 
 /**
@@ -83,18 +83,18 @@ export function setDotted(
   dottedKey: string,
   value: unknown
 ): Record<string, unknown> {
-  const parts = dottedKey.split('.');
-  let cur: Record<string, unknown> = obj;
+  const parts = dottedKey.split('.')
+  let cur: Record<string, unknown> = obj
   for (let i = 0; i < parts.length - 1; i++) {
-    const p = parts[i];
-    const next = cur[p];
+    const p = parts[i]
+    const next = cur[p]
     if (!isPlainObject(next)) {
-      cur[p] = {};
+      cur[p] = {}
     }
-    cur = cur[p] as Record<string, unknown>;
+    cur = cur[p] as Record<string, unknown>
   }
-  cur[parts[parts.length - 1]] = value;
-  return obj;
+  cur[parts[parts.length - 1]] = value
+  return obj
 }
 
 /**
@@ -104,23 +104,23 @@ export function setDotted(
  * original shape (no orphan `[colors.light]` / `[colors]` sections).
  */
 export function unsetDotted(obj: Record<string, unknown>, dottedKey: string): void {
-  const parts = dottedKey.split('.');
-  const trail: Record<string, unknown>[] = [obj];
-  let cur: Record<string, unknown> = obj;
+  const parts = dottedKey.split('.')
+  const trail: Record<string, unknown>[] = [obj]
+  let cur: Record<string, unknown> = obj
   for (let i = 0; i < parts.length - 1; i++) {
-    const next = cur[parts[i]];
-    if (!isPlainObject(next)) return;
-    cur = next as Record<string, unknown>;
-    trail.push(cur);
+    const next = cur[parts[i]]
+    if (!isPlainObject(next)) return
+    cur = next as Record<string, unknown>
+    trail.push(cur)
   }
-  delete cur[parts[parts.length - 1]];
+  delete cur[parts[parts.length - 1]]
   for (let i = trail.length - 1; i > 0; i--) {
     if (Object.keys(trail[i]).length === 0) {
-      const parent = trail[i - 1];
-      const keyInParent = parts[i - 1];
-      delete parent[keyInParent];
+      const parent = trail[i - 1]
+      const keyInParent = parts[i - 1]
+      delete parent[keyInParent]
     } else {
-      break;
+      break
     }
   }
 }
@@ -136,23 +136,23 @@ export async function writeConfigFileAtomic(
   payload: Record<string, unknown>
 ): Promise<{ writtenBytes: number }> {
   const toml =
-    payload && Object.keys(payload).length > 0 ? TOML.stringify(payload as TOML.JsonMap) : '';
-  await fs.mkdir(path.dirname(absPath), { recursive: true });
-  const tmp = absPath + '.tmp';
-  await fs.writeFile(tmp, toml, 'utf8');
-  await fs.rename(tmp, absPath);
-  return { writtenBytes: Buffer.byteLength(toml, 'utf8') };
+    payload && Object.keys(payload).length > 0 ? TOML.stringify(payload as TOML.JsonMap) : ''
+  await fs.mkdir(path.dirname(absPath), { recursive: true })
+  const tmp = absPath + '.tmp'
+  await fs.writeFile(tmp, toml, 'utf8')
+  await fs.rename(tmp, absPath)
+  return { writtenBytes: Buffer.byteLength(toml, 'utf8') }
 }
 
 export async function deleteConfigFileIfEmpty(absPath: string): Promise<boolean> {
   try {
-    const raw = await fs.readFile(absPath, 'utf8');
+    const raw = await fs.readFile(absPath, 'utf8')
     if (raw.trim() === '') {
-      await fs.unlink(absPath);
-      return true;
+      await fs.unlink(absPath)
+      return true
     }
   } catch {
     // absent or unreadable — nothing to do
   }
-  return false;
+  return false
 }

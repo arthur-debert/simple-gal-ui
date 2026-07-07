@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { preview, runBuild } from '$lib/stores/previewStore.svelte';
-  import { site } from '$lib/stores/siteStore.svelte';
-  import Button from '$lib/components/ui/Button.svelte';
+  import { preview, runBuild } from '$lib/stores/previewStore.svelte'
+  import { site } from '$lib/stores/siteStore.svelte'
+  import Button from '$lib/components/ui/Button.svelte'
 </script>
 
 <div class="bg-surface-0 relative flex h-full flex-col" data-testid="preview-pane">

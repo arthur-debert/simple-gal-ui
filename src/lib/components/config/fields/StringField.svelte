@@ -1,11 +1,11 @@
 <script lang="ts">
   interface Props {
-    value: string;
-    dottedKey: string;
-    oninput: (next: string) => void;
+    value: string
+    dottedKey: string
+    oninput: (next: string) => void
   }
 
-  const { value, dottedKey, oninput }: Props = $props();
+  const { value, dottedKey, oninput }: Props = $props()
 </script>
 
 <input

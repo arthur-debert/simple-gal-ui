@@ -1,376 +1,376 @@
 <script lang="ts">
-  import { site, rescanCurrentHome } from '$lib/stores/siteStore.svelte';
-  import { requestLeaveConfig } from '$lib/stores/configEditorStore.svelte';
-  import { api } from '$lib/api';
-  import { showToast } from '$lib/stores/toastStore.svelte';
-  import Button from '$lib/components/ui/Button.svelte';
-  import { cn } from '$lib/utils';
-  import { tick } from 'svelte';
-  import type { ManifestAlbum, ManifestNavItem, Selection } from '$lib/types/manifest';
+  import { site, rescanCurrentHome } from '$lib/stores/siteStore.svelte'
+  import { requestLeaveConfig } from '$lib/stores/configEditorStore.svelte'
+  import { api } from '$lib/api'
+  import { showToast } from '$lib/stores/toastStore.svelte'
+  import Button from '$lib/components/ui/Button.svelte'
+  import { cn } from '$lib/utils'
+  import { tick } from 'svelte'
+  import type { ManifestAlbum, ManifestNavItem, Selection } from '$lib/types/manifest'
 
-  const manifest = $derived(site.manifest);
+  const manifest = $derived(site.manifest)
 
   // Inline create state — Electron's renderer does not support window.prompt(),
   // so we render an input row at the top of the relevant section instead.
-  let creatingAlbum = $state(false);
-  let creatingAlbumTitle = $state('');
-  let creatingAlbumInput = $state<HTMLInputElement>();
+  let creatingAlbum = $state(false)
+  let creatingAlbumTitle = $state('')
+  let creatingAlbumInput = $state<HTMLInputElement>()
 
-  let creatingPage = $state(false);
-  let creatingPageTitle = $state('');
-  let creatingPageInput = $state<HTMLInputElement>();
+  let creatingPage = $state(false)
+  let creatingPageTitle = $state('')
+  let creatingPageInput = $state<HTMLInputElement>()
 
   // Inline rename state
-  let renamingKey = $state<string | null>(null); // album.path or page.slug
-  let renameDraft = $state('');
-  let renameInput = $state<HTMLInputElement>();
+  let renamingKey = $state<string | null>(null) // album.path or page.slug
+  let renameDraft = $state('')
+  let renameInput = $state<HTMLInputElement>()
 
   // Expand/collapse state for group rows — keyed on nav.path. Default: all
   // expanded, so only paths explicitly added to the set are collapsed. We
   // reassign the whole Set on change (instead of mutating in place) because
   // plain Sets in $state() don't track .has() reads for re-rendering.
-  let collapsedGroups = $state<Set<string>>(new Set());
+  let collapsedGroups = $state<Set<string>>(new Set())
 
   // Focus management for keyboard navigation. The tree container owns
   // tabindex=0 and handles Arrow/Enter/Home/End. `focusedKey` is the path
   // of the currently-navigable row (album or group); selection follows
   // focus on Enter.
-  let treeHost = $state<HTMLDivElement>();
-  let focusedKey = $state<string | null>(null);
+  let treeHost = $state<HTMLDivElement>()
+  let focusedKey = $state<string | null>(null)
 
   type MenuTarget =
     | { kind: 'album'; path: string; title: string; sourceDir: string }
-    | { kind: 'page'; slug: string; title: string; filename: string };
+    | { kind: 'page'; slug: string; title: string; filename: string }
 
-  let menu = $state<{ x: number; y: number; target: MenuTarget } | null>(null);
+  let menu = $state<{ x: number; y: number; target: MenuTarget } | null>(null)
 
   // Root-level drag-reorder state. For this round drag-reorder only works at
   // the top level of the navigation tree (root albums + root groups); nested
   // items render without drag handlers.
-  let dragKind = $state<'album' | 'page' | null>(null);
-  let dragIndex = $state<number | null>(null);
-  let dropIndex = $state<number | null>(null);
+  let dragKind = $state<'album' | 'page' | null>(null)
+  let dragIndex = $state<number | null>(null)
+  let dropIndex = $state<number | null>(null)
 
-  const TREE_MIME = 'application/x-sgui-tree';
+  const TREE_MIME = 'application/x-sgui-tree'
 
   // Derived helpers -----------------------------------------------------
 
   function isGroup(n: ManifestNavItem): boolean {
-    return !!n.children && n.children.length > 0;
+    return !!n.children && n.children.length > 0
   }
 
   /** Collect every nav path (recursively) so we can find albums that are NOT in navigation. */
   function collectNavPaths(items: ManifestNavItem[], acc: Set<string>): Set<string> {
     for (const it of items) {
-      acc.add(it.path);
-      if (it.children) collectNavPaths(it.children, acc);
+      acc.add(it.path)
+      if (it.children) collectNavPaths(it.children, acc)
     }
-    return acc;
+    return acc
   }
 
   const hiddenAlbums = $derived.by((): ManifestAlbum[] => {
-    if (!manifest) return [];
-    const navPaths = collectNavPaths(manifest.navigation, new Set<string>());
-    return manifest.albums.filter((a) => !navPaths.has(a.path));
-  });
+    if (!manifest) return []
+    const navPaths = collectNavPaths(manifest.navigation, new Set<string>())
+    return manifest.albums.filter((a) => !navPaths.has(a.path))
+  })
 
   function albumByPath(path: string): ManifestAlbum | undefined {
-    return manifest?.albums.find((a) => a.path === path);
+    return manifest?.albums.find((a) => a.path === path)
   }
 
   function isSelected(s: Selection, target: Selection): boolean {
-    if (s.kind !== target.kind) return false;
-    if (s.kind === 'album' && target.kind === 'album') return s.albumPath === target.albumPath;
-    if (s.kind === 'page' && target.kind === 'page') return s.pageSlug === target.pageSlug;
-    return false;
+    if (s.kind !== target.kind) return false
+    if (s.kind === 'album' && target.kind === 'album') return s.albumPath === target.albumPath
+    if (s.kind === 'page' && target.kind === 'page') return s.pageSlug === target.pageSlug
+    return false
   }
 
   function select(target: Selection): void {
-    requestLeaveConfig(target);
+    requestLeaveConfig(target)
   }
 
   function toggleGroup(path: string): void {
-    const next = new Set(collapsedGroups);
-    if (next.has(path)) next.delete(path);
-    else next.add(path);
-    collapsedGroups = next;
+    const next = new Set(collapsedGroups)
+    if (next.has(path)) next.delete(path)
+    else next.add(path)
+    collapsedGroups = next
   }
 
   function isCollapsed(path: string): boolean {
-    return collapsedGroups.has(path);
+    return collapsedGroups.has(path)
   }
 
   // --- Keyboard navigation helpers ------------------------------------
 
   interface FlatRow {
-    path: string;
-    kind: 'group' | 'album';
-    parentPath: string | null;
+    path: string
+    kind: 'group' | 'album'
+    parentPath: string | null
   }
 
   /** Flatten the visible tree (respecting collapsed groups) into a linear list. */
   function flattenVisible(): FlatRow[] {
-    const out: FlatRow[] = [];
-    if (!manifest) return out;
+    const out: FlatRow[] = []
+    if (!manifest) return out
     function walk(items: ManifestNavItem[], parent: string | null): void {
       for (const item of items) {
-        const kind: FlatRow['kind'] = isGroup(item) ? 'group' : 'album';
-        out.push({ path: item.path, kind, parentPath: parent });
+        const kind: FlatRow['kind'] = isGroup(item) ? 'group' : 'album'
+        out.push({ path: item.path, kind, parentPath: parent })
         if (isGroup(item) && !isCollapsed(item.path)) {
-          walk(item.children!, item.path);
+          walk(item.children!, item.path)
         }
       }
     }
-    walk(manifest.navigation, null);
-    return out;
+    walk(manifest.navigation, null)
+    return out
   }
 
   function moveFocus(delta: number): void {
-    const rows = flattenVisible();
-    if (rows.length === 0) return;
-    const currentIdx = focusedKey ? rows.findIndex((r) => r.path === focusedKey) : -1;
+    const rows = flattenVisible()
+    if (rows.length === 0) return
+    const currentIdx = focusedKey ? rows.findIndex((r) => r.path === focusedKey) : -1
     const nextIdx =
       currentIdx === -1
         ? delta > 0
           ? 0
           : rows.length - 1
-        : Math.max(0, Math.min(rows.length - 1, currentIdx + delta));
-    focusedKey = rows[nextIdx].path;
+        : Math.max(0, Math.min(rows.length - 1, currentIdx + delta))
+    focusedKey = rows[nextIdx].path
   }
 
   function activateFocused(): void {
-    if (!focusedKey || !manifest) return;
-    const rows = flattenVisible();
-    const row = rows.find((r) => r.path === focusedKey);
-    if (!row) return;
+    if (!focusedKey || !manifest) return
+    const rows = flattenVisible()
+    const row = rows.find((r) => r.path === focusedKey)
+    if (!row) return
     if (row.kind === 'group') {
-      toggleGroup(row.path);
+      toggleGroup(row.path)
     } else {
-      requestLeaveConfig({ kind: 'album', albumPath: row.path });
+      requestLeaveConfig({ kind: 'album', albumPath: row.path })
     }
   }
 
   function onTreeKeydown(e: KeyboardEvent): void {
     // Ignore if an input inside the tree has focus
-    const tag = (e.target as HTMLElement | null)?.tagName;
-    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
-    if (!manifest) return;
+    const tag = (e.target as HTMLElement | null)?.tagName
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return
+    if (!manifest) return
 
     if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      moveFocus(+1);
+      e.preventDefault()
+      moveFocus(+1)
     } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      moveFocus(-1);
+      e.preventDefault()
+      moveFocus(-1)
     } else if (e.key === 'ArrowRight') {
-      if (!focusedKey) return;
-      const rows = flattenVisible();
-      const row = rows.find((r) => r.path === focusedKey);
+      if (!focusedKey) return
+      const rows = flattenVisible()
+      const row = rows.find((r) => r.path === focusedKey)
       if (row?.kind === 'group' && isCollapsed(row.path)) {
-        e.preventDefault();
-        toggleGroup(row.path);
+        e.preventDefault()
+        toggleGroup(row.path)
       }
     } else if (e.key === 'ArrowLeft') {
-      if (!focusedKey) return;
-      const rows = flattenVisible();
-      const row = rows.find((r) => r.path === focusedKey);
+      if (!focusedKey) return
+      const rows = flattenVisible()
+      const row = rows.find((r) => r.path === focusedKey)
       if (row?.kind === 'group' && !isCollapsed(row.path)) {
-        e.preventDefault();
-        toggleGroup(row.path);
+        e.preventDefault()
+        toggleGroup(row.path)
       } else if (row?.parentPath) {
-        e.preventDefault();
-        focusedKey = row.parentPath;
+        e.preventDefault()
+        focusedKey = row.parentPath
       }
     } else if (e.key === 'Enter') {
-      e.preventDefault();
-      activateFocused();
+      e.preventDefault()
+      activateFocused()
     } else if (e.key === 'Home') {
-      e.preventDefault();
-      const rows = flattenVisible();
-      if (rows.length > 0) focusedKey = rows[0].path;
+      e.preventDefault()
+      const rows = flattenVisible()
+      if (rows.length > 0) focusedKey = rows[0].path
     } else if (e.key === 'End') {
-      e.preventDefault();
-      const rows = flattenVisible();
-      if (rows.length > 0) focusedKey = rows[rows.length - 1].path;
+      e.preventDefault()
+      const rows = flattenVisible()
+      if (rows.length > 0) focusedKey = rows[rows.length - 1].path
     }
   }
 
   function isFocused(path: string): boolean {
-    return focusedKey === path;
+    return focusedKey === path
   }
 
   // --- Context menu ----------------------------------------------------
 
   function openAlbumMenu(e: MouseEvent, path: string, title: string, sourceDir: string): void {
-    e.preventDefault();
-    menu = { x: e.clientX, y: e.clientY, target: { kind: 'album', path, title, sourceDir } };
+    e.preventDefault()
+    menu = { x: e.clientX, y: e.clientY, target: { kind: 'album', path, title, sourceDir } }
   }
 
   function openPageMenu(e: MouseEvent, slug: string, title: string, filename: string): void {
-    e.preventDefault();
-    menu = { x: e.clientX, y: e.clientY, target: { kind: 'page', slug, title, filename } };
+    e.preventDefault()
+    menu = { x: e.clientX, y: e.clientY, target: { kind: 'page', slug, title, filename } }
   }
 
   function closeMenu(): void {
-    menu = null;
+    menu = null
   }
 
   // --- Inline create ---------------------------------------------------
 
   async function startCreateAlbum(): Promise<void> {
-    if (!site.home) return;
-    creatingAlbum = true;
-    creatingAlbumTitle = '';
-    await tick();
-    creatingAlbumInput?.focus();
+    if (!site.home) return
+    creatingAlbum = true
+    creatingAlbumTitle = ''
+    await tick()
+    creatingAlbumInput?.focus()
   }
 
   async function commitCreateAlbum(): Promise<void> {
-    if (!site.home || !creatingAlbum) return;
-    const title = creatingAlbumTitle.trim();
-    creatingAlbum = false;
-    creatingAlbumTitle = '';
-    if (!title) return;
+    if (!site.home || !creatingAlbum) return
+    const title = creatingAlbumTitle.trim()
+    creatingAlbum = false
+    creatingAlbumTitle = ''
+    if (!title) return
     try {
       const result = await api.fs.createAlbum({
         home: site.home,
         parentPath: '',
         title
-      });
-      showToast({ kind: 'success', title: 'Album created', body: result.dirName });
-      await rescanCurrentHome();
+      })
+      showToast({ kind: 'success', title: 'Album created', body: result.dirName })
+      await rescanCurrentHome()
     } catch (err) {
-      showToast({ kind: 'error', title: 'Create failed', body: (err as Error).message });
+      showToast({ kind: 'error', title: 'Create failed', body: (err as Error).message })
     }
   }
 
   function cancelCreateAlbum(): void {
-    creatingAlbum = false;
-    creatingAlbumTitle = '';
+    creatingAlbum = false
+    creatingAlbumTitle = ''
   }
 
   async function startCreatePage(): Promise<void> {
-    if (!site.home) return;
-    creatingPage = true;
-    creatingPageTitle = '';
-    await tick();
-    creatingPageInput?.focus();
+    if (!site.home) return
+    creatingPage = true
+    creatingPageTitle = ''
+    await tick()
+    creatingPageInput?.focus()
   }
 
   async function commitCreatePage(): Promise<void> {
-    if (!site.home || !creatingPage) return;
-    const title = creatingPageTitle.trim();
-    creatingPage = false;
-    creatingPageTitle = '';
-    if (!title) return;
+    if (!site.home || !creatingPage) return
+    const title = creatingPageTitle.trim()
+    creatingPage = false
+    creatingPageTitle = ''
+    if (!title) return
     try {
-      const result = await api.fs.createPage({ home: site.home, title });
-      showToast({ kind: 'success', title: 'Page created', body: result.fileName });
-      await rescanCurrentHome();
+      const result = await api.fs.createPage({ home: site.home, title })
+      showToast({ kind: 'success', title: 'Page created', body: result.fileName })
+      await rescanCurrentHome()
     } catch (err) {
-      showToast({ kind: 'error', title: 'Create failed', body: (err as Error).message });
+      showToast({ kind: 'error', title: 'Create failed', body: (err as Error).message })
     }
   }
 
   function cancelCreatePage(): void {
-    creatingPage = false;
-    creatingPageTitle = '';
+    creatingPage = false
+    creatingPageTitle = ''
   }
 
   // --- Inline rename ---------------------------------------------------
 
   async function onRename(): Promise<void> {
-    if (!menu) return;
-    const target = menu.target;
-    const key = target.kind === 'album' ? target.path : target.slug;
-    renamingKey = key;
-    renameDraft = target.title;
-    closeMenu();
-    await tick();
-    renameInput?.focus();
-    renameInput?.select();
+    if (!menu) return
+    const target = menu.target
+    const key = target.kind === 'album' ? target.path : target.slug
+    renamingKey = key
+    renameDraft = target.title
+    closeMenu()
+    await tick()
+    renameInput?.focus()
+    renameInput?.select()
   }
 
   async function commitRename(target: MenuTarget): Promise<void> {
-    if (!site.home || renamingKey === null) return;
-    const newTitle = renameDraft.trim();
-    const wasRenaming = renamingKey;
-    renamingKey = null;
-    renameDraft = '';
-    if (!newTitle || newTitle === target.title) return;
+    if (!site.home || renamingKey === null) return
+    const newTitle = renameDraft.trim()
+    const wasRenaming = renamingKey
+    renamingKey = null
+    renameDraft = ''
+    if (!newTitle || newTitle === target.title) return
     try {
-      const entryPath = target.kind === 'album' ? target.sourceDir : target.filename;
+      const entryPath = target.kind === 'album' ? target.sourceDir : target.filename
       await api.fs.renameEntry({
         home: site.home,
         entryPath,
         newTitle
-      });
-      showToast({ kind: 'success', title: 'Renamed' });
-      await rescanCurrentHome();
+      })
+      showToast({ kind: 'success', title: 'Renamed' })
+      await rescanCurrentHome()
     } catch (err) {
-      showToast({ kind: 'error', title: 'Rename failed', body: (err as Error).message });
-      renamingKey = wasRenaming;
+      showToast({ kind: 'error', title: 'Rename failed', body: (err as Error).message })
+      renamingKey = wasRenaming
     }
   }
 
   function cancelRename(): void {
-    renamingKey = null;
-    renameDraft = '';
+    renamingKey = null
+    renameDraft = ''
   }
 
   // --- Delete (context menu) -------------------------------------------
 
   async function onDelete(): Promise<void> {
-    if (!menu || !site.home) return;
-    const target = menu.target;
-    const label = target.kind === 'album' ? 'album' : 'page';
-    const name = target.title;
-    closeMenu();
-    if (!window.confirm(`Move ${label} "${name}" to trash?`)) return;
+    if (!menu || !site.home) return
+    const target = menu.target
+    const label = target.kind === 'album' ? 'album' : 'page'
+    const name = target.title
+    closeMenu()
+    if (!window.confirm(`Move ${label} "${name}" to trash?`)) return
     try {
-      const entryPath = target.kind === 'album' ? target.sourceDir : target.filename;
-      await api.fs.deleteEntry({ home: site.home, entryPath });
-      showToast({ kind: 'success', title: 'Moved to trash' });
-      site.selection = { kind: 'none' };
-      await rescanCurrentHome();
+      const entryPath = target.kind === 'album' ? target.sourceDir : target.filename
+      await api.fs.deleteEntry({ home: site.home, entryPath })
+      showToast({ kind: 'success', title: 'Moved to trash' })
+      site.selection = { kind: 'none' }
+      await rescanCurrentHome()
     } catch (err) {
-      showToast({ kind: 'error', title: 'Delete failed', body: (err as Error).message });
+      showToast({ kind: 'error', title: 'Delete failed', body: (err as Error).message })
     }
   }
 
   function onConfigure(): void {
-    if (!menu || !site.home) return;
-    const target = menu.target;
-    if (target.kind !== 'album') return; // pages have no config.toml scope
-    closeMenu();
-    const dirPath = `${site.home}/${target.sourceDir}`;
+    if (!menu || !site.home) return
+    const target = menu.target
+    if (target.kind !== 'album') return // pages have no config.toml scope
+    closeMenu()
+    const dirPath = `${site.home}/${target.sourceDir}`
     // Groups and albums both carry `sourceDir`; cascade loader detects the
     // kind server-side, but we pass a hint for the editor label.
-    const levelKind = groupPaths.has(target.path) ? 'group' : 'album';
-    site.selection = { kind: 'config', dirPath, levelKind };
+    const levelKind = groupPaths.has(target.path) ? 'group' : 'album'
+    site.selection = { kind: 'config', dirPath, levelKind }
   }
 
   function configureRoot(): void {
-    if (!site.home) return;
-    site.selection = { kind: 'config', dirPath: site.home, levelKind: 'root' };
+    if (!site.home) return
+    site.selection = { kind: 'config', dirPath: site.home, levelKind: 'root' }
   }
 
   /** Flat set of paths that are groups in the current manifest, for quick
    *  level-kind classification when the context menu fires. */
   const groupPaths = $derived.by((): Set<string> => {
-    const out = new Set<string>();
-    if (!manifest) return out;
+    const out = new Set<string>()
+    if (!manifest) return out
     const walk = (items: ManifestNavItem[]): void => {
       for (const it of items) {
         if (isGroup(it)) {
-          out.add(it.path);
-          walk(it.children!);
+          out.add(it.path)
+          walk(it.children!)
         }
       }
-    };
-    walk(manifest.navigation);
-    return out;
-  });
+    }
+    walk(manifest.navigation)
+    return out
+  })
 
   // --- Source-dir resolution for a nav path ---------------------------
 
@@ -384,55 +384,55 @@
    * stripping the filename off its first image's source_path.
    */
   function albumSourceDirFor(albumPath: string): string {
-    if (!manifest) return albumPath;
-    const album = albumByPath(albumPath);
-    if (!album || album.images.length === 0) return albumPath;
-    const first = album.images[0].source_path;
-    const idx = first.lastIndexOf('/');
-    return idx === -1 ? '' : first.slice(0, idx);
+    if (!manifest) return albumPath
+    const album = albumByPath(albumPath)
+    if (!album || album.images.length === 0) return albumPath
+    const first = album.images[0].source_path
+    const idx = first.lastIndexOf('/')
+    return idx === -1 ? '' : first.slice(0, idx)
   }
 
   function pageFilenameFor(slug: string): string {
-    if (!manifest) return `${slug}.md`;
-    const page = manifest.pages.find((p) => p.slug === slug);
-    if (!page) return `${slug}.md`;
-    const prefix = page.in_nav ? `${String(page.sort_key).padStart(3, '0')}-` : '';
-    return `${prefix}${page.link_title}.md`;
+    if (!manifest) return `${slug}.md`
+    const page = manifest.pages.find((p) => p.slug === slug)
+    if (!page) return `${slug}.md`
+    const prefix = page.in_nav ? `${String(page.sort_key).padStart(3, '0')}-` : ''
+    return `${prefix}${page.link_title}.md`
   }
 
   // --- Drag-reorder (root level only) ---------------------------------
 
   function onDragStart(kind: 'album' | 'page', index: number, e: DragEvent): void {
-    if (!e.dataTransfer) return;
-    dragKind = kind;
-    dragIndex = index;
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData(TREE_MIME, `${kind}:${index}`);
+    if (!e.dataTransfer) return
+    dragKind = kind
+    dragIndex = index
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData(TREE_MIME, `${kind}:${index}`)
   }
 
   function onGapDragOver(kind: 'album' | 'page', gap: number, e: DragEvent): void {
-    if (dragKind !== kind || !e.dataTransfer) return;
-    if (!Array.from(e.dataTransfer.types).includes(TREE_MIME)) return;
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    dropIndex = gap;
+    if (dragKind !== kind || !e.dataTransfer) return
+    if (!Array.from(e.dataTransfer.types).includes(TREE_MIME)) return
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    dropIndex = gap
   }
 
   function onDragEnd(): void {
-    dragKind = null;
-    dragIndex = null;
-    dropIndex = null;
+    dragKind = null
+    dragIndex = null
+    dropIndex = null
   }
 
   async function onGapDrop(kind: 'album' | 'page', gap: number, e: DragEvent): Promise<void> {
-    if (dragKind !== kind || dragIndex === null || !site.home || !manifest) return;
-    e.preventDefault();
-    e.stopPropagation();
+    if (dragKind !== kind || dragIndex === null || !site.home || !manifest) return
+    e.preventDefault()
+    e.stopPropagation()
 
-    const from = dragIndex;
+    const from = dragIndex
     if (gap === from || gap === from + 1) {
-      onDragEnd();
-      return;
+      onDragEnd()
+      return
     }
 
     // Root-level reorder. For albums we iterate navigation (not the flat
@@ -441,13 +441,13 @@
     const currentNames =
       kind === 'album'
         ? manifest.navigation.map((n) => n.source_dir)
-        : manifest.pages.map((p) => pageFilenameFor(p.slug));
+        : manifest.pages.map((p) => pageFilenameFor(p.slug))
 
-    const [moved] = currentNames.splice(from, 1);
-    const target = gap > from ? gap - 1 : gap;
-    currentNames.splice(target, 0, moved);
+    const [moved] = currentNames.splice(from, 1)
+    const target = gap > from ? gap - 1 : gap
+    currentNames.splice(target, 0, moved)
 
-    onDragEnd();
+    onDragEnd()
 
     try {
       await api.fs.reorderTreeEntries({
@@ -455,11 +455,11 @@
         parentPath: '',
         kind: kind === 'album' ? 'dir' : 'file',
         orderedNames: currentNames
-      });
-      showToast({ kind: 'success', title: 'Reordered' });
-      await rescanCurrentHome();
+      })
+      showToast({ kind: 'success', title: 'Reordered' })
+      await rescanCurrentHome()
     } catch (err) {
-      showToast({ kind: 'error', title: 'Reorder failed', body: (err as Error).message });
+      showToast({ kind: 'error', title: 'Reorder failed', body: (err as Error).message })
     }
   }
 </script>
@@ -501,16 +501,16 @@
           data-testid="tree-rename-input"
           onkeydown={(e) => {
             if (e.key === 'Enter') {
-              e.preventDefault();
+              e.preventDefault()
               commitRename({
                 kind: 'album',
                 path: item.path,
                 title: item.title,
                 sourceDir: albumSourceDirFor(item.path)
-              });
+              })
             } else if (e.key === 'Escape') {
-              e.preventDefault();
-              cancelRename();
+              e.preventDefault()
+              cancelRename()
             }
           }}
           onblur={() =>
@@ -530,8 +530,8 @@
           )}
           style:padding-left="{0.5 + depth * 0.75}rem"
           onclick={() => {
-            focusedKey = item.path;
-            toggleGroup(item.path);
+            focusedKey = item.path
+            toggleGroup(item.path)
           }}
           oncontextmenu={(e) =>
             openAlbumMenu(e, item.path, item.title, albumSourceDirFor(item.path))}
@@ -566,8 +566,8 @@
           ondragstart={(e) => isRootLevel && onDragStart('album', i, e)}
           ondragend={onDragEnd}
           onclick={() => {
-            focusedKey = item.path;
-            select(albumSel);
+            focusedKey = item.path
+            select(albumSel)
           }}
           oncontextmenu={(e) =>
             openAlbumMenu(e, item.path, item.title, albumSourceDirFor(item.path))}
@@ -663,11 +663,11 @@
                 data-testid="new-album-input"
                 onkeydown={(e) => {
                   if (e.key === 'Enter') {
-                    e.preventDefault();
-                    commitCreateAlbum();
+                    e.preventDefault()
+                    commitCreateAlbum()
                   } else if (e.key === 'Escape') {
-                    e.preventDefault();
-                    cancelCreateAlbum();
+                    e.preventDefault()
+                    cancelCreateAlbum()
                   }
                 }}
                 onblur={commitCreateAlbum}
@@ -742,11 +742,11 @@
                 data-testid="new-page-input"
                 onkeydown={(e) => {
                   if (e.key === 'Enter') {
-                    e.preventDefault();
-                    commitCreatePage();
+                    e.preventDefault()
+                    commitCreatePage()
                   } else if (e.key === 'Escape') {
-                    e.preventDefault();
-                    cancelCreatePage();
+                    e.preventDefault()
+                    cancelCreatePage()
                   }
                 }}
                 onblur={commitCreatePage}
@@ -775,16 +775,16 @@
                   data-testid="tree-rename-input"
                   onkeydown={(e) => {
                     if (e.key === 'Enter') {
-                      e.preventDefault();
+                      e.preventDefault()
                       commitRename({
                         kind: 'page',
                         slug: page.slug,
                         title: page.title,
                         filename: pageFilenameFor(page.slug)
-                      });
+                      })
                     } else if (e.key === 'Escape') {
-                      e.preventDefault();
-                      cancelRename();
+                      e.preventDefault()
+                      cancelRename()
                     }
                   }}
                   onblur={() =>

@@ -1,67 +1,62 @@
 <script lang="ts">
-  import { tick } from 'svelte';
-  import { cn } from '$lib/utils';
-  import Button from '$lib/components/ui/Button.svelte';
+  import { tick } from 'svelte'
+  import { cn } from '$lib/utils'
+  import Button from '$lib/components/ui/Button.svelte'
 
   interface Props {
-    value: string;
-    onSave: (newValue: string) => Promise<void>;
-    placeholder?: string;
-    class?: string;
+    value: string
+    onSave: (newValue: string) => Promise<void>
+    placeholder?: string
+    class?: string
   }
 
-  const {
-    value,
-    onSave,
-    placeholder = 'Add description\u2026',
-    class: className
-  }: Props = $props();
+  const { value, onSave, placeholder = 'Add description\u2026', class: className }: Props = $props()
 
-  let editing = $state(false);
-  let draft = $state('');
-  let saving = $state(false);
-  let textarea = $state<HTMLTextAreaElement>();
+  let editing = $state(false)
+  let draft = $state('')
+  let saving = $state(false)
+  let textarea = $state<HTMLTextAreaElement>()
 
   // Sync display when value changes externally (e.g. after rescan)
   $effect(() => {
-    if (!editing) draft = value;
-  });
+    if (!editing) draft = value
+  })
 
   async function startEdit(): Promise<void> {
-    draft = value;
-    editing = true;
-    await tick();
-    textarea?.focus();
+    draft = value
+    editing = true
+    await tick()
+    textarea?.focus()
   }
 
   async function save(): Promise<void> {
-    if (saving) return;
-    const next = draft;
+    if (saving) return
+    const next = draft
     if (next === value) {
-      editing = false;
-      return;
+      editing = false
+      return
     }
-    saving = true;
+    saving = true
     try {
-      await onSave(next);
-      editing = false;
+      await onSave(next)
+      editing = false
     } finally {
-      saving = false;
+      saving = false
     }
   }
 
   function cancel(): void {
-    editing = false;
-    draft = value;
+    editing = false
+    draft = value
   }
 
   function onKeydown(e: KeyboardEvent): void {
     if (e.key === 'Escape') {
-      e.preventDefault();
-      cancel();
+      e.preventDefault()
+      cancel()
     } else if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-      e.preventDefault();
-      save();
+      e.preventDefault()
+      save()
     }
   }
 </script>

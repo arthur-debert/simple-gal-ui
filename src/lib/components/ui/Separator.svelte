@@ -1,12 +1,12 @@
 <script lang="ts">
-  import { cn } from '$lib/utils';
+  import { cn } from '$lib/utils'
 
   interface Props {
-    orientation?: 'horizontal' | 'vertical';
-    class?: string;
+    orientation?: 'horizontal' | 'vertical'
+    class?: string
   }
 
-  let { orientation = 'horizontal', class: className }: Props = $props();
+  let { orientation = 'horizontal', class: className }: Props = $props()
 </script>
 
 <div

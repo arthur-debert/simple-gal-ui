@@ -5,10 +5,10 @@
  */
 
 interface AppInfoState {
-  appVersion: string;
-  simpleGalVersion: string;
-  simpleGalMissing: string | null;
-  platform: 'darwin' | 'linux' | 'win32' | 'unknown';
+  appVersion: string
+  simpleGalVersion: string
+  simpleGalMissing: string | null
+  platform: 'darwin' | 'linux' | 'win32' | 'unknown'
 }
 
 const state = $state<AppInfoState>({
@@ -16,32 +16,32 @@ const state = $state<AppInfoState>({
   simpleGalVersion: '',
   simpleGalMissing: null,
   platform: 'unknown'
-});
+})
 
 export const appInfo = {
   get appVersion() {
-    return state.appVersion;
+    return state.appVersion
   },
   get simpleGalVersion() {
-    return state.simpleGalVersion;
+    return state.simpleGalVersion
   },
   get simpleGalMissing() {
-    return state.simpleGalMissing;
+    return state.simpleGalMissing
   },
   get platform() {
-    return state.platform;
+    return state.platform
   }
-};
+}
 
 export function setAppVersion(v: string): void {
-  state.appVersion = v;
+  state.appVersion = v
 }
 
 export function setSimpleGalVersion(v: string, missing: string | null): void {
-  state.simpleGalVersion = v;
-  state.simpleGalMissing = missing;
+  state.simpleGalVersion = v
+  state.simpleGalMissing = missing
 }
 
 export function setPlatform(p: AppInfoState['platform']): void {
-  state.platform = p;
+  state.platform = p
 }

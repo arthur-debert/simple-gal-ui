@@ -1,94 +1,94 @@
 <script lang="ts">
-  import { site, rescanCurrentHome } from '$lib/stores/siteStore.svelte';
-  import { api } from '$lib/api';
-  import type { ReplaceIndexStrategy } from '$lib/api';
-  import { showToast } from '$lib/stores/toastStore.svelte';
-  import type { ManifestAlbum, ManifestImage } from '$lib/types/manifest';
-  import InlineDescriptionEdit from './InlineDescriptionEdit.svelte';
-  import InlineTitleEdit from './InlineTitleEdit.svelte';
-  import ThumbCornerMark from './ThumbCornerMark.svelte';
-  import Button from '$lib/components/ui/Button.svelte';
-  import ReplaceModeDialog from '$lib/components/dialogs/ReplaceModeDialog.svelte';
-  import IconTrash from '~icons/lucide/trash-2';
-  import IconImage from '~icons/lucide/image';
-  import IconSettings from '~icons/lucide/settings';
-  import IconRefresh from '~icons/lucide/refresh-cw';
-  import IconPencil from '~icons/lucide/pencil';
-  import { cn } from '$lib/utils';
+  import { site, rescanCurrentHome } from '$lib/stores/siteStore.svelte'
+  import { api } from '$lib/api'
+  import type { ReplaceIndexStrategy } from '$lib/api'
+  import { showToast } from '$lib/stores/toastStore.svelte'
+  import type { ManifestAlbum, ManifestImage } from '$lib/types/manifest'
+  import InlineDescriptionEdit from './InlineDescriptionEdit.svelte'
+  import InlineTitleEdit from './InlineTitleEdit.svelte'
+  import ThumbCornerMark from './ThumbCornerMark.svelte'
+  import Button from '$lib/components/ui/Button.svelte'
+  import ReplaceModeDialog from '$lib/components/dialogs/ReplaceModeDialog.svelte'
+  import IconTrash from '~icons/lucide/trash-2'
+  import IconImage from '~icons/lucide/image'
+  import IconSettings from '~icons/lucide/settings'
+  import IconRefresh from '~icons/lucide/refresh-cw'
+  import IconPencil from '~icons/lucide/pencil'
+  import { cn } from '$lib/utils'
   import {
     anyHasNumericPrefix,
     basenameOf,
     filterSupportedImages,
     pairReplacements
-  } from '$lib/utils/replaceFlow';
-  import { displayImageTitle, isAlbumThumbnail, isThumbFilename } from '$lib/utils/thumbnail';
+  } from '$lib/utils/replaceFlow'
+  import { displayImageTitle, isAlbumThumbnail, isThumbFilename } from '$lib/utils/thumbnail'
 
   interface Props {
-    album: ManifestAlbum;
+    album: ManifestAlbum
   }
 
-  const { album }: Props = $props();
+  const { album }: Props = $props()
 
   // Import drop overlay (OS file drag-drop)
-  let isDraggingOver = $state(false);
+  let isDraggingOver = $state(false)
 
   // Thumbnail selection state (ephemeral, per-album)
-  let selected = $state<Set<string>>(new Set());
-  let lastAnchor = $state<string | null>(null);
+  let selected = $state<Set<string>>(new Set())
+  let lastAnchor = $state<string | null>(null)
 
   // In-album reorder drag state
-  let draggingSet = $state<string[] | null>(null);
-  let dropAtIndex = $state<number | null>(null); // insertion gap (0..images.length)
+  let draggingSet = $state<string[] | null>(null)
+  let dropAtIndex = $state<number | null>(null) // insertion gap (0..images.length)
 
-  const THUMB_MIME = 'application/x-sgui-thumb-set';
+  const THUMB_MIME = 'application/x-sgui-thumb-set'
 
   /**
    * simple-gal's manifest gives us the url-slug `path` for an album but we
    * need the on-disk source directory (e.g. "010-Landscapes") for writes.
    */
   const albumSourceDir = $derived.by(() => {
-    if (album.images.length === 0) return album.path;
-    const firstPath = album.images[0].source_path;
-    const idx = firstPath.lastIndexOf('/');
-    return idx === -1 ? '' : firstPath.slice(0, idx);
-  });
+    if (album.images.length === 0) return album.path
+    const firstPath = album.images[0].source_path
+    const idx = firstPath.lastIndexOf('/')
+    return idx === -1 ? '' : firstPath.slice(0, idx)
+  })
 
   // The authoritative "what the site will use as this album's thumbnail"
   // is simple-gal's `preview_image` — it captures both the explicit
   // `NNN-thumb-…` marker AND the first-image fallback when nothing is
   // marked. Use this for every visual affordance (avatar, corner chip).
   const currentThumbImage = $derived.by(() => {
-    if (!album.preview_image) return null;
-    return album.images.find((i) => i.source_path === album.preview_image) ?? null;
-  });
+    if (!album.preview_image) return null
+    return album.images.find((i) => i.source_path === album.preview_image) ?? null
+  })
 
   // Hiding the "Use as Thumbnail" button uses the FILENAME marker, not
   // preview_image — on a first-image-fallback, clicking the button is
   // meaningful (it writes the marker), so we must keep it visible there.
   const selectedIsExplicitThumb = $derived.by(() => {
-    if (selected.size !== 1) return false;
-    const [p] = [...selected];
-    const img = album.images.find((i) => i.source_path === p);
-    return img ? isThumbFilename(img.filename) : false;
-  });
+    if (selected.size !== 1) return false
+    const [p] = [...selected]
+    const img = album.images.find((i) => i.source_path === p)
+    return img ? isThumbFilename(img.filename) : false
+  })
 
   // Prune stale selection members when the album changes out from under us
   // (rescan after reorder / rename / delete).
   $effect(() => {
-    const valid = new Set(album.images.map((i) => i.source_path));
-    let changed = false;
-    const next = new Set<string>();
+    const valid = new Set(album.images.map((i) => i.source_path))
+    let changed = false
+    const next = new Set<string>()
     for (const p of selected) {
-      if (valid.has(p)) next.add(p);
-      else changed = true;
+      if (valid.has(p)) next.add(p)
+      else changed = true
     }
-    if (changed) selected = next;
-  });
+    if (changed) selected = next
+  })
 
   function fileUrlFor(img: ManifestImage): string {
-    if (!site.home) return '';
-    const abs = `${site.home}/${img.source_path}`;
-    return `file://${abs.replace(/#/g, '%23').replace(/\?/g, '%3F')}`;
+    if (!site.home) return ''
+    const abs = `${site.home}/${img.source_path}`
+    return `file://${abs.replace(/#/g, '%23').replace(/\?/g, '%3F')}`
   }
 
   function openDetail(img: ManifestImage): void {
@@ -96,104 +96,104 @@
       kind: 'image',
       albumPath: album.path,
       imageSourcePath: img.source_path
-    };
+    }
   }
 
   function setSelectionTo(paths: string[]): void {
-    selected = new Set(paths);
+    selected = new Set(paths)
   }
 
   function toggleSelection(p: string): void {
-    const next = new Set(selected);
-    if (next.has(p)) next.delete(p);
-    else next.add(p);
-    selected = next;
+    const next = new Set(selected)
+    if (next.has(p)) next.delete(p)
+    else next.add(p)
+    selected = next
   }
 
   function selectRangeTo(p: string): void {
     if (!lastAnchor) {
-      setSelectionTo([p]);
-      return;
+      setSelectionTo([p])
+      return
     }
-    const paths = album.images.map((i) => i.source_path);
-    const a = paths.indexOf(lastAnchor);
-    const b = paths.indexOf(p);
+    const paths = album.images.map((i) => i.source_path)
+    const a = paths.indexOf(lastAnchor)
+    const b = paths.indexOf(p)
     if (a === -1 || b === -1) {
-      setSelectionTo([p]);
-      return;
+      setSelectionTo([p])
+      return
     }
-    const [lo, hi] = a <= b ? [a, b] : [b, a];
-    const next = new Set(selected);
-    for (let i = lo; i <= hi; i++) next.add(paths[i]);
-    selected = next;
+    const [lo, hi] = a <= b ? [a, b] : [b, a]
+    const next = new Set(selected)
+    for (let i = lo; i <= hi; i++) next.add(paths[i])
+    selected = next
   }
 
   function onThumbClick(img: ManifestImage, e: MouseEvent): void {
-    const mod = e.metaKey || e.ctrlKey;
+    const mod = e.metaKey || e.ctrlKey
     if (e.shiftKey) {
-      selectRangeTo(img.source_path);
+      selectRangeTo(img.source_path)
     } else if (mod) {
-      toggleSelection(img.source_path);
-      lastAnchor = img.source_path;
+      toggleSelection(img.source_path)
+      lastAnchor = img.source_path
     } else {
-      setSelectionTo([img.source_path]);
-      lastAnchor = img.source_path;
+      setSelectionTo([img.source_path])
+      lastAnchor = img.source_path
     }
   }
 
   function onThumbDoubleClick(img: ManifestImage): void {
-    openDetail(img);
+    openDetail(img)
   }
 
   function clearSelection(): void {
-    selected = new Set();
-    lastAnchor = null;
+    selected = new Set()
+    lastAnchor = null
   }
 
   function onGridClick(e: MouseEvent): void {
     // Only clear when the click landed on the grid surface itself, not on
     // a thumbnail that bubbled up.
-    if (e.target === e.currentTarget) clearSelection();
+    if (e.target === e.currentTarget) clearSelection()
   }
 
   async function onKeydown(e: KeyboardEvent): Promise<void> {
-    if (!site.home) return;
+    if (!site.home) return
     // Ignore keystrokes while an input/textarea has focus (e.g. caption editor)
-    const tag = (e.target as HTMLElement | null)?.tagName;
-    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+    const tag = (e.target as HTMLElement | null)?.tagName
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return
 
     if (e.key === 'Escape') {
-      clearSelection();
-      return;
+      clearSelection()
+      return
     }
     if (e.key === 'Enter' && selected.size === 1) {
-      const only = [...selected][0];
-      const img = album.images.find((i) => i.source_path === only);
-      if (img) openDetail(img);
-      return;
+      const only = [...selected][0]
+      const img = album.images.find((i) => i.source_path === only)
+      if (img) openDetail(img)
+      return
     }
     if ((e.key === 'Delete' || e.key === 'Backspace') && selected.size > 0) {
-      e.preventDefault();
-      await deleteSelection();
+      e.preventDefault()
+      await deleteSelection()
     }
   }
 
   // --- Replace selected images ----------------------------------------
 
   interface PendingReplace {
-    pairs: { targetSourcePath: string; replacementPath: string }[];
-    sampleTarget: string;
-    sampleReplacement: string;
+    pairs: { targetSourcePath: string; replacementPath: string }[]
+    sampleTarget: string
+    sampleReplacement: string
   }
 
-  let pendingReplace = $state<PendingReplace | null>(null);
-  const replaceDialogOpen = $derived(pendingReplace !== null);
+  let pendingReplace = $state<PendingReplace | null>(null)
+  const replaceDialogOpen = $derived(pendingReplace !== null)
 
   async function onReplaceSelection(): Promise<void> {
-    if (!site.home || selected.size === 0) return;
-    const picked = await api.fs.pickImages({ multi: selected.size > 1 });
-    if (picked.length === 0) return;
-    await executeReplaceFlow(picked, 'pick');
+    if (!site.home || selected.size === 0) return
+    const picked = await api.fs.pickImages({ multi: selected.size > 1 })
+    if (picked.length === 0) return
+    await executeReplaceFlow(picked, 'pick')
   }
 
   /**
@@ -204,99 +204,99 @@
    * verbs ("picks" vs "drops") vary by `action`.
    */
   async function executeReplaceFlow(sourcePaths: string[], action: 'pick' | 'drop'): Promise<void> {
-    const verb = action === 'pick' ? 'picked' : 'dropped';
-    const noun = action === 'pick' ? 'picks' : 'drops';
-    const imperative = action === 'pick' ? 'Pick' : 'Drop';
+    const verb = action === 'pick' ? 'picked' : 'dropped'
+    const noun = action === 'pick' ? 'picks' : 'drops'
+    const imperative = action === 'pick' ? 'Pick' : 'Drop'
 
-    const valid = filterSupportedImages(sourcePaths);
+    const valid = filterSupportedImages(sourcePaths)
     if (valid.length !== sourcePaths.length) {
-      const skipped = sourcePaths.length - valid.length;
+      const skipped = sourcePaths.length - valid.length
       showToast({
         kind: 'warning',
         title: `Some ${noun} were skipped`,
         body: `${skipped} file${skipped === 1 ? ' is' : 's are'} not a supported image type.`
-      });
+      })
     }
-    if (valid.length === 0) return;
+    if (valid.length === 0) return
     if (valid.length !== selected.size) {
       showToast({
         kind: 'error',
         title: `${imperative} count mismatch`,
         body: `Selected ${selected.size} image${selected.size === 1 ? '' : 's'}, but ${verb} ${valid.length}. ${imperative} exactly ${selected.size}.`
-      });
-      return;
+      })
+      return
     }
 
     // Preserve album visual order when pairing: iterate the album image list,
     // keep only selected paths, then pair with alphabetically-sorted files.
-    const orderedTargets = album.images.map((i) => i.source_path).filter((p) => selected.has(p));
-    const pairs = pairReplacements(orderedTargets, valid);
+    const orderedTargets = album.images.map((i) => i.source_path).filter((p) => selected.has(p))
+    const pairs = pairReplacements(orderedTargets, valid)
 
     if (anyHasNumericPrefix(valid)) {
       // Ask the user whether to keep slot numbering or take filename
       // numbering. Parking the pairs here; `onReplaceConfirm` below
       // executes once the user chooses.
-      const sampleTarget = basenameOf(pairs[0].targetSourcePath);
-      const sampleReplacement = basenameOf(pairs[0].replacementPath);
-      pendingReplace = { pairs, sampleTarget, sampleReplacement };
-      return;
+      const sampleTarget = basenameOf(pairs[0].targetSourcePath)
+      const sampleReplacement = basenameOf(pairs[0].replacementPath)
+      pendingReplace = { pairs, sampleTarget, sampleReplacement }
+      return
     }
 
-    await runReplace(pairs, 'slot');
+    await runReplace(pairs, 'slot')
   }
 
   async function onReplaceConfirm(strategy: ReplaceIndexStrategy): Promise<void> {
-    if (!pendingReplace) return;
-    const pairs = pendingReplace.pairs;
-    pendingReplace = null;
-    await runReplace(pairs, strategy);
+    if (!pendingReplace) return
+    const pairs = pendingReplace.pairs
+    pendingReplace = null
+    await runReplace(pairs, strategy)
   }
 
   function onReplaceCancel(): void {
-    pendingReplace = null;
+    pendingReplace = null
   }
 
   async function runReplace(
     pairs: { targetSourcePath: string; replacementPath: string }[],
     indexStrategy: ReplaceIndexStrategy
   ): Promise<void> {
-    if (!site.home) return;
+    if (!site.home) return
     try {
       const result = await api.fs.replaceImages({
         home: site.home,
         albumPath: albumSourceDir,
         pairs,
         indexStrategy
-      });
+      })
       if (!result.ok) {
-        showToast({ kind: 'error', title: 'Replace failed' });
-        return;
+        showToast({ kind: 'error', title: 'Replace failed' })
+        return
       }
       showToast({
         kind: 'success',
         title: `Replaced ${result.replaced.length} image${result.replaced.length === 1 ? '' : 's'}`,
         body: result.skipped.length > 0 ? `${result.skipped.length} skipped` : undefined
-      });
-      clearSelection();
-      await rescanCurrentHome();
+      })
+      clearSelection()
+      await rescanCurrentHome()
     } catch (err) {
-      showToast({ kind: 'error', title: 'Replace failed', body: (err as Error).message });
+      showToast({ kind: 'error', title: 'Replace failed', body: (err as Error).message })
     }
   }
 
   async function deleteSelection(): Promise<void> {
-    if (!site.home || selected.size === 0) return;
-    const count = selected.size;
-    if (!window.confirm(`Move ${count} image${count === 1 ? '' : 's'} to trash?`)) return;
+    if (!site.home || selected.size === 0) return
+    const count = selected.size
+    if (!window.confirm(`Move ${count} image${count === 1 ? '' : 's'} to trash?`)) return
     try {
       for (const p of selected) {
-        await api.fs.deleteImage({ home: site.home, imageSourcePath: p });
+        await api.fs.deleteImage({ home: site.home, imageSourcePath: p })
       }
-      showToast({ kind: 'success', title: `Trashed ${count} image${count === 1 ? '' : 's'}` });
-      clearSelection();
-      await rescanCurrentHome();
+      showToast({ kind: 'success', title: `Trashed ${count} image${count === 1 ? '' : 's'}` })
+      clearSelection()
+      await rescanCurrentHome()
     } catch (err) {
-      showToast({ kind: 'error', title: 'Delete failed', body: (err as Error).message });
+      showToast({ kind: 'error', title: 'Delete failed', body: (err as Error).message })
     }
   }
 
@@ -306,32 +306,32 @@
         kind: 'info',
         title: 'Pick an image first',
         body: 'Click an image in the grid, then click the pencil.'
-      });
-      return;
+      })
+      return
     }
     if (selected.size > 1) {
       showToast({
         kind: 'info',
         title: 'Select just one image',
         body: 'Only one image can be the album thumbnail.'
-      });
-      return;
+      })
+      return
     }
-    await onUseAsThumbnail();
+    await onUseAsThumbnail()
   }
 
   async function onUseAsThumbnail(): Promise<void> {
-    if (!site.home || selected.size !== 1) return;
-    const imageSourcePath = [...selected][0];
+    if (!site.home || selected.size !== 1) return
+    const imageSourcePath = [...selected][0]
     try {
       const result = await api.fs.setAlbumThumbnail({
         home: site.home,
         albumPath: albumSourceDir,
         imageSourcePath
-      });
+      })
       if (result.noOp) {
-        showToast({ kind: 'info', title: 'Already the thumbnail' });
-        return;
+        showToast({ kind: 'info', title: 'Already the thumbnail' })
+        return
       }
       showToast({
         kind: 'success',
@@ -339,158 +339,158 @@
         body: result.previousThumb
           ? `Previous: ${result.previousThumb.new.split('/').pop()}`
           : undefined
-      });
-      await rescanCurrentHome();
+      })
+      await rescanCurrentHome()
       // Re-pin selection to the renamed image
-      selected = new Set([result.newThumb.new]);
+      selected = new Set([result.newThumb.new])
     } catch (err) {
-      showToast({ kind: 'error', title: 'Set thumbnail failed', body: (err as Error).message });
+      showToast({ kind: 'error', title: 'Set thumbnail failed', body: (err as Error).message })
     }
   }
 
   async function onDeleteAlbum(): Promise<void> {
-    if (!site.home) return;
-    if (!window.confirm(`Move album "${album.title}" to trash?`)) return;
+    if (!site.home) return
+    if (!window.confirm(`Move album "${album.title}" to trash?`)) return
     try {
-      await api.fs.deleteEntry({ home: site.home, entryPath: albumSourceDir });
-      showToast({ kind: 'success', title: 'Album moved to trash', body: album.title });
-      site.selection = { kind: 'none' };
-      await rescanCurrentHome();
+      await api.fs.deleteEntry({ home: site.home, entryPath: albumSourceDir })
+      showToast({ kind: 'success', title: 'Album moved to trash', body: album.title })
+      site.selection = { kind: 'none' }
+      await rescanCurrentHome()
     } catch (err) {
-      showToast({ kind: 'error', title: 'Delete failed', body: (err as Error).message });
+      showToast({ kind: 'error', title: 'Delete failed', body: (err as Error).message })
     }
   }
 
   // Context-aware header X button: delete selection or delete album
   const headerDeleteLabel = $derived.by(() =>
     selected.size > 0 ? `Delete ${selected.size} selected` : 'Delete album'
-  );
+  )
 
   async function onHeaderDelete(): Promise<void> {
     if (selected.size > 0) {
-      await deleteSelection();
+      await deleteSelection()
     } else {
-      await onDeleteAlbum();
+      await onDeleteAlbum()
     }
   }
 
   function onConfigureAlbum(): void {
-    if (!site.home) return;
+    if (!site.home) return
     site.selection = {
       kind: 'config',
       dirPath: `${site.home}/${albumSourceDir}`,
       levelKind: 'album'
-    };
+    }
   }
 
   // --- Inline title rename ---------------------------------------------
 
   async function onCommitRename(newTitle: string): Promise<void> {
-    if (!site.home) return;
+    if (!site.home) return
     try {
       const result = await api.fs.renameEntry({
         home: site.home,
         entryPath: albumSourceDir,
         newTitle
-      });
+      })
       if (!result.ok) {
-        showToast({ kind: 'error', title: 'Rename failed' });
-        return;
+        showToast({ kind: 'error', title: 'Rename failed' })
+        return
       }
 
       // Compute the new source dir (basename preserved at same depth).
-      const slash = albumSourceDir.lastIndexOf('/');
-      const parent = slash === -1 ? '' : albumSourceDir.slice(0, slash);
-      const newSourceDir = parent ? `${parent}/${result.newName}` : result.newName;
+      const slash = albumSourceDir.lastIndexOf('/')
+      const parent = slash === -1 ? '' : albumSourceDir.slice(0, slash)
+      const newSourceDir = parent ? `${parent}/${result.newName}` : result.newName
 
-      await rescanCurrentHome();
+      await rescanCurrentHome()
 
       // Re-pin selection to the album whose first image now lives under
       // newSourceDir.
-      const manifest = site.manifest;
+      const manifest = site.manifest
       if (manifest) {
         const renamed = manifest.albums.find((a) => {
-          if (a.images.length === 0) return false;
-          const sd = a.images[0].source_path;
-          const dirSeg = sd.slice(0, sd.lastIndexOf('/'));
-          return dirSeg === newSourceDir;
-        });
+          if (a.images.length === 0) return false
+          const sd = a.images[0].source_path
+          const dirSeg = sd.slice(0, sd.lastIndexOf('/'))
+          return dirSeg === newSourceDir
+        })
         if (renamed) {
-          site.selection = { kind: 'album', albumPath: renamed.path };
+          site.selection = { kind: 'album', albumPath: renamed.path }
         }
       }
-      showToast({ kind: 'success', title: 'Renamed', body: result.newName });
+      showToast({ kind: 'success', title: 'Renamed', body: result.newName })
     } catch (err) {
-      showToast({ kind: 'error', title: 'Rename failed', body: (err as Error).message });
+      showToast({ kind: 'error', title: 'Rename failed', body: (err as Error).message })
     }
   }
 
   // --- Inline description save -----------------------------------------
 
   async function onSaveDescription(body: string): Promise<void> {
-    if (!site.home) return;
+    if (!site.home) return
     const result = await api.fs.writeDescription({
       home: site.home,
       albumPath: albumSourceDir,
       body
-    });
+    })
     if (result.ok) {
       showToast({
         kind: 'success',
         title: 'Description saved',
         body: result.writtenPath ? 'description.md updated' : 'description removed'
-      });
-      await rescanCurrentHome();
+      })
+      await rescanCurrentHome()
     } else {
-      showToast({ kind: 'error', title: 'Save failed' });
+      showToast({ kind: 'error', title: 'Save failed' })
     }
   }
 
   // --- OS file drag-drop import ----------------------------------------
 
   function onOuterDragEnter(e: DragEvent): void {
-    if (!e.dataTransfer) return;
+    if (!e.dataTransfer) return
     if (Array.from(e.dataTransfer.types).includes('Files')) {
-      isDraggingOver = true;
+      isDraggingOver = true
     }
   }
 
   function onOuterDragOver(e: DragEvent): void {
-    if (!e.dataTransfer) return;
+    if (!e.dataTransfer) return
     if (Array.from(e.dataTransfer.types).includes('Files')) {
-      e.preventDefault();
-      e.dataTransfer.dropEffect = 'copy';
-      isDraggingOver = true;
+      e.preventDefault()
+      e.dataTransfer.dropEffect = 'copy'
+      isDraggingOver = true
     }
   }
 
   function onOuterDragLeave(e: DragEvent): void {
-    if ((e.currentTarget as HTMLElement | null)?.contains(e.relatedTarget as Node)) return;
-    isDraggingOver = false;
+    if ((e.currentTarget as HTMLElement | null)?.contains(e.relatedTarget as Node)) return
+    isDraggingOver = false
   }
 
   async function onOuterDrop(e: DragEvent): Promise<void> {
-    if (!e.dataTransfer || !site.home) return;
+    if (!e.dataTransfer || !site.home) return
     // Only handle OS file drops here; in-album reorder is handled on thumbs.
-    if (!Array.from(e.dataTransfer.types).includes('Files')) return;
-    e.preventDefault();
-    isDraggingOver = false;
-    const files = Array.from(e.dataTransfer.files);
-    if (files.length === 0) return;
+    if (!Array.from(e.dataTransfer.types).includes('Files')) return
+    e.preventDefault()
+    isDraggingOver = false
+    const files = Array.from(e.dataTransfer.files)
+    if (files.length === 0) return
     const sourcePaths = files
       .map((f) => api.fs.getPathForFile(f))
-      .filter((p): p is string => typeof p === 'string' && p.length > 0);
+      .filter((p): p is string => typeof p === 'string' && p.length > 0)
     if (sourcePaths.length === 0) {
-      showToast({ kind: 'warning', title: 'No valid file paths found' });
-      return;
+      showToast({ kind: 'warning', title: 'No valid file paths found' })
+      return
     }
 
     // If the user has images selected, an OS file drop means "replace these
     // slots" rather than "append to the album". Route through the same
     // count-matching + strategy-prompt flow as the Replace button.
     if (selected.size > 0) {
-      await executeReplaceFlow(sourcePaths, 'drop');
-      return;
+      await executeReplaceFlow(sourcePaths, 'drop')
+      return
     }
 
     try {
@@ -498,79 +498,79 @@
         home: site.home,
         albumPath: albumSourceDir,
         sourcePaths
-      });
+      })
       showToast({
         kind: 'success',
         title: `Imported ${result.imported.length} image${result.imported.length === 1 ? '' : 's'}`,
         body: result.skipped.length > 0 ? `${result.skipped.length} skipped` : undefined
-      });
-      await rescanCurrentHome();
+      })
+      await rescanCurrentHome()
     } catch (err) {
-      showToast({ kind: 'error', title: 'Import failed', body: (err as Error).message });
+      showToast({ kind: 'error', title: 'Import failed', body: (err as Error).message })
     }
   }
 
   // --- Thumbnail reorder drag ------------------------------------------
 
   function onThumbDragStart(img: ManifestImage, e: DragEvent): void {
-    if (!e.dataTransfer) return;
+    if (!e.dataTransfer) return
     // If the dragged thumb is in the selection, drag the whole selection.
     // Otherwise drag just this one (and leave selection untouched — Finder-style).
-    const payload = selected.has(img.source_path) ? [...selected] : [img.source_path];
-    draggingSet = payload;
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData(THUMB_MIME, JSON.stringify(payload));
+    const payload = selected.has(img.source_path) ? [...selected] : [img.source_path]
+    draggingSet = payload
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData(THUMB_MIME, JSON.stringify(payload))
   }
 
   function onThumbDragOver(index: number, e: DragEvent): void {
-    if (draggingSet === null || !e.dataTransfer) return;
-    if (!Array.from(e.dataTransfer.types).includes(THUMB_MIME)) return;
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
+    if (draggingSet === null || !e.dataTransfer) return
+    if (!Array.from(e.dataTransfer.types).includes(THUMB_MIME)) return
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
     // Decide left-half (gap = index) vs right-half (gap = index + 1).
-    const target = e.currentTarget as HTMLElement;
-    const rect = target.getBoundingClientRect();
-    const pastMid = e.clientX - rect.left > rect.width / 2;
-    dropAtIndex = pastMid ? index + 1 : index;
+    const target = e.currentTarget as HTMLElement
+    const rect = target.getBoundingClientRect()
+    const pastMid = e.clientX - rect.left > rect.width / 2
+    dropAtIndex = pastMid ? index + 1 : index
   }
 
   async function onThumbDrop(_index: number, e: DragEvent): Promise<void> {
-    if (draggingSet === null || !site.home || dropAtIndex === null) return;
-    e.preventDefault();
-    e.stopPropagation();
-    const gap = dropAtIndex;
-    const draggedPaths = draggingSet;
-    draggingSet = null;
-    dropAtIndex = null;
+    if (draggingSet === null || !site.home || dropAtIndex === null) return
+    e.preventDefault()
+    e.stopPropagation()
+    const gap = dropAtIndex
+    const draggedPaths = draggingSet
+    draggingSet = null
+    dropAtIndex = null
 
-    const allPaths = album.images.map((i) => i.source_path);
-    const remaining = allPaths.filter((p) => !draggedPaths.includes(p));
+    const allPaths = album.images.map((i) => i.source_path)
+    const remaining = allPaths.filter((p) => !draggedPaths.includes(p))
     // Translate the gap index from "all images" coordinates to "remaining" coordinates
     // by counting how many dragged items were before the gap.
-    const draggedBeforeGap = draggedPaths.filter((p) => allPaths.indexOf(p) < gap).length;
-    const insertAt = gap - draggedBeforeGap;
+    const draggedBeforeGap = draggedPaths.filter((p) => allPaths.indexOf(p) < gap).length
+    const insertAt = gap - draggedBeforeGap
     const newOrder = [
       ...remaining.slice(0, insertAt),
       ...draggedPaths,
       ...remaining.slice(insertAt)
-    ];
+    ]
 
     try {
       await api.fs.reorderImages({
         home: site.home,
         albumPath: albumSourceDir,
         orderedSourcePaths: newOrder
-      });
-      showToast({ kind: 'success', title: 'Reordered' });
-      await rescanCurrentHome();
+      })
+      showToast({ kind: 'success', title: 'Reordered' })
+      await rescanCurrentHome()
     } catch (err) {
-      showToast({ kind: 'error', title: 'Reorder failed', body: (err as Error).message });
+      showToast({ kind: 'error', title: 'Reorder failed', body: (err as Error).message })
     }
   }
 
   function onThumbDragEnd(): void {
-    draggingSet = null;
-    dropAtIndex = null;
+    draggingSet = null
+    dropAtIndex = null
   }
 </script>
 

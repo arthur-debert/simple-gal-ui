@@ -24,14 +24,14 @@ import {
   test,
   type ElectronApplication,
   type Page
-} from '@playwright/test';
-import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+} from '@playwright/test'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const repoRoot = path.resolve(__dirname, '..');
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const repoRoot = path.resolve(__dirname, '..')
 
 /**
  * Resolve the packaged binary path. Honor `PACKAGED_APP_PATH` if set
@@ -39,28 +39,28 @@ const repoRoot = path.resolve(__dirname, '..');
  * arm64 layout for local runs after `pnpm run package:dir`.
  */
 function resolveAppPath(): string {
-  const override = process.env.PACKAGED_APP_PATH;
+  const override = process.env.PACKAGED_APP_PATH
   if (override) {
-    return path.isAbsolute(override) ? override : path.join(repoRoot, override);
+    return path.isAbsolute(override) ? override : path.join(repoRoot, override)
   }
   if (process.platform === 'linux') {
-    return path.join(repoRoot, 'release/linux-unpacked/simple-gal-ui');
+    return path.join(repoRoot, 'release/linux-unpacked/simple-gal-ui')
   }
   if (process.platform === 'win32') {
-    return path.join(repoRoot, 'release/win-unpacked/simple-gal-ui.exe');
+    return path.join(repoRoot, 'release/win-unpacked/simple-gal-ui.exe')
   }
-  return path.join(repoRoot, 'release/mac-arm64/simple-gal-ui.app/Contents/MacOS/simple-gal-ui');
+  return path.join(repoRoot, 'release/mac-arm64/simple-gal-ui.app/Contents/MacOS/simple-gal-ui')
 }
 
-const appPath = resolveAppPath();
+const appPath = resolveAppPath()
 
 test.skip(
   !fs.existsSync(appPath),
   `packaged app not found at ${appPath}; run pnpm run package:dir first`
-);
+)
 
-let app: ElectronApplication;
-let page: Page;
+let app: ElectronApplication
+let page: Page
 
 test.beforeAll(async () => {
   app = await electron.launch({
@@ -72,34 +72,34 @@ test.beforeAll(async () => {
       // we want to verify the bundled binary actually resolves.
       SIMPLE_GAL_PATH: ''
     }
-  });
-  page = await app.firstWindow();
-  await page.waitForLoadState('domcontentloaded');
-});
+  })
+  page = await app.firstWindow()
+  await page.waitForLoadState('domcontentloaded')
+})
 
 test.afterAll(async () => {
-  await app?.close();
-});
+  await app?.close()
+})
 
 test('packaged app opens and renders the three-pane shell', async () => {
-  await expect(page.getByTestId('app-header')).toBeVisible();
-  await expect(page.getByTestId('pane-left')).toBeVisible();
-  await expect(page.getByTestId('pane-center')).toBeVisible();
-  await expect(page.getByTestId('pane-right')).toBeVisible();
-  await expect(page.getByTestId('status-bar')).toBeVisible();
-});
+  await expect(page.getByTestId('app-header')).toBeVisible()
+  await expect(page.getByTestId('pane-left')).toBeVisible()
+  await expect(page.getByTestId('pane-center')).toBeVisible()
+  await expect(page.getByTestId('pane-right')).toBeVisible()
+  await expect(page.getByTestId('status-bar')).toBeVisible()
+})
 
 test('packaged app reports the bundled simple-gal version (not "not found")', async () => {
-  const sg = page.getByTestId('footer-sg-version');
-  await expect(sg).toBeVisible();
-  await expect(sg).toHaveText(/simple-gal \d+\.\d+\.\d+/);
-});
+  const sg = page.getByTestId('footer-sg-version')
+  await expect(sg).toBeVisible()
+  await expect(sg).toHaveText(/simple-gal \d+\.\d+\.\d+/)
+})
 
 test('packaged app captures a screenshot of its initial state', async () => {
-  const outDir = path.join(repoRoot, 'tests/__screenshots__/fb2');
-  fs.mkdirSync(outDir, { recursive: true });
-  await page.screenshot({ path: path.join(outDir, 'packaged-initial.png'), fullPage: true });
-});
+  const outDir = path.join(repoRoot, 'tests/__screenshots__/fb2')
+  fs.mkdirSync(outDir, { recursive: true })
+  await page.screenshot({ path: path.join(outDir, 'packaged-initial.png'), fullPage: true })
+})
 
 test('bootstrap handler writes a log file and exits cleanly on startup error', async () => {
   // Platform gate INSIDE the test body — a top-level `test.skip()` would
@@ -119,13 +119,13 @@ test('bootstrap handler writes a log file and exits cleanly on startup error', a
   test.skip(
     process.platform === 'linux',
     'synthetic-error bootstrap test hangs on Linux under Electron'
-  );
+  )
 
   // Don't use `electron.launch()` here — when we force a startup error,
   // no window ever opens and Playwright's launcher hangs waiting. Spawn
   // the binary directly via Node instead and wait for it to exit.
-  const { spawn } = await import('node:child_process');
-  const logDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sgui-crash-'));
+  const { spawn } = await import('node:child_process')
+  const logDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sgui-crash-'))
   try {
     const proc = spawn(appPath, [], {
       env: {
@@ -135,32 +135,32 @@ test('bootstrap handler writes a log file and exits cleanly on startup error', a
         SGUI_FORCE_STARTUP_ERROR: 'synthetic startup failure for tests'
       },
       stdio: 'ignore'
-    });
+    })
 
     const exitCode = await new Promise<number | null>((resolve) => {
       const t = setTimeout(() => {
-        proc.kill('SIGKILL');
-        resolve(null);
-      }, 10_000);
+        proc.kill('SIGKILL')
+        resolve(null)
+      }, 10_000)
       proc.on('exit', (code) => {
-        clearTimeout(t);
-        resolve(code);
-      });
-    });
+        clearTimeout(t)
+        resolve(code)
+      })
+    })
 
-    expect(exitCode).toBe(1); // app.exit(1) from handleFatal
+    expect(exitCode).toBe(1) // app.exit(1) from handleFatal
 
-    const logPath = path.join(logDir, 'last-error.log');
-    expect(fs.existsSync(logPath)).toBe(true);
-    const contents = fs.readFileSync(logPath, 'utf8');
-    expect(contents).toContain('bootstrap-failed');
-    expect(contents).toContain('synthetic startup failure for tests');
-    expect(contents).toMatch(/versions:/); // sanity — full metadata present
+    const logPath = path.join(logDir, 'last-error.log')
+    expect(fs.existsSync(logPath)).toBe(true)
+    const contents = fs.readFileSync(logPath, 'utf8')
+    expect(contents).toContain('bootstrap-failed')
+    expect(contents).toContain('synthetic startup failure for tests')
+    expect(contents).toMatch(/versions:/) // sanity — full metadata present
   } finally {
     try {
-      fs.rmSync(logDir, { recursive: true });
+      fs.rmSync(logDir, { recursive: true })
     } catch {
       // ignore
     }
   }
-});
+})

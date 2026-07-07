@@ -1,9 +1,9 @@
-import { contextBridge, ipcRenderer, webUtils } from 'electron';
-import type { SimpleGalResult, ScanData } from './simpleGal.js';
-import type { BuildRunResult, BuildProgress } from './build.js';
-import type { FetchSchemaResult } from './configSchema.js';
-import type { LoadCascadeArgs, LoadCascadeResult } from './configLoader.js';
-import type { SaveConfigArgs, SaveConfigResult } from './configSave.js';
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
+import type { SimpleGalResult, ScanData } from './simpleGal.js'
+import type { BuildRunResult, BuildProgress } from './build.js'
+import type { FetchSchemaResult } from './configSchema.js'
+import type { LoadCascadeArgs, LoadCascadeResult } from './configLoader.js'
+import type { SaveConfigArgs, SaveConfigResult } from './configSave.js'
 import type {
   WriteSidecarArgs,
   WriteSidecarResult,
@@ -35,28 +35,28 @@ import type {
   FindPageFileResult,
   SetAlbumThumbnailArgs,
   SetAlbumThumbnailResult
-} from './fs.js';
-import type { ReindexArgs, ReindexResult } from './reindex.js';
+} from './fs.js'
+import type { ReindexArgs, ReindexResult } from './reindex.js'
 
 export interface SimpleGalVersionResult {
-  ok: boolean;
-  binPath?: string;
-  version?: string;
-  error?: string;
+  ok: boolean
+  binPath?: string
+  version?: string
+  error?: string
 }
 
 interface PaneState {
-  leftWidth: number;
-  rightWidth: number;
-  leftCollapsed: boolean;
-  rightCollapsed: boolean;
+  leftWidth: number
+  rightWidth: number
+  leftCollapsed: boolean
+  rightCollapsed: boolean
 }
 
 export interface PersistedSelection {
-  home: string;
-  kind: 'album' | 'image';
-  albumTitle: string;
-  imageFilename?: string;
+  home: string
+  kind: 'album' | 'image'
+  albumTitle: string
+  imageFilename?: string
 }
 
 const api = {
@@ -82,9 +82,9 @@ const api = {
     scan: (home: string): Promise<SimpleGalResult<ScanData>> =>
       ipcRenderer.invoke('gallery:scan', home),
     onHomeChanged: (cb: (path: string) => void): (() => void) => {
-      const handler = (_ev: Electron.IpcRendererEvent, p: string) => cb(p);
-      ipcRenderer.on('gallery:home-changed', handler);
-      return () => ipcRenderer.off('gallery:home-changed', handler);
+      const handler = (_ev: Electron.IpcRendererEvent, p: string) => cb(p)
+      ipcRenderer.on('gallery:home-changed', handler)
+      return () => ipcRenderer.off('gallery:home-changed', handler)
     }
   },
   preview: {
@@ -92,14 +92,14 @@ const api = {
     stop: (): Promise<void> => ipcRenderer.invoke('preview:stop'),
     cancel: (): Promise<boolean> => ipcRenderer.invoke('preview:cancel'),
     onReady: (cb: (payload: { url: string; token: number }) => void): (() => void) => {
-      const handler = (_ev: Electron.IpcRendererEvent, p: { url: string; token: number }) => cb(p);
-      ipcRenderer.on('preview:ready', handler);
-      return () => ipcRenderer.off('preview:ready', handler);
+      const handler = (_ev: Electron.IpcRendererEvent, p: { url: string; token: number }) => cb(p)
+      ipcRenderer.on('preview:ready', handler)
+      return () => ipcRenderer.off('preview:ready', handler)
     },
     onBuildProgress: (cb: (progress: BuildProgress) => void): (() => void) => {
-      const handler = (_ev: Electron.IpcRendererEvent, p: BuildProgress) => cb(p);
-      ipcRenderer.on('preview:build-progress', handler);
-      return () => ipcRenderer.off('preview:build-progress', handler);
+      const handler = (_ev: Electron.IpcRendererEvent, p: BuildProgress) => cb(p)
+      ipcRenderer.on('preview:build-progress', handler)
+      return () => ipcRenderer.off('preview:build-progress', handler)
     }
   },
   fs: {
@@ -150,13 +150,13 @@ const api = {
     stop: (): Promise<void> => ipcRenderer.invoke('watch:stop'),
     onChanged: (cb: (payload: { home: string; paths: string[] }) => void): (() => void) => {
       const handler = (_ev: Electron.IpcRendererEvent, p: { home: string; paths: string[] }) =>
-        cb(p);
-      ipcRenderer.on('watch:changed', handler);
-      return () => ipcRenderer.off('watch:changed', handler);
+        cb(p)
+      ipcRenderer.on('watch:changed', handler)
+      return () => ipcRenderer.off('watch:changed', handler)
     }
   }
-};
+}
 
-contextBridge.exposeInMainWorld('api', api);
+contextBridge.exposeInMainWorld('api', api)
 
-export type Api = typeof api;
+export type Api = typeof api

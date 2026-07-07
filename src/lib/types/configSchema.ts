@@ -10,13 +10,13 @@
  */
 
 export interface ConfigSchemaRoot {
-  $schema?: string;
-  type: 'object';
-  title?: string;
-  description?: string;
-  properties: Record<string, ConfigSchemaNode>;
-  required?: string[];
-  additionalProperties?: boolean;
+  $schema?: string
+  type: 'object'
+  title?: string
+  description?: string
+  properties: Record<string, ConfigSchemaNode>
+  required?: string[]
+  additionalProperties?: boolean
 }
 
 export type ConfigSchemaNode =
@@ -24,53 +24,53 @@ export type ConfigSchemaNode =
   | ConfigSchemaString
   | ConfigSchemaNumber
   | ConfigSchemaBoolean
-  | ConfigSchemaArray;
+  | ConfigSchemaArray
 
 export interface ConfigSchemaObject {
-  type: 'object';
-  title?: string;
-  description?: string;
-  properties: Record<string, ConfigSchemaNode>;
-  required?: string[];
-  additionalProperties?: boolean;
+  type: 'object'
+  title?: string
+  description?: string
+  properties: Record<string, ConfigSchemaNode>
+  required?: string[]
+  additionalProperties?: boolean
 }
 
 export interface ConfigSchemaString {
-  type: 'string';
-  description?: string;
-  default?: string;
-  enum?: string[];
-  format?: string;
-  minLength?: number;
-  maxLength?: number;
-  pattern?: string;
+  type: 'string'
+  description?: string
+  default?: string
+  enum?: string[]
+  format?: string
+  minLength?: number
+  maxLength?: number
+  pattern?: string
 }
 
 export interface ConfigSchemaNumber {
-  type: 'integer' | 'number';
-  description?: string;
-  default?: number;
-  minimum?: number;
-  maximum?: number;
-  exclusiveMinimum?: number;
-  exclusiveMaximum?: number;
+  type: 'integer' | 'number'
+  description?: string
+  default?: number
+  minimum?: number
+  maximum?: number
+  exclusiveMinimum?: number
+  exclusiveMaximum?: number
 }
 
 export interface ConfigSchemaBoolean {
-  type: 'boolean';
-  description?: string;
-  default?: boolean;
+  type: 'boolean'
+  description?: string
+  default?: boolean
 }
 
 export interface ConfigSchemaArray {
-  type: 'array';
-  description?: string;
-  default?: unknown[];
-  items: ConfigSchemaNode;
-  minItems?: number;
-  maxItems?: number;
+  type: 'array'
+  description?: string
+  default?: unknown[]
+  items: ConfigSchemaNode
+  minItems?: number
+  maxItems?: number
 }
 
 export function isObjectNode(node: ConfigSchemaNode): node is ConfigSchemaObject {
-  return node.type === 'object';
+  return node.type === 'object'
 }

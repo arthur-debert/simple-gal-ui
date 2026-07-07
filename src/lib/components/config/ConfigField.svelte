@@ -1,45 +1,45 @@
 <script lang="ts">
-  import type { ConfigSchemaNode } from '$lib/types/configSchema';
-  import { cn } from '$lib/utils';
-  import StringField from './fields/StringField.svelte';
-  import NumberField from './fields/NumberField.svelte';
-  import BooleanField from './fields/BooleanField.svelte';
-  import ArrayField from './fields/ArrayField.svelte';
-  import EnumField from './fields/EnumField.svelte';
-  import ColorField from './fields/ColorField.svelte';
+  import type { ConfigSchemaNode } from '$lib/types/configSchema'
+  import { cn } from '$lib/utils'
+  import StringField from './fields/StringField.svelte'
+  import NumberField from './fields/NumberField.svelte'
+  import BooleanField from './fields/BooleanField.svelte'
+  import ArrayField from './fields/ArrayField.svelte'
+  import EnumField from './fields/EnumField.svelte'
+  import ColorField from './fields/ColorField.svelte'
 
   interface Props {
-    label: string;
-    dottedKey: string;
-    node: ConfigSchemaNode;
-    value: unknown;
-    source: 'default' | 'local' | string;
-    depth?: number;
-    onEdit?: (next: unknown) => void;
-    onReset?: () => void;
+    label: string
+    dottedKey: string
+    node: ConfigSchemaNode
+    value: unknown
+    source: 'default' | 'local' | string
+    depth?: number
+    onEdit?: (next: unknown) => void
+    onReset?: () => void
   }
 
-  const { label, dottedKey, node, value, source, depth = 0, onEdit, onReset }: Props = $props();
+  const { label, dottedKey, node, value, source, depth = 0, onEdit, onReset }: Props = $props()
 
-  const editable = $derived(!!onEdit);
+  const editable = $derived(!!onEdit)
 
   const description = $derived(
     'description' in node && typeof node.description === 'string' ? node.description : null
-  );
+  )
 
   const badgeLabel = $derived(
     source === 'local' ? 'local' : source === 'default' ? 'default' : source
-  );
+  )
   const badgeTone = $derived(
     source === 'local'
       ? 'bg-accent/20 text-accent border-accent/40'
       : source === 'default'
         ? 'bg-surface-2 text-text-faint border-border'
         : 'bg-surface-2 text-text-muted border-border'
-  );
+  )
 
   function handleEdit(next: unknown): void {
-    if (onEdit) onEdit(next);
+    if (onEdit) onEdit(next)
   }
 </script>
 

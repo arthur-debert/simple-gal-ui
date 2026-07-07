@@ -1,9 +1,9 @@
-import { defineConfig } from 'vite';
-import { svelte } from '@sveltejs/vite-plugin-svelte';
-import tailwindcss from '@tailwindcss/vite';
-import electron from 'vite-plugin-electron/simple';
-import Icons from 'unplugin-icons/vite';
-import path from 'node:path';
+import { defineConfig } from 'vite'
+import { svelte } from '@sveltejs/vite-plugin-svelte'
+import tailwindcss from '@tailwindcss/vite'
+import electron from 'vite-plugin-electron/simple'
+import Icons from 'unplugin-icons/vite'
+import path from 'node:path'
 
 export default defineConfig({
   plugins: [
@@ -59,4 +59,4 @@ export default defineConfig({
     strictPort: true
   },
   clearScreen: false
-});
+})

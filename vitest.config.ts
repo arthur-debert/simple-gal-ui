@@ -1,5 +1,5 @@
-import { defineConfig } from 'vitest/config';
-import path from 'node:path';
+import { defineConfig } from 'vitest/config'
+import path from 'node:path'
 
 // Vitest is scoped to `tests/unit/**` so it does not collide with the
 // Playwright e2e specs under `tests/` (those use the `.spec.ts` extension
@@ -16,4 +16,4 @@ export default defineConfig({
       $lib: path.resolve(__dirname, 'src/lib')
     }
   }
-});
+})

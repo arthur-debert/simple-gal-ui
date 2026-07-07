@@ -1,31 +1,31 @@
 <script lang="ts">
-  import { site } from '$lib/stores/siteStore.svelte';
-  import { preview } from '$lib/stores/previewStore.svelte';
-  import { appInfo } from '$lib/stores/appInfoStore.svelte';
-  import { cn } from '$lib/utils';
+  import { site } from '$lib/stores/siteStore.svelte'
+  import { preview } from '$lib/stores/previewStore.svelte'
+  import { appInfo } from '$lib/stores/appInfoStore.svelte'
+  import { cn } from '$lib/utils'
 
   const statusLabel = $derived.by(() => {
-    if (site.loading) return 'scanning';
+    if (site.loading) return 'scanning'
     switch (preview.status) {
       case 'idle':
-        return site.home ? 'ready' : 'no gallery';
+        return site.home ? 'ready' : 'no gallery'
       case 'building':
         return preview.progress
           ? `${preview.progress.stage} ${Math.round(preview.progress.percent)}%`
-          : 'building\u2026';
+          : 'building\u2026'
       case 'ready':
-        return 'preview ready';
+        return 'preview ready'
       case 'error':
-        return 'build error';
+        return 'build error'
     }
-  });
+  })
 
   const dotClass = $derived.by(() => {
-    if (site.loading || preview.status === 'building') return 'bg-warning animate-pulse';
-    if (preview.status === 'error') return 'bg-danger';
-    if (preview.status === 'ready') return 'bg-success';
-    return 'bg-text-faint';
-  });
+    if (site.loading || preview.status === 'building') return 'bg-warning animate-pulse'
+    if (preview.status === 'error') return 'bg-danger'
+    if (preview.status === 'ready') return 'bg-success'
+    return 'bg-text-faint'
+  })
 </script>
 
 <footer

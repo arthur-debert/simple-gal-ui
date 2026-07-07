@@ -1,17 +1,17 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
-  import { EditorView, keymap, placeholder as placeholderExt } from '@codemirror/view';
-  import { EditorState, Compartment } from '@codemirror/state';
-  import { markdown } from '@codemirror/lang-markdown';
-  import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
-  import { cn } from '$lib/utils';
+  import { onMount, onDestroy } from 'svelte'
+  import { EditorView, keymap, placeholder as placeholderExt } from '@codemirror/view'
+  import { EditorState, Compartment } from '@codemirror/state'
+  import { markdown } from '@codemirror/lang-markdown'
+  import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
+  import { cn } from '$lib/utils'
 
   interface Props {
-    value: string;
-    onChange?: (v: string) => void;
-    placeholder?: string;
-    class?: string;
-    'data-testid'?: string;
+    value: string
+    onChange?: (v: string) => void
+    placeholder?: string
+    class?: string
+    'data-testid'?: string
   }
 
   let {
@@ -20,17 +20,17 @@
     placeholder = '',
     class: className,
     'data-testid': testId
-  }: Props = $props();
+  }: Props = $props()
 
-  let host = $state<HTMLDivElement>();
-  let view: EditorView | null = null;
-  const placeholderCompartment = new Compartment();
+  let host = $state<HTMLDivElement>()
+  let view: EditorView | null = null
+  const placeholderCompartment = new Compartment()
   // Avoids feedback loops when the parent-provided value changes from OUR
   // own dispatch (we don't want to re-setDoc when the change came from us).
-  let settingFromExternal = false;
+  let settingFromExternal = false
 
   onMount(() => {
-    if (!host) return;
+    if (!host) return
     const state = EditorState.create({
       doc: value,
       extensions: [
@@ -41,9 +41,9 @@
         EditorView.lineWrapping,
         EditorView.updateListener.of((update) => {
           if (update.docChanged && !settingFromExternal) {
-            const next = update.state.doc.toString();
-            value = next;
-            onChange?.(next);
+            const next = update.state.doc.toString()
+            value = next
+            onChange?.(next)
           }
         }),
         // Minimal dark theme matched to the app's tokens
@@ -90,28 +90,28 @@
           '.cm-monospace': { color: 'var(--color-text-secondary)' }
         })
       ]
-    });
-    view = new EditorView({ state, parent: host });
-  });
+    })
+    view = new EditorView({ state, parent: host })
+  })
 
   onDestroy(() => {
-    view?.destroy();
-    view = null;
-  });
+    view?.destroy()
+    view = null
+  })
 
   // When the parent swaps `value` out from under us (e.g. switching to a
   // different page), reset the CM6 doc. Uses a guard flag to avoid bouncing
   // the change back through the update listener.
   $effect(() => {
-    if (!view) return;
-    const current = view.state.doc.toString();
-    if (current === value) return;
-    settingFromExternal = true;
+    if (!view) return
+    const current = view.state.doc.toString()
+    if (current === value) return
+    settingFromExternal = true
     view.dispatch({
       changes: { from: 0, to: current.length, insert: value }
-    });
-    settingFromExternal = false;
-  });
+    })
+    settingFromExternal = false
+  })
 </script>
 
 <div

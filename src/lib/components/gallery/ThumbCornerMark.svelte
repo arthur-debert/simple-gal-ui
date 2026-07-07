@@ -1,14 +1,14 @@
 <script lang="ts">
-  import IconImage from '~icons/lucide/image';
+  import IconImage from '~icons/lucide/image'
 
   interface Props {
     /** Tailwind size classes for the triangle (default: w-8 h-8). */
-    size?: string;
+    size?: string
     /** Icon size in pixels (default: 14). */
-    iconSize?: string;
+    iconSize?: string
   }
 
-  const { size = 'h-8 w-8', iconSize = 'h-3.5 w-3.5' }: Props = $props();
+  const { size = 'h-8 w-8', iconSize = 'h-3.5 w-3.5' }: Props = $props()
 </script>
 
 <!--

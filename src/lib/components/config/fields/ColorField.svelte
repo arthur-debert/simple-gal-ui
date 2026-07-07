@@ -8,14 +8,14 @@
    * the text input untouched.
    */
   interface Props {
-    value: string;
-    dottedKey: string;
-    oninput: (next: string) => void;
+    value: string
+    dottedKey: string
+    oninput: (next: string) => void
   }
 
-  const { value, dottedKey, oninput }: Props = $props();
+  const { value, dottedKey, oninput }: Props = $props()
 
-  const swatchValue = $derived(/^#[0-9a-fA-F]{6}$/.test(value) ? value : '#000000');
+  const swatchValue = $derived(/^#[0-9a-fA-F]{6}$/.test(value) ? value : '#000000')
 </script>
 
 <div class="flex items-center gap-2">
