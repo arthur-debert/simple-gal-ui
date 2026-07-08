@@ -1,86 +1,86 @@
 <script lang="ts">
-  import { api } from '$lib/api';
-  import type { ReindexData } from '$lib/api';
-  import { site, rescanCurrentHome } from '$lib/stores/siteStore.svelte';
-  import { showToast } from '$lib/stores/toastStore.svelte';
-  import Button from '$lib/components/ui/Button.svelte';
+  import { api } from '$lib/api'
+  import type { ReindexData } from '$lib/api'
+  import { site, rescanCurrentHome } from '$lib/stores/siteStore.svelte'
+  import { showToast } from '$lib/stores/toastStore.svelte'
+  import Button from '$lib/components/ui/Button.svelte'
 
   interface Props {
-    open: boolean;
-    onClose: () => void;
+    open: boolean
+    onClose: () => void
   }
 
-  const { open, onClose }: Props = $props();
+  const { open, onClose }: Props = $props()
 
-  let loading = $state(false);
-  let applying = $state(false);
-  let plan = $state<ReindexData | null>(null);
-  let error = $state<string | null>(null);
+  let loading = $state(false)
+  let applying = $state(false)
+  let plan = $state<ReindexData | null>(null)
+  let error = $state<string | null>(null)
 
   $effect(() => {
     if (!open) {
-      plan = null;
-      error = null;
-      return;
+      plan = null
+      error = null
+      return
     }
-    void loadPlan();
-  });
+    void loadPlan()
+  })
 
   async function loadPlan(): Promise<void> {
-    if (!site.home) return;
-    loading = true;
-    error = null;
+    if (!site.home) return
+    loading = true
+    error = null
     try {
-      const result = await api.fs.reindex({ home: site.home, dryRun: true });
+      const result = await api.fs.reindex({ home: site.home, dryRun: true })
       if (!result.ok) {
-        error = result.message;
+        error = result.message
       } else {
-        plan = result.data;
+        plan = result.data
       }
     } catch (err) {
-      error = (err as Error).message;
+      error = (err as Error).message
     } finally {
-      loading = false;
+      loading = false
     }
   }
 
-  const totalRenames = $derived(plan?.totals.total_renames ?? 0);
+  const totalRenames = $derived(plan?.totals.total_renames ?? 0)
 
   async function onApply(): Promise<void> {
-    if (!site.home || !plan) return;
-    applying = true;
-    error = null;
+    if (!site.home || !plan) return
+    applying = true
+    error = null
     try {
-      const result = await api.fs.reindex({ home: site.home, dryRun: false });
+      const result = await api.fs.reindex({ home: site.home, dryRun: false })
       if (!result.ok) {
-        error = result.message;
-        return;
+        error = result.message
+        return
       }
 
       // If the user has a photo open whose filename got renumbered, re-pin
       // the selection to the new source_path before we rescan — otherwise
       // the post-scan `$derived` lookup returns null and the editor flickers
       // to an empty state.
-      const sel = site.selection;
+      const sel = site.selection
       if (sel.kind === 'image') {
-        const moved = result.renameMap[sel.imageSourcePath];
+        const moved = result.renameMap[sel.imageSourcePath]
         if (moved) {
-          site.selection = { ...sel, imageSourcePath: moved };
+          site.selection = { ...sel, imageSourcePath: moved }
         }
       }
 
-      await rescanCurrentHome();
+      await rescanCurrentHome()
       showToast({
         kind: 'success',
         title: `Re-indexed ${result.data.totals.total_renames} file${
           result.data.totals.total_renames === 1 ? '' : 's'
         }`
-      });
-      onClose();
+      })
+      onClose()
     } catch (err) {
-      error = (err as Error).message;
+      error = (err as Error).message
     } finally {
-      applying = false;
+      applying = false
     }
   }
 </script>

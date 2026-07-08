@@ -1,7 +1,7 @@
 <script lang="ts">
-  import type { Snippet } from 'svelte';
-  import { cn } from '$lib/utils';
-  import { api } from '$lib/api';
+  import type { Snippet } from 'svelte'
+  import { cn } from '$lib/utils'
+  import { api } from '$lib/api'
 
   /**
    * Three-pane horizontal resizable container with per-id state persistence
@@ -12,42 +12,42 @@
    */
 
   interface Props {
-    id?: string;
-    left: Snippet;
-    center: Snippet;
-    right: Snippet;
-    initialLeft?: number;
-    initialRight?: number;
-    minLeft?: number;
-    minRight?: number;
-    minCenter?: number;
-    class?: string;
+    id?: string
+    left: Snippet
+    center: Snippet
+    right: Snippet
+    initialLeft?: number
+    initialRight?: number
+    minLeft?: number
+    minRight?: number
+    minCenter?: number
+    class?: string
   }
 
-  const props: Props = $props();
-  const storeId = props.id ?? 'default';
-  const minLeft = props.minLeft ?? 180;
-  const minRight = props.minRight ?? 260;
-  const minCenter = props.minCenter ?? 320;
-  const className = props.class;
-  const COLLAPSED_WIDTH = 28;
+  const props: Props = $props()
+  const storeId = props.id ?? 'default'
+  const minLeft = props.minLeft ?? 180
+  const minRight = props.minRight ?? 260
+  const minCenter = props.minCenter ?? 320
+  const className = props.class
+  const COLLAPSED_WIDTH = 28
 
-  let leftWidth = $state(props.initialLeft ?? 260);
-  let rightWidth = $state(props.initialRight ?? 420);
-  let leftCollapsed = $state(false);
-  let rightCollapsed = $state(false);
-  let container = $state<HTMLDivElement>();
+  let leftWidth = $state(props.initialLeft ?? 260)
+  let rightWidth = $state(props.initialRight ?? 420)
+  let leftCollapsed = $state(false)
+  let rightCollapsed = $state(false)
+  let container = $state<HTMLDivElement>()
 
   // Load persisted state once on mount
   $effect(() => {
     api.app.getPaneState(storeId).then((state) => {
-      if (!state) return;
-      if (typeof state.leftWidth === 'number') leftWidth = state.leftWidth;
-      if (typeof state.rightWidth === 'number') rightWidth = state.rightWidth;
-      if (typeof state.leftCollapsed === 'boolean') leftCollapsed = state.leftCollapsed;
-      if (typeof state.rightCollapsed === 'boolean') rightCollapsed = state.rightCollapsed;
-    });
-  });
+      if (!state) return
+      if (typeof state.leftWidth === 'number') leftWidth = state.leftWidth
+      if (typeof state.rightWidth === 'number') rightWidth = state.rightWidth
+      if (typeof state.leftCollapsed === 'boolean') leftCollapsed = state.leftCollapsed
+      if (typeof state.rightCollapsed === 'boolean') rightCollapsed = state.rightCollapsed
+    })
+  })
 
   function persist(): void {
     api.app.setPaneState(storeId, {
@@ -55,53 +55,53 @@
       rightWidth,
       leftCollapsed,
       rightCollapsed
-    });
+    })
   }
 
   function toggleLeft(): void {
-    leftCollapsed = !leftCollapsed;
-    persist();
+    leftCollapsed = !leftCollapsed
+    persist()
   }
 
   function toggleRight(): void {
-    rightCollapsed = !rightCollapsed;
-    persist();
+    rightCollapsed = !rightCollapsed
+    persist()
   }
 
   function startDrag(side: 'left' | 'right', e: PointerEvent) {
-    if ((side === 'left' && leftCollapsed) || (side === 'right' && rightCollapsed)) return;
-    e.preventDefault();
-    const startX = e.clientX;
-    const startLeft = leftWidth;
-    const startRight = rightWidth;
+    if ((side === 'left' && leftCollapsed) || (side === 'right' && rightCollapsed)) return
+    e.preventDefault()
+    const startX = e.clientX
+    const startLeft = leftWidth
+    const startRight = rightWidth
 
     const onMove = (ev: PointerEvent) => {
-      const dx = ev.clientX - startX;
-      if (!container) return;
-      const total = container.clientWidth;
+      const dx = ev.clientX - startX
+      if (!container) return
+      const total = container.clientWidth
       if (side === 'left') {
-        const next = startLeft + dx;
-        const rightEffective = rightCollapsed ? COLLAPSED_WIDTH : rightWidth;
-        const max = total - rightEffective - minCenter;
-        leftWidth = Math.max(minLeft, Math.min(max, next));
+        const next = startLeft + dx
+        const rightEffective = rightCollapsed ? COLLAPSED_WIDTH : rightWidth
+        const max = total - rightEffective - minCenter
+        leftWidth = Math.max(minLeft, Math.min(max, next))
       } else {
-        const next = startRight - dx;
-        const leftEffective = leftCollapsed ? COLLAPSED_WIDTH : leftWidth;
-        const max = total - leftEffective - minCenter;
-        rightWidth = Math.max(minRight, Math.min(max, next));
+        const next = startRight - dx
+        const leftEffective = leftCollapsed ? COLLAPSED_WIDTH : leftWidth
+        const max = total - leftEffective - minCenter
+        rightWidth = Math.max(minRight, Math.min(max, next))
       }
-    };
+    }
     const onUp = () => {
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onUp);
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-      persist();
-    };
-    window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', onUp);
-    document.body.style.cursor = 'col-resize';
-    document.body.style.userSelect = 'none';
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+      persist()
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
   }
 </script>
 
@@ -145,8 +145,8 @@
         type="button"
         class="bg-surface-2 text-text-faint hover:text-text-primary border-border absolute top-1/2 -left-2 z-10 flex h-4 w-4 -translate-y-1/2 items-center justify-center rounded-full border text-[length:var(--text-micro)]"
         onclick={(e) => {
-          e.stopPropagation();
-          toggleLeft();
+          e.stopPropagation()
+          toggleLeft()
         }}
         onpointerdown={(e) => e.stopPropagation()}
         aria-label="Collapse left pane"
@@ -176,8 +176,8 @@
         type="button"
         class="bg-surface-2 text-text-faint hover:text-text-primary border-border absolute top-1/2 -right-2 z-10 flex h-4 w-4 -translate-y-1/2 items-center justify-center rounded-full border text-[length:var(--text-micro)]"
         onclick={(e) => {
-          e.stopPropagation();
-          toggleRight();
+          e.stopPropagation()
+          toggleRight()
         }}
         onpointerdown={(e) => e.stopPropagation()}
         aria-label="Collapse right pane"

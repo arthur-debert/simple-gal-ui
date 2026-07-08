@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { site } from '$lib/stores/siteStore.svelte';
+  import { site } from '$lib/stores/siteStore.svelte'
   import {
     configEditor,
     openConfigEditor,
@@ -8,80 +8,80 @@
     resetField,
     saveConfig,
     requestLeaveConfig
-  } from '$lib/stores/configEditorStore.svelte';
-  import Button from '$lib/components/ui/Button.svelte';
-  import IconArrowLeft from '~icons/lucide/arrow-left';
-  import ConfigSection from './ConfigSection.svelte';
-  import ConfigField from './ConfigField.svelte';
+  } from '$lib/stores/configEditorStore.svelte'
+  import Button from '$lib/components/ui/Button.svelte'
+  import IconArrowLeft from '~icons/lucide/arrow-left'
+  import ConfigSection from './ConfigSection.svelte'
+  import ConfigField from './ConfigField.svelte'
   import type {
     ConfigSchemaNode,
     ConfigSchemaObject,
     ConfigSchemaRoot
-  } from '$lib/types/configSchema';
+  } from '$lib/types/configSchema'
 
   interface Props {
-    dirPath: string;
-    levelKind: 'root' | 'group' | 'album';
+    dirPath: string
+    levelKind: 'root' | 'group' | 'album'
   }
 
-  const { dirPath, levelKind }: Props = $props();
+  const { dirPath, levelKind }: Props = $props()
 
   $effect(() => {
-    const home = site.home;
-    if (!home) return;
-    openConfigEditor(home, dirPath);
-  });
+    const home = site.home
+    if (!home) return
+    openConfigEditor(home, dirPath)
+  })
 
-  const cascade = $derived(configEditor.cascade);
-  const loading = $derived(configEditor.loading);
-  const error = $derived(configEditor.error);
-  const saving = $derived(configEditor.saving);
-  const hasUnsaved = $derived(configEditor.hasUnsaved);
+  const cascade = $derived(configEditor.cascade)
+  const loading = $derived(configEditor.loading)
+  const error = $derived(configEditor.error)
+  const saving = $derived(configEditor.saving)
+  const hasUnsaved = $derived(configEditor.hasUnsaved)
 
   const targetLabel = $derived.by(() => {
-    if (cascade) return cascade.target.label;
-    if (levelKind === 'root') return 'root';
-    return dirPath.split('/').pop() ?? dirPath;
-  });
+    if (cascade) return cascade.target.label
+    if (levelKind === 'root') return 'root'
+    return dirPath.split('/').pop() ?? dirPath
+  })
 
   function resolve(key: string) {
-    if (!cascade) return { key, value: undefined, source: 'default' as const };
+    if (!cascade) return { key, value: undefined, source: 'default' as const }
     return resolveEffective(
       cascade,
       key,
       configEditor.dirtyKeys,
       configEditor.pendingValues,
       configEditor.resetKeys
-    );
+    )
   }
 
   function humanize(key: string): string {
-    const last = key.split('.').pop() ?? key;
+    const last = key.split('.').pop() ?? key
     return last
       .split('_')
       .map((w) => (w.length > 0 ? w[0].toUpperCase() + w.slice(1) : w))
-      .join(' ');
+      .join(' ')
   }
 
   function isObjectNode(n: ConfigSchemaNode): n is ConfigSchemaObject {
-    return n.type === 'object';
+    return n.type === 'object'
   }
 
   function sectionTitle(key: string, node: ConfigSchemaNode): string {
     if ('title' in node && typeof (node as ConfigSchemaObject).title === 'string') {
-      return (node as ConfigSchemaObject).title as string;
+      return (node as ConfigSchemaObject).title as string
     }
-    return humanize(key);
+    return humanize(key)
   }
 
   function sectionDescription(node: ConfigSchemaNode): string | undefined {
     return 'description' in node && typeof node.description === 'string'
       ? node.description
-      : undefined;
+      : undefined
   }
 
   function onBack(): void {
-    requestLeaveConfig(site.previousNonConfigSelection);
+    requestLeaveConfig(site.previousNonConfigSelection)
   }
 </script>
 

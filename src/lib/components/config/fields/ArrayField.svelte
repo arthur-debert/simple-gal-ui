@@ -6,36 +6,36 @@
    * minimal — pr7/5 ships the proper chip UI.
    */
   interface Props {
-    value: unknown[];
-    dottedKey: string;
-    itemType: 'string' | 'number' | 'integer' | 'boolean';
-    oninput: (next: unknown[]) => void;
+    value: unknown[]
+    dottedKey: string
+    itemType: 'string' | 'number' | 'integer' | 'boolean'
+    oninput: (next: unknown[]) => void
   }
 
-  const { value, dottedKey, itemType, oninput }: Props = $props();
+  const { value, dottedKey, itemType, oninput }: Props = $props()
 
   function toString(v: unknown[]): string {
-    return v.map((x) => (typeof x === 'string' ? x : String(x))).join(', ');
+    return v.map((x) => (typeof x === 'string' ? x : String(x))).join(', ')
   }
 
   function parse(raw: string): unknown[] {
     const parts = raw
       .split(',')
       .map((p) => p.trim())
-      .filter((p) => p.length > 0);
+      .filter((p) => p.length > 0)
     if (itemType === 'number' || itemType === 'integer') {
-      return parts.map((p) => (itemType === 'integer' ? parseInt(p, 10) : parseFloat(p)));
+      return parts.map((p) => (itemType === 'integer' ? parseInt(p, 10) : parseFloat(p)))
     }
     if (itemType === 'boolean') {
-      return parts.map((p) => p === 'true');
+      return parts.map((p) => p === 'true')
     }
-    return parts;
+    return parts
   }
 
-  let text = $state(toString(value));
+  let text = $state(toString(value))
   $effect(() => {
-    text = toString(value);
-  });
+    text = toString(value)
+  })
 </script>
 
 <input

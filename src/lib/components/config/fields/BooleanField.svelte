@@ -1,11 +1,11 @@
 <script lang="ts">
   interface Props {
-    value: boolean;
-    dottedKey: string;
-    oninput: (next: boolean) => void;
+    value: boolean
+    dottedKey: string
+    oninput: (next: boolean) => void
   }
 
-  const { value, dottedKey, oninput }: Props = $props();
+  const { value, dottedKey, oninput }: Props = $props()
 </script>
 
 <label class="text-text-secondary inline-flex items-center gap-2 text-[length:var(--text-caption)]">

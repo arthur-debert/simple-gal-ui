@@ -1,13 +1,13 @@
 <script lang="ts">
-  import { toasts, dismissToast } from '$lib/stores/toastStore.svelte';
-  import { cn } from '$lib/utils';
+  import { toasts, dismissToast } from '$lib/stores/toastStore.svelte'
+  import { cn } from '$lib/utils'
 
   const kindClass: Record<string, string> = {
     info: 'border-border bg-surface-1 text-text-primary',
     success: 'border-success/40 bg-surface-1 text-text-primary',
     warning: 'border-warning/40 bg-surface-1 text-text-primary',
     error: 'border-danger/60 bg-surface-1 text-text-primary'
-  };
+  }
 </script>
 
 <div

@@ -1,15 +1,15 @@
 <script lang="ts">
-  import Button from '$lib/components/ui/Button.svelte';
+  import Button from '$lib/components/ui/Button.svelte'
   import {
     configEditor,
     cancelLeaveConfig,
     discardLeaveConfig,
     saveAndLeaveConfig
-  } from '$lib/stores/configEditorStore.svelte';
+  } from '$lib/stores/configEditorStore.svelte'
 
-  const open = $derived(configEditor.leaveTarget !== null);
-  const keys = $derived(configEditor.changedKeys);
-  const saving = $derived(configEditor.saving);
+  const open = $derived(configEditor.leaveTarget !== null)
+  const keys = $derived(configEditor.changedKeys)
+  const saving = $derived(configEditor.saving)
 </script>
 
 {#if open}

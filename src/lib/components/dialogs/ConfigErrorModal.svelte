@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { preview } from '$lib/stores/previewStore.svelte';
-  import Button from '$lib/components/ui/Button.svelte';
+  import { preview } from '$lib/stores/previewStore.svelte'
+  import Button from '$lib/components/ui/Button.svelte'
 
-  const err = $derived(preview.configError);
+  const err = $derived(preview.configError)
 </script>
 
 {#if err}

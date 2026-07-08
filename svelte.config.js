@@ -1,4 +1,4 @@
-import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
+import { vitePreprocess } from '@sveltejs/vite-plugin-svelte'
 
 export default {
   preprocess: vitePreprocess(),
@@ -9,4 +9,4 @@ export default {
       warning.code !== 'state_referenced_locally' &&
       warning.code !== 'custom_element_props_identifier'
   }
-};
+}

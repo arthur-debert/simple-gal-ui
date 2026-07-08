@@ -1,48 +1,48 @@
 <script lang="ts">
-  import { cn } from '$lib/utils';
-  import { tick } from 'svelte';
+  import { cn } from '$lib/utils'
+  import { tick } from 'svelte'
 
   interface Props {
-    value: string;
-    onCommit: (newValue: string) => void | Promise<void>;
-    class?: string;
+    value: string
+    onCommit: (newValue: string) => void | Promise<void>
+    class?: string
   }
 
-  const { value, onCommit, class: className }: Props = $props();
+  const { value, onCommit, class: className }: Props = $props()
 
-  let editing = $state(false);
-  let draft = $state('');
-  let input = $state<HTMLInputElement>();
+  let editing = $state(false)
+  let draft = $state('')
+  let input = $state<HTMLInputElement>()
 
   async function startEdit(): Promise<void> {
-    draft = value;
-    editing = true;
-    await tick();
-    input?.focus();
-    input?.select();
+    draft = value
+    editing = true
+    await tick()
+    input?.focus()
+    input?.select()
   }
 
   async function commit(): Promise<void> {
-    if (!editing) return;
-    const next = draft.trim();
-    editing = false;
+    if (!editing) return
+    const next = draft.trim()
+    editing = false
     if (next && next !== value) {
-      await onCommit(next);
+      await onCommit(next)
     }
   }
 
   function cancel(): void {
-    editing = false;
-    draft = value;
+    editing = false
+    draft = value
   }
 
   function onKeydown(e: KeyboardEvent): void {
     if (e.key === 'Enter') {
-      e.preventDefault();
-      commit();
+      e.preventDefault()
+      commit()
     } else if (e.key === 'Escape') {
-      e.preventDefault();
-      cancel();
+      e.preventDefault()
+      cancel()
     }
   }
 </script>
@@ -68,7 +68,7 @@
       role="button"
       tabindex="0"
       onkeydown={(e) => {
-        if (e.key === 'Enter' || e.key === 'F2') startEdit();
+        if (e.key === 'Enter' || e.key === 'F2') startEdit()
       }}
     >
       {value}

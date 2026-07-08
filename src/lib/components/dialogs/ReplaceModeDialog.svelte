@@ -1,22 +1,22 @@
 <script lang="ts">
-  import Button from '$lib/components/ui/Button.svelte';
-  import type { ReplaceIndexStrategy } from '$lib/api';
+  import Button from '$lib/components/ui/Button.svelte'
+  import type { ReplaceIndexStrategy } from '$lib/api'
 
   interface Props {
-    open: boolean;
-    sampleReplacement: string;
-    sampleTarget: string;
-    onChoose: (strategy: ReplaceIndexStrategy) => void;
-    onCancel: () => void;
+    open: boolean
+    sampleReplacement: string
+    sampleTarget: string
+    onChoose: (strategy: ReplaceIndexStrategy) => void
+    onCancel: () => void
   }
 
-  const { open, sampleReplacement, sampleTarget, onChoose, onCancel }: Props = $props();
+  const { open, sampleReplacement, sampleTarget, onChoose, onCancel }: Props = $props()
 
-  let strategy = $state<ReplaceIndexStrategy>('slot');
+  let strategy = $state<ReplaceIndexStrategy>('slot')
 
   $effect(() => {
-    if (open) strategy = 'slot';
-  });
+    if (open) strategy = 'slot'
+  })
 </script>
 
 {#if open}

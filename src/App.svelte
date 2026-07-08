@@ -1,122 +1,122 @@
 <script lang="ts">
-  import ResizablePanes from '$lib/components/ui/ResizablePanes.svelte';
-  import Button from '$lib/components/ui/Button.svelte';
-  import Toast from '$lib/components/ui/Toast.svelte';
-  import SiteTree from '$lib/components/tree/SiteTree.svelte';
-  import AlbumView from '$lib/components/gallery/AlbumView.svelte';
-  import ImageDetailEditor from '$lib/components/gallery/ImageDetailEditor.svelte';
-  import PageEditor from '$lib/components/pages/PageEditor.svelte';
-  import PreviewPane from '$lib/components/preview/PreviewPane.svelte';
-  import StatusBar from '$lib/components/status/StatusBar.svelte';
-  import ConfigErrorModal from '$lib/components/dialogs/ConfigErrorModal.svelte';
-  import ConfigUnsavedModal from '$lib/components/dialogs/ConfigUnsavedModal.svelte';
-  import ConfigEditor from '$lib/components/config/ConfigEditor.svelte';
-  import IconPencil from '~icons/lucide/pencil';
+  import ResizablePanes from '$lib/components/ui/ResizablePanes.svelte'
+  import Button from '$lib/components/ui/Button.svelte'
+  import Toast from '$lib/components/ui/Toast.svelte'
+  import SiteTree from '$lib/components/tree/SiteTree.svelte'
+  import AlbumView from '$lib/components/gallery/AlbumView.svelte'
+  import ImageDetailEditor from '$lib/components/gallery/ImageDetailEditor.svelte'
+  import PageEditor from '$lib/components/pages/PageEditor.svelte'
+  import PreviewPane from '$lib/components/preview/PreviewPane.svelte'
+  import StatusBar from '$lib/components/status/StatusBar.svelte'
+  import ConfigErrorModal from '$lib/components/dialogs/ConfigErrorModal.svelte'
+  import ConfigUnsavedModal from '$lib/components/dialogs/ConfigUnsavedModal.svelte'
+  import ConfigEditor from '$lib/components/config/ConfigEditor.svelte'
+  import IconPencil from '~icons/lucide/pencil'
   import {
     site,
     openGalleryHomeDialog,
     restoreLastGalleryHome,
     loadGalleryHome,
     persistCurrentSelection
-  } from '$lib/stores/siteStore.svelte';
-  import { initPreviewStore, preview, runBuild } from '$lib/stores/previewStore.svelte';
-  import { initWatchStore } from '$lib/stores/watchStore.svelte';
+  } from '$lib/stores/siteStore.svelte'
+  import { initPreviewStore, preview, runBuild } from '$lib/stores/previewStore.svelte'
+  import { initWatchStore } from '$lib/stores/watchStore.svelte'
   import {
     appInfo,
     setAppVersion,
     setSimpleGalVersion,
     setPlatform
-  } from '$lib/stores/appInfoStore.svelte';
-  import { api } from '$lib/api';
+  } from '$lib/stores/appInfoStore.svelte'
+  import { api } from '$lib/api'
 
   // Signal app readiness for E2E tests after the App tree first renders.
   // See ~/.claude/skills/electron-e2e-testing/SKILL.md — `window.__e2e.ready.app`
   // is the canonical readiness flag the test fixture polls.
   $effect(() => {
-    window.__e2e.ready.app = true;
-    window.__e2e.signal('app:ready');
-  });
+    window.__e2e.ready.app = true
+    window.__e2e.signal('app:ready')
+  })
 
   // macOS hiddenInset leaves room for traffic-light buttons on the left,
   // so push header content over on that platform.
-  const isMac = $derived(appInfo.platform === 'darwin');
-  const headerDragStyle = 'app-region: drag; -webkit-app-region: drag';
-  const noDragStyle = 'app-region: no-drag; -webkit-app-region: no-drag';
+  const isMac = $derived(appInfo.platform === 'darwin')
+  const headerDragStyle = 'app-region: drag; -webkit-app-region: drag'
+  const noDragStyle = 'app-region: no-drag; -webkit-app-region: no-drag'
 
   const selectedAlbum = $derived.by(() => {
-    const sel = site.selection;
-    const manifest = site.manifest;
-    if (!manifest) return null;
+    const sel = site.selection
+    const manifest = site.manifest
+    if (!manifest) return null
     if (sel.kind === 'album' || sel.kind === 'image') {
-      return manifest.albums.find((a) => a.path === sel.albumPath) ?? null;
+      return manifest.albums.find((a) => a.path === sel.albumPath) ?? null
     }
-    return null;
-  });
+    return null
+  })
 
   const selectedImage = $derived.by(() => {
-    const sel = site.selection;
-    const manifest = site.manifest;
-    if (!manifest || sel.kind !== 'image') return null;
-    const album = manifest.albums.find((a) => a.path === sel.albumPath);
-    return album?.images.find((i) => i.source_path === sel.imageSourcePath) ?? null;
-  });
+    const sel = site.selection
+    const manifest = site.manifest
+    if (!manifest || sel.kind !== 'image') return null
+    const album = manifest.albums.find((a) => a.path === sel.albumPath)
+    return album?.images.find((i) => i.source_path === sel.imageSourcePath) ?? null
+  })
 
   const selectedPage = $derived.by(() => {
-    const sel = site.selection;
-    const manifest = site.manifest;
-    if (!manifest || sel.kind !== 'page') return null;
-    return manifest.pages.find((p) => p.slug === sel.pageSlug) ?? null;
-  });
+    const sel = site.selection
+    const manifest = site.manifest
+    if (!manifest || sel.kind !== 'page') return null
+    return manifest.pages.find((p) => p.slug === sel.pageSlug) ?? null
+  })
 
-  const isBuilding = $derived(preview.status === 'building');
+  const isBuilding = $derived(preview.status === 'building')
   const buildPct = $derived(
     isBuilding && preview.progress ? Math.round(preview.progress.percent) : 0
-  );
+  )
 
-  const MAX_TITLE_PATH_LEN = 48;
+  const MAX_TITLE_PATH_LEN = 48
   const headerPath = $derived.by(() => {
-    if (!site.home) return null;
-    if (site.home.length <= MAX_TITLE_PATH_LEN) return site.home;
-    return '…' + site.home.slice(-(MAX_TITLE_PATH_LEN - 1));
-  });
+    if (!site.home) return null
+    if (site.home.length <= MAX_TITLE_PATH_LEN) return site.home
+    return '…' + site.home.slice(-(MAX_TITLE_PATH_LEN - 1))
+  })
 
   $effect(() => {
-    document.title = site.home ? `SimpleGal: ${site.home}` : 'SimpleGal';
-  });
+    document.title = site.home ? `SimpleGal: ${site.home}` : 'SimpleGal'
+  })
 
   $effect(() => {
-    setPlatform(api.platform);
-    api.app.version().then((v) => setAppVersion(v));
+    setPlatform(api.platform)
+    api.app.version().then((v) => setAppVersion(v))
     api.simpleGal.version().then((r) => {
       if (r.ok) {
-        setSimpleGalVersion(r.version ?? '', null);
+        setSimpleGalVersion(r.version ?? '', null)
       } else {
-        setSimpleGalVersion('not found', r.error ?? 'simple-gal binary not found');
+        setSimpleGalVersion('not found', r.error ?? 'simple-gal binary not found')
       }
-    });
-    const envHome = new URLSearchParams(window.location.search).get('home');
+    })
+    const envHome = new URLSearchParams(window.location.search).get('home')
     if (envHome) {
-      loadGalleryHome(envHome);
+      loadGalleryHome(envHome)
     } else {
-      restoreLastGalleryHome();
+      restoreLastGalleryHome()
     }
-    const unsubHome = api.gallery.onHomeChanged((p) => loadGalleryHome(p));
-    const unsubPreview = initPreviewStore();
-    const unsubWatch = initWatchStore();
+    const unsubHome = api.gallery.onHomeChanged((p) => loadGalleryHome(p))
+    const unsubPreview = initPreviewStore()
+    const unsubWatch = initWatchStore()
     return () => {
-      unsubHome();
-      unsubPreview();
-      unsubWatch();
-    };
-  });
+      unsubHome()
+      unsubPreview()
+      unsubWatch()
+    }
+  })
 
   $effect(() => {
     // Touch these so the effect re-runs on any relevant change.
-    void site.selection;
-    void site.home;
-    void site.manifest;
-    persistCurrentSelection();
-  });
+    void site.selection
+    void site.home
+    void site.manifest
+    persistCurrentSelection()
+  })
 </script>
 
 <div class="flex h-full w-full flex-col">

@@ -10,29 +10,29 @@
  * the renderer side if needed.
  */
 
-import type { ConfigSchemaRoot } from './configSchema';
+import type { ConfigSchemaRoot } from './configSchema'
 
-export type ConfigLevelKind = 'root' | 'group' | 'album';
+export type ConfigLevelKind = 'root' | 'group' | 'album'
 
 export interface ConfigLevelRef {
-  kind: ConfigLevelKind;
-  dirPath: string; // absolute
-  relPath: string; // '' for root, 'Travel' for group, 'Travel/Japan' for album
-  label: string; // human-readable trail ('root', 'Travel', 'Travel / Japan')
-  configTomlPath: string; // absolute path to the level's config.toml (may not exist)
+  kind: ConfigLevelKind
+  dirPath: string // absolute
+  relPath: string // '' for root, 'Travel' for group, 'Travel/Japan' for album
+  label: string // human-readable trail ('root', 'Travel', 'Travel / Japan')
+  configTomlPath: string // absolute path to the level's config.toml (may not exist)
 }
 
 export interface LoadedConfigFile {
-  level: ConfigLevelRef;
-  exists: boolean;
-  raw: string | null; // full text of the config.toml, null if absent
-  parsed: Record<string, unknown>; // parsed TOML (empty object if absent)
-  loadedKeys: string[]; // flattened dotted leaf paths present in `parsed`
+  level: ConfigLevelRef
+  exists: boolean
+  raw: string | null // full text of the config.toml, null if absent
+  parsed: Record<string, unknown> // parsed TOML (empty object if absent)
+  loadedKeys: string[] // flattened dotted leaf paths present in `parsed`
 }
 
 export interface ConfigCascade {
-  schema: ConfigSchemaRoot;
-  target: ConfigLevelRef;
+  schema: ConfigSchemaRoot
+  target: ConfigLevelRef
   /** Ordered chain: [root, group?, ..., target]. The last entry is always the target level. */
-  chain: LoadedConfigFile[];
+  chain: LoadedConfigFile[]
 }

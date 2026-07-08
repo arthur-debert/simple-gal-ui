@@ -3,35 +3,35 @@
  * path and the image-detail single-replace path.
  */
 
-import { IMAGE_EXTS, basenameOf } from './imageTypes';
+import { IMAGE_EXTS, basenameOf } from './imageTypes'
 
-export { IMAGE_EXTS, basenameOf };
+export { IMAGE_EXTS, basenameOf }
 
-const PREFIX_RE = /^(\d+)[-._ ]/;
+const PREFIX_RE = /^(\d+)[-._ ]/
 
 function extOf(p: string): string {
-  const idx = p.lastIndexOf('.');
-  return idx >= 0 ? p.slice(idx).toLowerCase() : '';
+  const idx = p.lastIndexOf('.')
+  return idx >= 0 ? p.slice(idx).toLowerCase() : ''
 }
 
 /** True if `basename` starts with a `NNN-` (or `NNN.`, `NNN_`, `NNN ` ) prefix. */
 export function hasNumericPrefix(basename: string): boolean {
-  return PREFIX_RE.test(basename);
+  return PREFIX_RE.test(basename)
 }
 
 /** True if any of the picked file paths carries its own numeric prefix. */
 export function anyHasNumericPrefix(paths: string[]): boolean {
-  return paths.some((p) => hasNumericPrefix(basenameOf(p)));
+  return paths.some((p) => hasNumericPrefix(basenameOf(p)))
 }
 
 /** True if `path` ends in one of the supported image extensions. */
 export function isSupportedImage(path: string): boolean {
-  return IMAGE_EXTS.has(extOf(path));
+  return IMAGE_EXTS.has(extOf(path))
 }
 
 /** Keep only paths whose extension is supported. Preserves order. */
 export function filterSupportedImages(paths: string[]): string[] {
-  return paths.filter((p) => isSupportedImage(p));
+  return paths.filter((p) => isSupportedImage(p))
 }
 
 /**
@@ -44,12 +44,12 @@ export function pairReplacements(
   replacementPaths: string[]
 ): { targetSourcePath: string; replacementPath: string }[] {
   const sortedReplacements = [...replacementPaths].sort((a, b) => {
-    const ba = basenameOf(a);
-    const bb = basenameOf(b);
-    return ba.localeCompare(bb);
-  });
+    const ba = basenameOf(a)
+    const bb = basenameOf(b)
+    return ba.localeCompare(bb)
+  })
   return selectedSourcePaths.map((t, i) => ({
     targetSourcePath: t,
     replacementPath: sortedReplacements[i]
-  }));
+  }))
 }

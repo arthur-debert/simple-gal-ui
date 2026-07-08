@@ -7,12 +7,12 @@
  * with renderer-side validation (e.g. pickable but rejected on drop,
  * or vice versa).
  */
-export const IMAGE_EXT_LIST = ['.jpg', '.jpeg', '.png', '.webp', '.avif', '.tif', '.tiff'] as const;
+export const IMAGE_EXT_LIST = ['.jpg', '.jpeg', '.png', '.webp', '.avif', '.tif', '.tiff'] as const
 
-export const IMAGE_EXTS: ReadonlySet<string> = new Set(IMAGE_EXT_LIST);
+export const IMAGE_EXTS: ReadonlySet<string> = new Set(IMAGE_EXT_LIST)
 
 /** File-picker filter derived from `IMAGE_EXT_LIST` — no leading dot. */
-export const IMAGE_FILTER_EXTENSIONS: string[] = IMAGE_EXT_LIST.map((e) => e.slice(1));
+export const IMAGE_FILTER_EXTENSIONS: string[] = IMAGE_EXT_LIST.map((e) => e.slice(1))
 
 /**
  * Last-segment of a path, tolerant of both POSIX `/` and Windows `\`
@@ -21,6 +21,6 @@ export const IMAGE_FILTER_EXTENSIONS: string[] = IMAGE_EXT_LIST.map((e) => e.sli
  * separator depends on the host platform.
  */
 export function basenameOf(p: string): string {
-  const parts = p.split(/[\\/]/);
-  return parts[parts.length - 1] ?? p;
+  const parts = p.split(/[\\/]/)
+  return parts[parts.length - 1] ?? p
 }

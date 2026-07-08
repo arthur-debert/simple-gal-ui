@@ -1,13 +1,13 @@
-import { promises as fs } from 'node:fs';
-import path from 'node:path';
-import { shell } from 'electron';
+import { promises as fs } from 'node:fs'
+import path from 'node:path'
+import { shell } from 'electron'
 import {
   IMAGE_EXTS as SHARED_IMAGE_EXTS,
   IMAGE_FILTER_EXTENSIONS as SHARED_IMAGE_FILTER_EXTENSIONS
-} from '../src/lib/utils/imageTypes.js';
+} from '../src/lib/utils/imageTypes.js'
 
-export const IMAGE_EXTS = SHARED_IMAGE_EXTS;
-export const IMAGE_FILTER_EXTENSIONS = SHARED_IMAGE_FILTER_EXTENSIONS;
+export const IMAGE_EXTS = SHARED_IMAGE_EXTS
+export const IMAGE_FILTER_EXTENSIONS = SHARED_IMAGE_FILTER_EXTENSIONS
 
 /**
  * Filesystem writes against the gallery home. All writes funnel through here
@@ -16,76 +16,76 @@ export const IMAGE_FILTER_EXTENSIONS = SHARED_IMAGE_FILTER_EXTENSIONS;
  * pointless rescan+rebuild cycles.
  */
 
-const SUPPRESS_MS = 800;
-const suppressed = new Map<string, number>();
+const SUPPRESS_MS = 800
+const suppressed = new Map<string, number>()
 
 export function markSelfWrite(absPath: string): void {
-  suppressed.set(path.resolve(absPath), Date.now() + SUPPRESS_MS);
+  suppressed.set(path.resolve(absPath), Date.now() + SUPPRESS_MS)
 }
 
 export function isSelfWrite(absPath: string): boolean {
-  const resolved = path.resolve(absPath);
-  const expiry = suppressed.get(resolved);
-  if (!expiry) return false;
+  const resolved = path.resolve(absPath)
+  const expiry = suppressed.get(resolved)
+  if (!expiry) return false
   if (expiry < Date.now()) {
-    suppressed.delete(resolved);
-    return false;
+    suppressed.delete(resolved)
+    return false
   }
-  return true;
+  return true
 }
 
 export function sidecarPathFor(imageAbs: string): string {
-  const { dir, name } = path.parse(imageAbs);
-  return path.join(dir, `${name}.txt`);
+  const { dir, name } = path.parse(imageAbs)
+  return path.join(dir, `${name}.txt`)
 }
 
 export interface WriteSidecarArgs {
-  home: string;
-  imageSourcePath: string; // relative to home
-  caption: string; // empty string → delete sidecar
+  home: string
+  imageSourcePath: string // relative to home
+  caption: string // empty string → delete sidecar
 }
 
 export interface WriteSidecarResult {
-  ok: boolean;
-  sidecarPath: string;
-  existed: boolean;
-  deleted: boolean;
+  ok: boolean
+  sidecarPath: string
+  existed: boolean
+  deleted: boolean
 }
 
 export async function writeSidecar(args: WriteSidecarArgs): Promise<WriteSidecarResult> {
-  const imageAbs = path.join(args.home, args.imageSourcePath);
-  const sidecar = sidecarPathFor(imageAbs);
+  const imageAbs = path.join(args.home, args.imageSourcePath)
+  const sidecar = sidecarPathFor(imageAbs)
   const existed = await fs
     .access(sidecar)
     .then(() => true)
-    .catch(() => false);
+    .catch(() => false)
 
-  markSelfWrite(sidecar);
+  markSelfWrite(sidecar)
 
   if (args.caption.trim() === '') {
     if (existed) {
-      await fs.unlink(sidecar);
-      return { ok: true, sidecarPath: sidecar, existed, deleted: true };
+      await fs.unlink(sidecar)
+      return { ok: true, sidecarPath: sidecar, existed, deleted: true }
     }
-    return { ok: true, sidecarPath: sidecar, existed, deleted: false };
+    return { ok: true, sidecarPath: sidecar, existed, deleted: false }
   }
 
-  await fs.writeFile(sidecar, args.caption.replace(/\s+$/, '') + '\n', 'utf8');
-  return { ok: true, sidecarPath: sidecar, existed, deleted: false };
+  await fs.writeFile(sidecar, args.caption.replace(/\s+$/, '') + '\n', 'utf8')
+  return { ok: true, sidecarPath: sidecar, existed, deleted: false }
 }
 
 export interface RenameImageArgs {
-  home: string;
-  imageSourcePath: string;
-  newTitle: string;
+  home: string
+  imageSourcePath: string
+  newTitle: string
 }
 
 export interface RenameImageResult {
-  ok: boolean;
-  oldPath: string;
-  newPath: string;
-  newFilename: string;
-  renamedSidecar: boolean;
+  ok: boolean
+  oldPath: string
+  newPath: string
+  newFilename: string
+  renamedSidecar: boolean
 }
 
 /**
@@ -99,32 +99,32 @@ export interface RenameImageResult {
  *   "010-Landscapes/foo.jpg"       + "Bar"         → "010-Landscapes/Bar.jpg"
  */
 export async function renameImage(args: RenameImageArgs): Promise<RenameImageResult> {
-  const oldAbs = path.join(args.home, args.imageSourcePath);
-  const { dir, ext } = path.parse(oldAbs);
-  const oldBase = path.basename(oldAbs, ext);
+  const oldAbs = path.join(args.home, args.imageSourcePath)
+  const { dir, ext } = path.parse(oldAbs)
+  const oldBase = path.basename(oldAbs, ext)
 
   // Extract NNN- prefix if present
-  const prefixMatch = oldBase.match(/^(\d+)(?:-(.*))?$/);
-  const prefix = prefixMatch ? prefixMatch[1] : null;
-  const oldTail = prefixMatch ? (prefixMatch[2] ?? '') : '';
+  const prefixMatch = oldBase.match(/^(\d+)(?:-(.*))?$/)
+  const prefix = prefixMatch ? prefixMatch[1] : null
+  const oldTail = prefixMatch ? (prefixMatch[2] ?? '') : ''
   // A file of the form `NNN-thumb…` carries the album-thumbnail marker;
   // a rename must preserve it, otherwise the user silently demotes the
   // thumbnail just by cleaning up its caption.
-  const hasThumbMarker = /^thumb(?:-|$)/i.test(oldTail);
+  const hasThumbMarker = /^thumb(?:-|$)/i.test(oldTail)
 
   const titlePart = args.newTitle
     .trim()
     .replace(/\s+/g, '-')
-    .replace(/[^\w.-]/g, '');
+    .replace(/[^\w.-]/g, '')
 
-  let effectiveTitle = titlePart;
+  let effectiveTitle = titlePart
   if (hasThumbMarker) {
-    const cleaned = titlePart.replace(/^thumb-?/i, '');
-    effectiveTitle = cleaned ? `thumb-${cleaned}` : 'thumb';
+    const cleaned = titlePart.replace(/^thumb-?/i, '')
+    effectiveTitle = cleaned ? `thumb-${cleaned}` : 'thumb'
   }
 
-  const newBase = prefix ? `${prefix}-${effectiveTitle}` : effectiveTitle || oldBase;
-  const newAbs = path.join(dir, `${newBase}${ext}`);
+  const newBase = prefix ? `${prefix}-${effectiveTitle}` : effectiveTitle || oldBase
+  const newAbs = path.join(dir, `${newBase}${ext}`)
 
   if (newAbs === oldAbs) {
     return {
@@ -133,22 +133,22 @@ export async function renameImage(args: RenameImageArgs): Promise<RenameImageRes
       newPath: newAbs,
       newFilename: path.basename(newAbs),
       renamedSidecar: false
-    };
+    }
   }
 
-  markSelfWrite(oldAbs);
-  markSelfWrite(newAbs);
-  await fs.rename(oldAbs, newAbs);
+  markSelfWrite(oldAbs)
+  markSelfWrite(newAbs)
+  await fs.rename(oldAbs, newAbs)
 
-  const oldSidecar = sidecarPathFor(oldAbs);
-  const newSidecar = sidecarPathFor(newAbs);
-  let renamedSidecar = false;
+  const oldSidecar = sidecarPathFor(oldAbs)
+  const newSidecar = sidecarPathFor(newAbs)
+  let renamedSidecar = false
   try {
-    await fs.access(oldSidecar);
-    markSelfWrite(oldSidecar);
-    markSelfWrite(newSidecar);
-    await fs.rename(oldSidecar, newSidecar);
-    renamedSidecar = true;
+    await fs.access(oldSidecar)
+    markSelfWrite(oldSidecar)
+    markSelfWrite(newSidecar)
+    await fs.rename(oldSidecar, newSidecar)
+    renamedSidecar = true
   } catch {
     // no sidecar — nothing to rename
   }
@@ -159,123 +159,123 @@ export async function renameImage(args: RenameImageArgs): Promise<RenameImageRes
     newPath: newAbs,
     newFilename: path.basename(newAbs),
     renamedSidecar
-  };
+  }
 }
 
 // --- Image import ---------------------------------------------------------
 
 export interface ImportImagesArgs {
-  home: string;
-  albumPath: string; // relative path like "010-Landscapes" (source_dir, not slug)
-  sourcePaths: string[]; // absolute OS paths of files dragged in
+  home: string
+  albumPath: string // relative path like "010-Landscapes" (source_dir, not slug)
+  sourcePaths: string[] // absolute OS paths of files dragged in
 }
 
 export interface ImportImagesResult {
-  ok: boolean;
-  imported: { source: string; dest: string; filename: string }[];
-  skipped: { source: string; reason: string }[];
+  ok: boolean
+  imported: { source: string; dest: string; filename: string }[]
+  skipped: { source: string; reason: string }[]
 }
 
 async function listAlbumImageNumbers(albumAbs: string): Promise<number[]> {
-  const entries = await fs.readdir(albumAbs).catch(() => [] as string[]);
-  const nums: number[] = [];
+  const entries = await fs.readdir(albumAbs).catch(() => [] as string[])
+  const nums: number[] = []
   for (const name of entries) {
-    const ext = path.extname(name).toLowerCase();
-    if (!IMAGE_EXTS.has(ext)) continue;
-    const m = name.match(/^(\d+)(?:[-.]|$)/);
-    if (m) nums.push(parseInt(m[1], 10));
+    const ext = path.extname(name).toLowerCase()
+    if (!IMAGE_EXTS.has(ext)) continue
+    const m = name.match(/^(\d+)(?:[-.]|$)/)
+    if (m) nums.push(parseInt(m[1], 10))
   }
-  return nums;
+  return nums
 }
 
 function nextNumberAfter(existing: number[], gap = 10): number {
-  if (existing.length === 0) return gap;
-  const max = Math.max(...existing);
-  return Math.ceil((max + 1) / gap) * gap;
+  if (existing.length === 0) return gap
+  const max = Math.max(...existing)
+  return Math.ceil((max + 1) / gap) * gap
 }
 
 function slugFromSourcePath(p: string): string {
-  const base = path.basename(p, path.extname(p));
+  const base = path.basename(p, path.extname(p))
   // Strip any leading digits + dashes (don't carry a foreign prefix in)
-  const stripped = base.replace(/^\d+[-._ ]*/, '');
+  const stripped = base.replace(/^\d+[-._ ]*/, '')
   const clean = stripped
     .replace(/\s+/g, '-')
     .replace(/[^\w.-]/g, '')
     .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '');
-  return clean || base;
+    .replace(/^-|-$/g, '')
+  return clean || base
 }
 
 export async function importImages(args: ImportImagesArgs): Promise<ImportImagesResult> {
-  const albumAbs = path.join(args.home, args.albumPath);
-  const existing = await listAlbumImageNumbers(albumAbs);
-  let nextNum = nextNumberAfter(existing);
+  const albumAbs = path.join(args.home, args.albumPath)
+  const existing = await listAlbumImageNumbers(albumAbs)
+  let nextNum = nextNumberAfter(existing)
 
-  const imported: ImportImagesResult['imported'] = [];
-  const skipped: ImportImagesResult['skipped'] = [];
+  const imported: ImportImagesResult['imported'] = []
+  const skipped: ImportImagesResult['skipped'] = []
 
   for (const src of args.sourcePaths) {
-    const ext = path.extname(src).toLowerCase();
+    const ext = path.extname(src).toLowerCase()
     if (!IMAGE_EXTS.has(ext)) {
-      skipped.push({ source: src, reason: 'not an image' });
-      continue;
+      skipped.push({ source: src, reason: 'not an image' })
+      continue
     }
     try {
-      await fs.access(src);
+      await fs.access(src)
     } catch {
-      skipped.push({ source: src, reason: 'source missing' });
-      continue;
+      skipped.push({ source: src, reason: 'source missing' })
+      continue
     }
-    const slug = slugFromSourcePath(src);
-    const prefix = String(nextNum).padStart(3, '0');
-    const destName = slug ? `${prefix}-${slug}${ext}` : `${prefix}${ext}`;
-    const dest = path.join(albumAbs, destName);
-    markSelfWrite(dest);
-    await fs.copyFile(src, dest);
-    imported.push({ source: src, dest, filename: destName });
-    nextNum += 10;
+    const slug = slugFromSourcePath(src)
+    const prefix = String(nextNum).padStart(3, '0')
+    const destName = slug ? `${prefix}-${slug}${ext}` : `${prefix}${ext}`
+    const dest = path.join(albumAbs, destName)
+    markSelfWrite(dest)
+    await fs.copyFile(src, dest)
+    imported.push({ source: src, dest, filename: destName })
+    nextNum += 10
   }
 
-  return { ok: true, imported, skipped };
+  return { ok: true, imported, skipped }
 }
 
 // --- Image replace (swap file in place, keep slot) ------------------------
 
-export type ReplaceIndexStrategy = 'slot' | 'filename';
+export type ReplaceIndexStrategy = 'slot' | 'filename'
 
 export interface ReplacePair {
   /** Image to replace — relative to `home`. */
-  targetSourcePath: string;
+  targetSourcePath: string
   /** Absolute OS path of the replacement source file. */
-  replacementPath: string;
+  replacementPath: string
 }
 
 export interface ReplaceImagesArgs {
-  home: string;
-  albumPath: string;
-  pairs: ReplacePair[];
+  home: string
+  albumPath: string
+  pairs: ReplacePair[]
   /**
    * Which numeric prefix the new file carries:
    *  - `slot`: keep the prefix of the image being replaced (the visual slot).
    *  - `filename`: take the prefix from the replacement's filename.
    */
-  indexStrategy: ReplaceIndexStrategy;
+  indexStrategy: ReplaceIndexStrategy
 }
 
 export interface ReplaceImagesResult {
-  ok: boolean;
-  replaced: { oldPath: string; newPath: string; filename: string }[];
-  skipped: { target: string; replacement: string; reason: string }[];
+  ok: boolean
+  replaced: { oldPath: string; newPath: string; filename: string }[]
+  skipped: { target: string; replacement: string; reason: string }[]
 }
 
 function parsePrefixAndSlug(filename: string): { prefix: string | null; slug: string } {
-  const ext = path.extname(filename);
-  const base = path.basename(filename, ext);
-  const m = base.match(/^(\d+)(?:[-._ ](.*))?$/);
+  const ext = path.extname(filename)
+  const base = path.basename(filename, ext)
+  const m = base.match(/^(\d+)(?:[-._ ](.*))?$/)
   if (m) {
-    return { prefix: m[1], slug: slugFromStem(m[2] ?? '') };
+    return { prefix: m[1], slug: slugFromStem(m[2] ?? '') }
   }
-  return { prefix: null, slug: slugFromStem(base) };
+  return { prefix: null, slug: slugFromStem(base) }
 }
 
 function slugFromStem(stem: string): string {
@@ -284,7 +284,7 @@ function slugFromStem(stem: string): string {
     .replace(/\s+/g, '-')
     .replace(/[^\w.-]/g, '')
     .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '');
+    .replace(/^-|-$/g, '')
 }
 
 /**
@@ -305,11 +305,11 @@ function slugFromStem(stem: string): string {
  * means a new photo, so a stale caption would be misleading.
  */
 interface PlannedReplace {
-  pair: ReplacePair;
-  ext: string;
-  oldAbs: string;
-  newAbs: string;
-  newName: string;
+  pair: ReplacePair
+  ext: string
+  oldAbs: string
+  newAbs: string
+  newName: string
 }
 
 /**
@@ -325,46 +325,46 @@ async function planReplace(
   pair: ReplacePair,
   indexStrategy: ReplaceIndexStrategy
 ): Promise<{ plan: PlannedReplace } | { reason: string }> {
-  const ext = path.extname(pair.replacementPath).toLowerCase();
-  if (!IMAGE_EXTS.has(ext)) return { reason: 'not an image' };
+  const ext = path.extname(pair.replacementPath).toLowerCase()
+  if (!IMAGE_EXTS.has(ext)) return { reason: 'not an image' }
 
   try {
-    await fs.access(pair.replacementPath);
+    await fs.access(pair.replacementPath)
   } catch {
-    return { reason: 'source missing' };
+    return { reason: 'source missing' }
   }
 
-  const oldAbs = path.join(home, pair.targetSourcePath);
+  const oldAbs = path.join(home, pair.targetSourcePath)
   try {
-    await fs.access(oldAbs);
+    await fs.access(oldAbs)
   } catch {
-    return { reason: 'target missing' };
+    return { reason: 'target missing' }
   }
 
-  const oldBasename = path.basename(oldAbs);
-  const target = parsePrefixAndSlug(oldBasename);
-  const replacementBasename = path.basename(pair.replacementPath);
-  const rep = parsePrefixAndSlug(replacementBasename);
+  const oldBasename = path.basename(oldAbs)
+  const target = parsePrefixAndSlug(oldBasename)
+  const replacementBasename = path.basename(pair.replacementPath)
+  const rep = parsePrefixAndSlug(replacementBasename)
 
-  let prefix: string | null;
+  let prefix: string | null
   if (indexStrategy === 'filename') {
-    prefix = rep.prefix ?? target.prefix;
+    prefix = rep.prefix ?? target.prefix
   } else {
-    prefix = target.prefix;
+    prefix = target.prefix
   }
 
-  const newSlug = rep.slug || target.slug || 'image';
-  const newBase = prefix ? `${prefix}-${newSlug}` : newSlug;
-  const newName = `${newBase}${ext}`;
-  const newAbs = path.join(albumAbs, newName);
+  const newSlug = rep.slug || target.slug || 'image'
+  const newBase = prefix ? `${prefix}-${newSlug}` : newSlug
+  const newName = `${newBase}${ext}`
+  const newAbs = path.join(albumAbs, newName)
 
-  return { plan: { pair, ext, oldAbs, newAbs, newName } };
+  return { plan: { pair, ext, oldAbs, newAbs, newName } }
 }
 
 export async function replaceImages(args: ReplaceImagesArgs): Promise<ReplaceImagesResult> {
-  const albumAbs = path.join(args.home, args.albumPath);
-  const replaced: ReplaceImagesResult['replaced'] = [];
-  const skipped: ReplaceImagesResult['skipped'] = [];
+  const albumAbs = path.join(args.home, args.albumPath)
+  const replaced: ReplaceImagesResult['replaced'] = []
+  const skipped: ReplaceImagesResult['skipped'] = []
 
   // Plan every pair first. Collecting the full plan before touching the
   // filesystem lets us (1) detect in-batch destination collisions (two
@@ -372,35 +372,35 @@ export async function replaceImages(args: ReplaceImagesArgs): Promise<ReplaceIma
   // destinations that would clobber a target scheduled for later in the
   // batch (A's dest == B's oldAbs). Without this, a later iteration could
   // trash a newly-copied file from an earlier iteration.
-  const plans: PlannedReplace[] = [];
+  const plans: PlannedReplace[] = []
   for (const pair of args.pairs) {
-    const result = await planReplace(albumAbs, args.home, pair, args.indexStrategy);
+    const result = await planReplace(albumAbs, args.home, pair, args.indexStrategy)
     if ('reason' in result) {
       skipped.push({
         target: pair.targetSourcePath,
         replacement: pair.replacementPath,
         reason: result.reason
-      });
-      continue;
+      })
+      continue
     }
-    plans.push(result.plan);
+    plans.push(result.plan)
   }
 
-  const destCount = new Map<string, number>();
+  const destCount = new Map<string, number>()
   for (const p of plans) {
-    destCount.set(p.newAbs, (destCount.get(p.newAbs) ?? 0) + 1);
+    destCount.set(p.newAbs, (destCount.get(p.newAbs) ?? 0) + 1)
   }
-  const targetsInBatch = new Set(plans.map((p) => p.oldAbs));
+  const targetsInBatch = new Set(plans.map((p) => p.oldAbs))
 
-  const finalPlans: PlannedReplace[] = [];
+  const finalPlans: PlannedReplace[] = []
   for (const plan of plans) {
     if ((destCount.get(plan.newAbs) ?? 0) > 1) {
       skipped.push({
         target: plan.pair.targetSourcePath,
         replacement: plan.pair.replacementPath,
         reason: 'destination conflict: two pairs map to the same filename'
-      });
-      continue;
+      })
+      continue
     }
     // Destination would clobber a different pair's target that hasn't been
     // trashed yet. Refuse rather than risk losing that image.
@@ -409,10 +409,10 @@ export async function replaceImages(args: ReplaceImagesArgs): Promise<ReplaceIma
         target: plan.pair.targetSourcePath,
         replacement: plan.pair.replacementPath,
         reason: 'destination would overwrite another replaced image'
-      });
-      continue;
+      })
+      continue
     }
-    finalPlans.push(plan);
+    finalPlans.push(plan)
   }
 
   // Per-plan try/catch: if one fails (e.g. trashItem throws because the
@@ -420,80 +420,80 @@ export async function replaceImages(args: ReplaceImagesArgs): Promise<ReplaceIma
   // trash), it doesn't abort remaining pairs.
   for (const plan of finalPlans) {
     try {
-      markSelfWrite(plan.oldAbs);
-      await shell.trashItem(plan.oldAbs);
-      const oldSidecar = sidecarPathFor(plan.oldAbs);
+      markSelfWrite(plan.oldAbs)
+      await shell.trashItem(plan.oldAbs)
+      const oldSidecar = sidecarPathFor(plan.oldAbs)
       try {
-        await fs.access(oldSidecar);
-        markSelfWrite(oldSidecar);
-        await shell.trashItem(oldSidecar);
+        await fs.access(oldSidecar)
+        markSelfWrite(oldSidecar)
+        await shell.trashItem(oldSidecar)
       } catch {
         // no sidecar — nothing to discard
       }
 
-      markSelfWrite(plan.newAbs);
-      await fs.copyFile(plan.pair.replacementPath, plan.newAbs);
+      markSelfWrite(plan.newAbs)
+      await fs.copyFile(plan.pair.replacementPath, plan.newAbs)
 
-      const relParent = args.albumPath;
+      const relParent = args.albumPath
       replaced.push({
         oldPath: plan.pair.targetSourcePath,
         newPath: relParent ? `${relParent}/${plan.newName}` : plan.newName,
         filename: plan.newName
-      });
+      })
     } catch (err) {
       skipped.push({
         target: plan.pair.targetSourcePath,
         replacement: plan.pair.replacementPath,
         reason: `replace failed: ${(err as Error).message}`
-      });
+      })
     }
   }
 
-  return { ok: true, replaced, skipped };
+  return { ok: true, replaced, skipped }
 }
 
 // --- Image delete (OS trash) ---------------------------------------------
 
 export interface DeleteImageArgs {
-  home: string;
-  imageSourcePath: string;
+  home: string
+  imageSourcePath: string
 }
 
 export interface DeleteImageResult {
-  ok: boolean;
-  trashedSidecar: boolean;
+  ok: boolean
+  trashedSidecar: boolean
 }
 
 export async function deleteImage(args: DeleteImageArgs): Promise<DeleteImageResult> {
-  const abs = path.join(args.home, args.imageSourcePath);
-  markSelfWrite(abs);
-  await shell.trashItem(abs);
+  const abs = path.join(args.home, args.imageSourcePath)
+  markSelfWrite(abs)
+  await shell.trashItem(abs)
 
-  const sidecar = sidecarPathFor(abs);
-  let trashedSidecar = false;
+  const sidecar = sidecarPathFor(abs)
+  let trashedSidecar = false
   try {
-    await fs.access(sidecar);
-    markSelfWrite(sidecar);
-    await shell.trashItem(sidecar);
-    trashedSidecar = true;
+    await fs.access(sidecar)
+    markSelfWrite(sidecar)
+    await shell.trashItem(sidecar)
+    trashedSidecar = true
   } catch {
     // no sidecar
   }
-  return { ok: true, trashedSidecar };
+  return { ok: true, trashedSidecar }
 }
 
 // --- Reorder images in album ---------------------------------------------
 
 export interface ReorderImagesArgs {
-  home: string;
-  albumPath: string;
+  home: string
+  albumPath: string
   /** Ordered list of current source_paths (relative to home) in desired order. */
-  orderedSourcePaths: string[];
+  orderedSourcePaths: string[]
 }
 
 export interface ReorderImagesResult {
-  ok: boolean;
-  renames: { old: string; new: string }[];
+  ok: boolean
+  renames: { old: string; new: string }[]
 }
 
 /**
@@ -504,80 +504,80 @@ export interface ReorderImagesResult {
  * temporary name, then rename to final target names.
  */
 export async function reorderImages(args: ReorderImagesArgs): Promise<ReorderImagesResult> {
-  const albumAbs = path.join(args.home, args.albumPath);
-  const renames: ReorderImagesResult['renames'] = [];
+  const albumAbs = path.join(args.home, args.albumPath)
+  const renames: ReorderImagesResult['renames'] = []
 
   const stepOne: { tmp: string; finalBase: string; sidecarTmp?: string; sidecarFinal?: string }[] =
-    [];
+    []
 
   for (let i = 0; i < args.orderedSourcePaths.length; i++) {
-    const rel = args.orderedSourcePaths[i];
-    const abs = path.join(args.home, rel);
-    const ext = path.extname(abs);
-    const oldBase = path.basename(abs, ext);
-    const stripped = oldBase.replace(/^\d+-?/, '');
-    const prefix = String((i + 1) * 10).padStart(3, '0');
-    const finalBase = stripped ? `${prefix}-${stripped}` : prefix;
-    const tmp = path.join(albumAbs, `.sgui-tmp-${i}-${path.basename(abs)}`);
+    const rel = args.orderedSourcePaths[i]
+    const abs = path.join(args.home, rel)
+    const ext = path.extname(abs)
+    const oldBase = path.basename(abs, ext)
+    const stripped = oldBase.replace(/^\d+-?/, '')
+    const prefix = String((i + 1) * 10).padStart(3, '0')
+    const finalBase = stripped ? `${prefix}-${stripped}` : prefix
+    const tmp = path.join(albumAbs, `.sgui-tmp-${i}-${path.basename(abs)}`)
 
-    markSelfWrite(abs);
-    markSelfWrite(tmp);
-    await fs.rename(abs, tmp);
+    markSelfWrite(abs)
+    markSelfWrite(tmp)
+    await fs.rename(abs, tmp)
 
-    const entry: (typeof stepOne)[number] = { tmp, finalBase };
-    const oldSidecar = sidecarPathFor(abs);
+    const entry: (typeof stepOne)[number] = { tmp, finalBase }
+    const oldSidecar = sidecarPathFor(abs)
     try {
-      await fs.access(oldSidecar);
-      const sidecarTmp = path.join(albumAbs, `.sgui-tmp-sc-${i}-${path.basename(oldSidecar)}`);
-      markSelfWrite(oldSidecar);
-      markSelfWrite(sidecarTmp);
-      await fs.rename(oldSidecar, sidecarTmp);
-      entry.sidecarTmp = sidecarTmp;
-      entry.sidecarFinal = `${finalBase}.txt`;
+      await fs.access(oldSidecar)
+      const sidecarTmp = path.join(albumAbs, `.sgui-tmp-sc-${i}-${path.basename(oldSidecar)}`)
+      markSelfWrite(oldSidecar)
+      markSelfWrite(sidecarTmp)
+      await fs.rename(oldSidecar, sidecarTmp)
+      entry.sidecarTmp = sidecarTmp
+      entry.sidecarFinal = `${finalBase}.txt`
     } catch {
       // no sidecar
     }
-    stepOne.push(entry);
-    renames.push({ old: rel, new: `${args.albumPath}/${finalBase}${ext}` });
+    stepOne.push(entry)
+    renames.push({ old: rel, new: `${args.albumPath}/${finalBase}${ext}` })
   }
 
   for (const entry of stepOne) {
-    const ext = path.extname(entry.tmp).replace(/^\.sgui-tmp-\d+-/, '');
-    const finalImageName = `${entry.finalBase}${path.extname(entry.tmp.replace(/^.*\./, '.'))}`;
+    const ext = path.extname(entry.tmp).replace(/^\.sgui-tmp-\d+-/, '')
+    const finalImageName = `${entry.finalBase}${path.extname(entry.tmp.replace(/^.*\./, '.'))}`
     // Derive extension from original name baked into tmp (tmp = .sgui-tmp-<i>-<origName>)
-    const origName = path.basename(entry.tmp).replace(/^\.sgui-tmp-\d+-/, '');
-    const origExt = path.extname(origName);
-    const finalAbs = path.join(albumAbs, `${entry.finalBase}${origExt}`);
-    markSelfWrite(entry.tmp);
-    markSelfWrite(finalAbs);
-    await fs.rename(entry.tmp, finalAbs);
-    void ext;
-    void finalImageName;
+    const origName = path.basename(entry.tmp).replace(/^\.sgui-tmp-\d+-/, '')
+    const origExt = path.extname(origName)
+    const finalAbs = path.join(albumAbs, `${entry.finalBase}${origExt}`)
+    markSelfWrite(entry.tmp)
+    markSelfWrite(finalAbs)
+    await fs.rename(entry.tmp, finalAbs)
+    void ext
+    void finalImageName
 
     if (entry.sidecarTmp && entry.sidecarFinal) {
-      const finalSidecar = path.join(albumAbs, entry.sidecarFinal);
-      markSelfWrite(entry.sidecarTmp);
-      markSelfWrite(finalSidecar);
-      await fs.rename(entry.sidecarTmp, finalSidecar);
+      const finalSidecar = path.join(albumAbs, entry.sidecarFinal)
+      markSelfWrite(entry.sidecarTmp)
+      markSelfWrite(finalSidecar)
+      await fs.rename(entry.sidecarTmp, finalSidecar)
     }
   }
 
-  return { ok: true, renames };
+  return { ok: true, renames }
 }
 
 // --- Album description ---------------------------------------------------
 
 export interface WriteDescriptionArgs {
-  home: string;
-  albumPath: string;
-  body: string; // empty → remove both .md and .txt
-  preferMarkdown?: boolean;
+  home: string
+  albumPath: string
+  body: string // empty → remove both .md and .txt
+  preferMarkdown?: boolean
 }
 
 export interface WriteDescriptionResult {
-  ok: boolean;
-  writtenPath: string | null;
-  removedPaths: string[];
+  ok: boolean
+  writtenPath: string | null
+  removedPaths: string[]
 }
 
 /**
@@ -587,208 +587,208 @@ export interface WriteDescriptionResult {
 export async function writeDescription(
   args: WriteDescriptionArgs
 ): Promise<WriteDescriptionResult> {
-  const albumAbs = path.join(args.home, args.albumPath);
-  const md = path.join(albumAbs, 'description.md');
-  const txt = path.join(albumAbs, 'description.txt');
-  const removed: string[] = [];
+  const albumAbs = path.join(args.home, args.albumPath)
+  const md = path.join(albumAbs, 'description.md')
+  const txt = path.join(albumAbs, 'description.txt')
+  const removed: string[] = []
 
   if (args.body.trim() === '') {
     for (const p of [md, txt]) {
       try {
-        await fs.access(p);
-        markSelfWrite(p);
-        await fs.unlink(p);
-        removed.push(p);
+        await fs.access(p)
+        markSelfWrite(p)
+        await fs.unlink(p)
+        removed.push(p)
       } catch {
         // not present
       }
     }
-    return { ok: true, writtenPath: null, removedPaths: removed };
+    return { ok: true, writtenPath: null, removedPaths: removed }
   }
 
-  const useMd = args.preferMarkdown ?? true;
-  const target = useMd ? md : txt;
-  markSelfWrite(target);
-  await fs.writeFile(target, args.body.replace(/\s+$/, '') + '\n', 'utf8');
+  const useMd = args.preferMarkdown ?? true
+  const target = useMd ? md : txt
+  markSelfWrite(target)
+  await fs.writeFile(target, args.body.replace(/\s+$/, '') + '\n', 'utf8')
 
   // If writing .md, clear any stale .txt to avoid confusion
   if (useMd) {
     try {
-      await fs.access(txt);
-      markSelfWrite(txt);
-      await fs.unlink(txt);
-      removed.push(txt);
+      await fs.access(txt)
+      markSelfWrite(txt)
+      await fs.unlink(txt)
+      removed.push(txt)
     } catch {
       // ok
     }
   }
 
-  return { ok: true, writtenPath: target, removedPaths: removed };
+  return { ok: true, writtenPath: target, removedPaths: removed }
 }
 
 // --- Site structure: albums, groups, pages --------------------------------
 
 async function listChildPrefixes(dirAbs: string, kind: 'dir' | 'file'): Promise<number[]> {
-  const entries = await fs.readdir(dirAbs, { withFileTypes: true }).catch(() => []);
-  const nums: number[] = [];
+  const entries = await fs.readdir(dirAbs, { withFileTypes: true }).catch(() => [])
+  const nums: number[] = []
   for (const e of entries) {
-    if (kind === 'dir' && !e.isDirectory()) continue;
-    if (kind === 'file' && !e.isFile()) continue;
-    const m = e.name.match(/^(\d+)[-.]/);
-    if (m) nums.push(parseInt(m[1], 10));
+    if (kind === 'dir' && !e.isDirectory()) continue
+    if (kind === 'file' && !e.isFile()) continue
+    const m = e.name.match(/^(\d+)[-.]/)
+    if (m) nums.push(parseInt(m[1], 10))
   }
-  return nums;
+  return nums
 }
 
 function titleSlugForDir(title: string): string {
-  return title.trim().replace(/\s+/g, ' ').replace(/\//g, '-');
+  return title.trim().replace(/\s+/g, ' ').replace(/\//g, '-')
 }
 
 function titleSlugForFile(title: string): string {
   return title
     .trim()
     .replace(/\s+/g, '-')
-    .replace(/[^\w.-]/g, '');
+    .replace(/[^\w.-]/g, '')
 }
 
 export interface CreateAlbumArgs {
-  home: string;
-  parentPath: string; // "" for root, or a group source_dir like "020-Travel"
-  title: string;
+  home: string
+  parentPath: string // "" for root, or a group source_dir like "020-Travel"
+  title: string
 }
 
 export interface CreateAlbumResult {
-  ok: boolean;
-  albumPath: string; // relative to home
-  dirName: string;
+  ok: boolean
+  albumPath: string // relative to home
+  dirName: string
 }
 
 export async function createAlbum(args: CreateAlbumArgs): Promise<CreateAlbumResult> {
-  const parentAbs = path.join(args.home, args.parentPath);
-  const existing = await listChildPrefixes(parentAbs, 'dir');
-  const nextNum = nextNumberAfter(existing);
-  const prefix = String(nextNum).padStart(3, '0');
-  const dirName = `${prefix}-${titleSlugForDir(args.title)}`;
-  const abs = path.join(parentAbs, dirName);
-  markSelfWrite(abs);
-  await fs.mkdir(abs, { recursive: false });
+  const parentAbs = path.join(args.home, args.parentPath)
+  const existing = await listChildPrefixes(parentAbs, 'dir')
+  const nextNum = nextNumberAfter(existing)
+  const prefix = String(nextNum).padStart(3, '0')
+  const dirName = `${prefix}-${titleSlugForDir(args.title)}`
+  const abs = path.join(parentAbs, dirName)
+  markSelfWrite(abs)
+  await fs.mkdir(abs, { recursive: false })
   return {
     ok: true,
     albumPath: path.posix.join(args.parentPath, dirName),
     dirName
-  };
+  }
 }
 
 export interface CreatePageArgs {
-  home: string;
-  title: string;
-  body?: string;
+  home: string
+  title: string
+  body?: string
 }
 
 export interface CreatePageResult {
-  ok: boolean;
-  pagePath: string;
-  fileName: string;
+  ok: boolean
+  pagePath: string
+  fileName: string
 }
 
 export async function createPage(args: CreatePageArgs): Promise<CreatePageResult> {
-  const existing = await listChildPrefixes(args.home, 'file');
-  const nextNum = nextNumberAfter(existing);
-  const prefix = String(nextNum).padStart(3, '0');
-  const fileName = `${prefix}-${titleSlugForFile(args.title)}.md`;
-  const abs = path.join(args.home, fileName);
-  const body = args.body ?? `# ${args.title}\n\n`;
-  markSelfWrite(abs);
-  await fs.writeFile(abs, body, 'utf8');
-  return { ok: true, pagePath: fileName, fileName };
+  const existing = await listChildPrefixes(args.home, 'file')
+  const nextNum = nextNumberAfter(existing)
+  const prefix = String(nextNum).padStart(3, '0')
+  const fileName = `${prefix}-${titleSlugForFile(args.title)}.md`
+  const abs = path.join(args.home, fileName)
+  const body = args.body ?? `# ${args.title}\n\n`
+  markSelfWrite(abs)
+  await fs.writeFile(abs, body, 'utf8')
+  return { ok: true, pagePath: fileName, fileName }
 }
 
 export interface RenameEntryArgs {
-  home: string;
-  entryPath: string; // dir or file, relative to home
-  newTitle: string;
+  home: string
+  entryPath: string // dir or file, relative to home
+  newTitle: string
 }
 
 export interface RenameEntryResult {
-  ok: boolean;
-  oldPath: string;
-  newPath: string;
-  newName: string;
+  ok: boolean
+  oldPath: string
+  newPath: string
+  newName: string
 }
 
 export async function renameEntry(args: RenameEntryArgs): Promise<RenameEntryResult> {
-  const oldAbs = path.join(args.home, args.entryPath);
-  const parent = path.dirname(oldAbs);
-  const oldName = path.basename(oldAbs);
-  const stat = await fs.stat(oldAbs);
-  const isDir = stat.isDirectory();
+  const oldAbs = path.join(args.home, args.entryPath)
+  const parent = path.dirname(oldAbs)
+  const oldName = path.basename(oldAbs)
+  const stat = await fs.stat(oldAbs)
+  const isDir = stat.isDirectory()
 
-  const prefixMatch = oldName.match(/^(\d+)(?:[-.]|$)/);
-  const prefix = prefixMatch ? prefixMatch[1] : null;
+  const prefixMatch = oldName.match(/^(\d+)(?:[-.]|$)/)
+  const prefix = prefixMatch ? prefixMatch[1] : null
 
-  let newName: string;
+  let newName: string
   if (isDir) {
-    const slug = titleSlugForDir(args.newTitle);
-    newName = prefix ? `${prefix}-${slug}` : slug;
+    const slug = titleSlugForDir(args.newTitle)
+    newName = prefix ? `${prefix}-${slug}` : slug
   } else {
-    const ext = path.extname(oldName);
-    const slug = titleSlugForFile(args.newTitle);
-    newName = prefix ? `${prefix}-${slug}${ext}` : `${slug}${ext}`;
+    const ext = path.extname(oldName)
+    const slug = titleSlugForFile(args.newTitle)
+    newName = prefix ? `${prefix}-${slug}${ext}` : `${slug}${ext}`
   }
 
-  const newAbs = path.join(parent, newName);
+  const newAbs = path.join(parent, newName)
   if (newAbs === oldAbs) {
-    return { ok: true, oldPath: oldAbs, newPath: newAbs, newName };
+    return { ok: true, oldPath: oldAbs, newPath: newAbs, newName }
   }
-  markSelfWrite(oldAbs);
-  markSelfWrite(newAbs);
-  await fs.rename(oldAbs, newAbs);
-  return { ok: true, oldPath: oldAbs, newPath: newAbs, newName };
+  markSelfWrite(oldAbs)
+  markSelfWrite(newAbs)
+  await fs.rename(oldAbs, newAbs)
+  return { ok: true, oldPath: oldAbs, newPath: newAbs, newName }
 }
 
 export interface DeleteEntryArgs {
-  home: string;
-  entryPath: string;
+  home: string
+  entryPath: string
 }
 
 export interface DeleteEntryResult {
-  ok: boolean;
+  ok: boolean
 }
 
 export async function deleteEntry(args: DeleteEntryArgs): Promise<DeleteEntryResult> {
-  const abs = path.join(args.home, args.entryPath);
-  markSelfWrite(abs);
-  await shell.trashItem(abs);
-  return { ok: true };
+  const abs = path.join(args.home, args.entryPath)
+  markSelfWrite(abs)
+  await shell.trashItem(abs)
+  return { ok: true }
 }
 
 export interface WritePageArgs {
-  home: string;
-  pagePath: string; // relative to home, e.g. "040-about.md"
-  body: string;
+  home: string
+  pagePath: string // relative to home, e.g. "040-about.md"
+  body: string
 }
 
 export interface WritePageResult {
-  ok: boolean;
+  ok: boolean
 }
 
 export async function writePage(args: WritePageArgs): Promise<WritePageResult> {
-  const abs = path.join(args.home, args.pagePath);
-  markSelfWrite(abs);
-  await fs.writeFile(abs, args.body.replace(/\s+$/, '') + '\n', 'utf8');
-  return { ok: true };
+  const abs = path.join(args.home, args.pagePath)
+  markSelfWrite(abs)
+  await fs.writeFile(abs, args.body.replace(/\s+$/, '') + '\n', 'utf8')
+  return { ok: true }
 }
 
 // --- Find a page file on disk by slug -------------------------------------
 
 export interface FindPageFileArgs {
-  home: string;
-  slug: string;
+  home: string
+  slug: string
 }
 
 export interface FindPageFileResult {
-  ok: boolean;
-  filename: string | null;
+  ok: boolean
+  filename: string | null
 }
 
 /**
@@ -806,27 +806,27 @@ function normalizeToSlug(s: string): string {
   return s
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
+    .replace(/^-+|-+$/g, '')
 }
 
 // --- Set album thumbnail --------------------------------------------------
 
 export interface SetAlbumThumbnailArgs {
-  home: string;
+  home: string
   /** Album source directory relative to home, e.g. "010-Landscapes" or "020-Travel/010-Japan". */
-  albumPath: string;
+  albumPath: string
   /** Image source path relative to home, e.g. "010-Landscapes/003-Sunset.jpg". */
-  imageSourcePath: string;
+  imageSourcePath: string
 }
 
 export interface SetAlbumThumbnailResult {
-  ok: boolean;
+  ok: boolean
   /** The previously-designated thumb, renamed to strip its `thumb-` segment. null if none. */
-  previousThumb: { old: string; new: string } | null;
+  previousThumb: { old: string; new: string } | null
   /** The chosen image, renamed to carry `thumb-` after its NNN- prefix. */
-  newThumb: { old: string; new: string };
+  newThumb: { old: string; new: string }
   /** True if the chosen image was already the thumb — no renames happened. */
-  noOp: boolean;
+  noOp: boolean
 }
 
 /**
@@ -839,13 +839,13 @@ export interface SetAlbumThumbnailResult {
 export async function setAlbumThumbnail(
   args: SetAlbumThumbnailArgs
 ): Promise<SetAlbumThumbnailResult> {
-  const albumAbs = path.join(args.home, args.albumPath);
-  const entries = await fs.readdir(albumAbs);
+  const albumAbs = path.join(args.home, args.albumPath)
+  const entries = await fs.readdir(albumAbs)
 
   // Match files of the form `NNN-thumb.ext` or `NNN-thumb-<rest>.ext`.
-  const thumbPattern = /^(\d+)-thumb(?:-(.*))?(\.[^.]+)$/;
+  const thumbPattern = /^(\d+)-thumb(?:-(.*))?(\.[^.]+)$/
 
-  const chosenBasename = path.basename(args.imageSourcePath);
+  const chosenBasename = path.basename(args.imageSourcePath)
 
   // If the chosen image is already the thumb, no-op.
   if (thumbPattern.test(chosenBasename)) {
@@ -857,77 +857,77 @@ export async function setAlbumThumbnail(
         new: args.imageSourcePath
       },
       noOp: true
-    };
+    }
   }
 
-  let previousThumb: SetAlbumThumbnailResult['previousThumb'] = null;
+  let previousThumb: SetAlbumThumbnailResult['previousThumb'] = null
 
   // Find and demote any existing thumbnail file
   for (const name of entries) {
-    const m = name.match(thumbPattern);
-    if (!m) continue;
-    const prefix = m[1];
-    const tail = m[2]; // may be undefined for bare `NNN-thumb.ext`
-    const ext = m[3];
-    const newName = tail ? `${prefix}-${tail}${ext}` : `${prefix}${ext}`;
-    const oldAbs = path.join(albumAbs, name);
-    const newAbs = path.join(albumAbs, newName);
-    markSelfWrite(oldAbs);
-    markSelfWrite(newAbs);
-    await fs.rename(oldAbs, newAbs);
+    const m = name.match(thumbPattern)
+    if (!m) continue
+    const prefix = m[1]
+    const tail = m[2] // may be undefined for bare `NNN-thumb.ext`
+    const ext = m[3]
+    const newName = tail ? `${prefix}-${tail}${ext}` : `${prefix}${ext}`
+    const oldAbs = path.join(albumAbs, name)
+    const newAbs = path.join(albumAbs, newName)
+    markSelfWrite(oldAbs)
+    markSelfWrite(newAbs)
+    await fs.rename(oldAbs, newAbs)
     previousThumb = {
       old: path.posix.join(args.albumPath, name),
       new: path.posix.join(args.albumPath, newName)
-    };
+    }
     // Also move a sidecar if one existed for the demoted file
-    const oldSidecar = sidecarPathFor(oldAbs);
+    const oldSidecar = sidecarPathFor(oldAbs)
     try {
-      await fs.access(oldSidecar);
-      const { dir, name: oldSideName } = path.parse(oldSidecar);
-      void oldSideName;
-      const newSidecar = path.join(dir, `${path.parse(newName).name}.txt`);
-      markSelfWrite(oldSidecar);
-      markSelfWrite(newSidecar);
-      await fs.rename(oldSidecar, newSidecar);
+      await fs.access(oldSidecar)
+      const { dir, name: oldSideName } = path.parse(oldSidecar)
+      void oldSideName
+      const newSidecar = path.join(dir, `${path.parse(newName).name}.txt`)
+      markSelfWrite(oldSidecar)
+      markSelfWrite(newSidecar)
+      await fs.rename(oldSidecar, newSidecar)
     } catch {
       // no sidecar, nothing to rename
     }
-    break; // simple-gal only honors the first; one demotion is enough
+    break // simple-gal only honors the first; one demotion is enough
   }
 
   // Promote the chosen image by inserting `thumb-` after its NNN- prefix
-  const chosenAbs = path.join(args.home, args.imageSourcePath);
-  const parsed = path.parse(chosenAbs);
-  const prefixMatch = parsed.name.match(/^(\d+)(?:-(.*))?$/);
-  let newChosenBasename: string;
+  const chosenAbs = path.join(args.home, args.imageSourcePath)
+  const parsed = path.parse(chosenAbs)
+  const prefixMatch = parsed.name.match(/^(\d+)(?:-(.*))?$/)
+  let newChosenBasename: string
   if (prefixMatch) {
-    const prefix = prefixMatch[1];
-    const rest = prefixMatch[2];
+    const prefix = prefixMatch[1]
+    const rest = prefixMatch[2]
     newChosenBasename = rest
       ? `${prefix}-thumb-${rest}${parsed.ext}`
-      : `${prefix}-thumb${parsed.ext}`;
+      : `${prefix}-thumb${parsed.ext}`
   } else {
     // No NNN- prefix — unusual for simple-gal content, but handle gracefully
-    newChosenBasename = `thumb-${parsed.name}${parsed.ext}`;
+    newChosenBasename = `thumb-${parsed.name}${parsed.ext}`
   }
-  const newChosenAbs = path.join(parsed.dir, newChosenBasename);
-  markSelfWrite(chosenAbs);
-  markSelfWrite(newChosenAbs);
-  await fs.rename(chosenAbs, newChosenAbs);
+  const newChosenAbs = path.join(parsed.dir, newChosenBasename)
+  markSelfWrite(chosenAbs)
+  markSelfWrite(newChosenAbs)
+  await fs.rename(chosenAbs, newChosenAbs)
 
   // Move the chosen image's sidecar if one exists
-  const oldChosenSidecar = sidecarPathFor(chosenAbs);
+  const oldChosenSidecar = sidecarPathFor(chosenAbs)
   try {
-    await fs.access(oldChosenSidecar);
-    const newChosenSidecar = path.join(parsed.dir, `${path.parse(newChosenBasename).name}.txt`);
-    markSelfWrite(oldChosenSidecar);
-    markSelfWrite(newChosenSidecar);
-    await fs.rename(oldChosenSidecar, newChosenSidecar);
+    await fs.access(oldChosenSidecar)
+    const newChosenSidecar = path.join(parsed.dir, `${path.parse(newChosenBasename).name}.txt`)
+    markSelfWrite(oldChosenSidecar)
+    markSelfWrite(newChosenSidecar)
+    await fs.rename(oldChosenSidecar, newChosenSidecar)
   } catch {
     // no sidecar
   }
 
-  const relParent = args.imageSourcePath.slice(0, args.imageSourcePath.lastIndexOf('/'));
+  const relParent = args.imageSourcePath.slice(0, args.imageSourcePath.lastIndexOf('/'))
   return {
     ok: true,
     previousThumb,
@@ -936,36 +936,36 @@ export async function setAlbumThumbnail(
       new: relParent ? `${relParent}/${newChosenBasename}` : newChosenBasename
     },
     noOp: false
-  };
+  }
 }
 
 export async function findPageFile(args: FindPageFileArgs): Promise<FindPageFileResult> {
-  const entries = await fs.readdir(args.home).catch(() => [] as string[]);
-  const target = normalizeToSlug(args.slug);
+  const entries = await fs.readdir(args.home).catch(() => [] as string[])
+  const target = normalizeToSlug(args.slug)
   for (const name of entries) {
-    if (!name.endsWith('.md')) continue;
-    const stem = name.slice(0, -3);
-    const stripped = stem.replace(/^\d+-?/, '');
+    if (!name.endsWith('.md')) continue
+    const stem = name.slice(0, -3)
+    const stripped = stem.replace(/^\d+-?/, '')
     if (normalizeToSlug(stripped) === target) {
-      return { ok: true, filename: name };
+      return { ok: true, filename: name }
     }
   }
-  return { ok: false, filename: null };
+  return { ok: false, filename: null }
 }
 
 // --- Reorder tree entries (albums or pages) -------------------------------
 
 export interface ReorderTreeEntriesArgs {
-  home: string;
-  parentPath: string; // "" for root
-  kind: 'dir' | 'file'; // 'dir' = albums/groups, 'file' = pages
+  home: string
+  parentPath: string // "" for root
+  kind: 'dir' | 'file' // 'dir' = albums/groups, 'file' = pages
   /** Ordered list of current entry names (basenames) at parentPath. */
-  orderedNames: string[];
+  orderedNames: string[]
 }
 
 export interface ReorderTreeEntriesResult {
-  ok: boolean;
-  renames: { old: string; new: string }[];
+  ok: boolean
+  renames: { old: string; new: string }[]
 }
 
 /**
@@ -979,56 +979,56 @@ export interface ReorderTreeEntriesResult {
 export async function reorderTreeEntries(
   args: ReorderTreeEntriesArgs
 ): Promise<ReorderTreeEntriesResult> {
-  const parentAbs = path.join(args.home, args.parentPath);
-  const renames: ReorderTreeEntriesResult['renames'] = [];
+  const parentAbs = path.join(args.home, args.parentPath)
+  const renames: ReorderTreeEntriesResult['renames'] = []
 
   interface StepOne {
-    tmp: string;
-    finalName: string;
+    tmp: string
+    finalName: string
   }
-  const stepOne: StepOne[] = [];
+  const stepOne: StepOne[] = []
 
   for (let i = 0; i < args.orderedNames.length; i++) {
-    const oldName = args.orderedNames[i];
-    const oldAbs = path.join(parentAbs, oldName);
+    const oldName = args.orderedNames[i]
+    const oldAbs = path.join(parentAbs, oldName)
 
-    let stripped: string;
-    let ext = '';
+    let stripped: string
+    let ext = ''
     if (args.kind === 'file') {
-      ext = path.extname(oldName);
-      const base = path.basename(oldName, ext);
-      stripped = base.replace(/^\d+-?/, '');
+      ext = path.extname(oldName)
+      const base = path.basename(oldName, ext)
+      stripped = base.replace(/^\d+-?/, '')
     } else {
-      stripped = oldName.replace(/^\d+-?/, '');
+      stripped = oldName.replace(/^\d+-?/, '')
     }
 
-    const prefix = String((i + 1) * 10).padStart(3, '0');
+    const prefix = String((i + 1) * 10).padStart(3, '0')
     const finalName = stripped
       ? args.kind === 'file'
         ? `${prefix}-${stripped}${ext}`
         : `${prefix}-${stripped}`
       : args.kind === 'file'
         ? `${prefix}${ext}`
-        : prefix;
+        : prefix
 
-    const tmp = path.join(parentAbs, `.sgui-tree-tmp-${i}-${oldName}`);
-    markSelfWrite(oldAbs);
-    markSelfWrite(tmp);
-    await fs.rename(oldAbs, tmp);
+    const tmp = path.join(parentAbs, `.sgui-tree-tmp-${i}-${oldName}`)
+    markSelfWrite(oldAbs)
+    markSelfWrite(tmp)
+    await fs.rename(oldAbs, tmp)
 
-    stepOne.push({ tmp, finalName });
+    stepOne.push({ tmp, finalName })
     renames.push({
       old: path.posix.join(args.parentPath, oldName),
       new: path.posix.join(args.parentPath, finalName)
-    });
+    })
   }
 
   for (const { tmp, finalName } of stepOne) {
-    const finalAbs = path.join(parentAbs, finalName);
-    markSelfWrite(tmp);
-    markSelfWrite(finalAbs);
-    await fs.rename(tmp, finalAbs);
+    const finalAbs = path.join(parentAbs, finalName)
+    markSelfWrite(tmp)
+    markSelfWrite(finalAbs)
+    await fs.rename(tmp, finalAbs)
   }
 
-  return { ok: true, renames };
+  return { ok: true, renames }
 }

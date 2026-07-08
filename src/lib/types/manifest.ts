@@ -4,80 +4,80 @@
  */
 
 export interface SimpleGalOk<TData = unknown> {
-  ok: true;
-  command: string;
-  data: TData;
+  ok: true
+  command: string
+  data: TData
 }
 
 export interface SimpleGalConfigError {
-  path: string;
-  line?: number;
-  column?: number;
-  snippet?: string;
+  path: string
+  line?: number
+  column?: number
+  snippet?: string
 }
 
 export interface SimpleGalErr {
-  ok: false;
-  kind: string;
-  message: string;
-  causes?: string[];
-  config?: SimpleGalConfigError;
+  ok: false
+  kind: string
+  message: string
+  causes?: string[]
+  config?: SimpleGalConfigError
 }
 
-export type SimpleGalResult<TData = unknown> = SimpleGalOk<TData> | SimpleGalErr;
+export type SimpleGalResult<TData = unknown> = SimpleGalOk<TData> | SimpleGalErr
 
 export interface ManifestImage {
-  number: number;
-  source_path: string;
-  filename: string;
-  slug: string;
-  title?: string;
-  description?: string;
+  number: number
+  source_path: string
+  filename: string
+  slug: string
+  title?: string
+  description?: string
   /**
    * SHA-256 of the image bytes. Keys into `Manifest.canonical_images`.
    * Emitted by simple-gal's data-model refactor (landed across v0.18
    * → v0.20); `undefined` on manifests from earlier releases.
    */
-  canonical_id?: string;
+  canonical_id?: string
 }
 
 export interface ManifestNavItem {
-  title: string;
-  path: string;
-  source_dir: string;
+  title: string
+  path: string
+  source_dir: string
   /** Present on group nodes. Nested groups are possible (arbitrary depth). */
-  children?: ManifestNavItem[];
+  children?: ManifestNavItem[]
 }
 
 export interface ManifestPage {
-  title: string;
-  link_title: string;
-  slug: string;
-  body: string;
-  in_nav: boolean;
-  sort_key: number;
-  is_link: boolean;
-  url?: string;
+  title: string
+  link_title: string
+  slug: string
+  body: string
+  in_nav: boolean
+  sort_key: number
+  is_link: boolean
+  url?: string
 }
 
-export type ResolvedConfig = Record<string, unknown>;
+export type ResolvedConfig = Record<string, unknown>
 
 export interface ManifestAlbum {
-  path: string;
-  title: string;
-  preview_image?: string;
-  images: ManifestImage[];
-  in_nav: boolean;
-  config: ResolvedConfig;
-  description?: string;
+  path: string
+  title: string
+  preview_image?: string
+  images: ManifestImage[]
+  in_nav: boolean
+  config: ResolvedConfig
+  description?: string
 }
 
 export interface ManifestGroup {
-  path: string;
-  title: string;
-  in_nav: boolean;
-  config: ResolvedConfig;
-  description?: string;
+  path: string
+  title: string
+  in_nav: boolean
+  config: ResolvedConfig
+  description?: string
 }
 
 /**
@@ -91,54 +91,54 @@ export interface ManifestGroup {
  * same records with IPTC / dimensions once they've been decoded.
  */
 export interface CanonicalImage {
-  id: string;
-  source_path: string;
-  aliases?: string[];
-  iptc_title?: string;
-  iptc_description?: string;
-  width?: number;
-  height?: number;
+  id: string
+  source_path: string
+  aliases?: string[]
+  iptc_title?: string
+  iptc_description?: string
+  width?: number
+  height?: number
 }
 
 export interface Manifest {
-  navigation: ManifestNavItem[];
-  albums: ManifestAlbum[];
-  pages: ManifestPage[];
-  groups?: ManifestGroup[];
-  config: ResolvedConfig;
-  canonical_images?: CanonicalImage[];
+  navigation: ManifestNavItem[]
+  albums: ManifestAlbum[]
+  pages: ManifestPage[]
+  groups?: ManifestGroup[]
+  config: ResolvedConfig
+  canonical_images?: CanonicalImage[]
 }
 
 export interface ScanCounts {
-  albums: number;
-  images: number;
-  pages: number;
+  albums: number
+  images: number
+  pages: number
 }
 
 export interface ScanData {
-  source: string;
-  counts: ScanCounts;
-  manifest: Manifest;
+  source: string
+  counts: ScanCounts
+  manifest: Manifest
 }
 
 // Selection model for the UI tree
 
-export type SelectionKind = 'album' | 'image' | 'page' | 'config' | 'none';
+export type SelectionKind = 'album' | 'image' | 'page' | 'config' | 'none'
 
 export interface AlbumSelection {
-  kind: 'album';
-  albumPath: string;
+  kind: 'album'
+  albumPath: string
 }
 
 export interface ImageSelection {
-  kind: 'image';
-  albumPath: string;
-  imageSourcePath: string;
+  kind: 'image'
+  albumPath: string
+  imageSourcePath: string
 }
 
 export interface PageSelection {
-  kind: 'page';
-  pageSlug: string;
+  kind: 'page'
+  pageSlug: string
 }
 
 /**
@@ -148,13 +148,13 @@ export interface PageSelection {
  * editor correctly before loadCascade resolves.
  */
 export interface ConfigSelection {
-  kind: 'config';
-  dirPath: string;
-  levelKind: 'root' | 'group' | 'album';
+  kind: 'config'
+  dirPath: string
+  levelKind: 'root' | 'group' | 'album'
 }
 
 export interface NoSelection {
-  kind: 'none';
+  kind: 'none'
 }
 
 export type Selection =
@@ -162,4 +162,4 @@ export type Selection =
   | ImageSelection
   | PageSelection
   | ConfigSelection
-  | NoSelection;
+  | NoSelection
