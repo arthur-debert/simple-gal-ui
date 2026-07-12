@@ -1,0 +1,65 @@
+name: E2E
+
+# Companion e2e workflow (ADP02-WS05, #75) — the decision the cutover issue
+# asked for: the e2e suite STAYS a caller of release's reusable
+# electron-ci.yml block rather than becoming a declared shipit lane, the
+# lexed#169 pattern. The packaged Playwright run needs what the wf-checks
+# block deliberately doesn't carry: a macOS arm64 runner (tests launch
+# Electron against `dist-electron/main.js` and load the platform-matched
+# simple-gal native binary under `resources/bin/darwin-arm64/`), the
+# simple-gal sibling release binary (fetched by the package.json
+# `postinstall` hook via unauthenticated `fetch()` against the public
+# `arthur-debert/simple-gal` repo — non-fatal on failure, so a silently
+# missing binary surfaces at app launch, not at install), and the vite
+# renderer build in the `pre-test` hook. This file is the slimmed remainder
+# of the legacy test.yml, whose quality-check half (the ruleset-required
+# verdict) now lives in checks.yml (the wf-checks lanes).
+#
+# The job id stays `check` ON PURPOSE: the ruleset-required context is
+# `check / e2e`, and keeping the caller job name keeps that context stable
+# across the cutover — no window where a required check is unreportable. The
+# block's internal `check` job (`check / check`: setup-node + pnpm install +
+# format:check + lint + typecheck) still runs as the e2e job's prerequisite —
+# the reusable workflow hard-wires `e2e: needs: check`, deliberately: a long
+# macOS e2e run should not start on a build the cheap checks already
+# condemn. Its verdict is NO LONGER ruleset-required (the wf-checks lanes
+# carry the required quality verdict); the overlap with the lanes is an
+# acknowledged prerequisite cost, not a second gate.
+#
+# We pin `macos-14` (the GitHub arm64 SKU) explicitly rather than relying on
+# `macos-latest`, which GitHub may flip between arm64 and x64 over time —
+# and `app-bin/fetch-simple-gal.mjs` only knows the darwin-arm64 asset name,
+# so a x64 runner would fail at fetch time.
+#
+# See docs/per-stack/electron-ci.md in arthur-debert/release for the full
+# input reference. Sibling adopter: lex-fmt/lexed.
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+# Superseded-run hygiene, same shape as checks.yml (shipit#645): per-event,
+# per-ref/PR group; a new push cancels the superseded in-flight run.
+concurrency:
+  group: e2e-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    uses: arthur-debert/release/.github/workflows/electron-ci.yml@v3
+    with:
+      node-version: '22'
+      runner: macos-14
+      e2e: true
+      # The e2e job needs the renderer built (tests load
+      # dist-electron/main.js) and SIMPLE_GAL_PATH pointing at the
+      # platform-matched binary fetched by postinstall.
+      pre-test: |
+        pnpm exec vite build
+        echo "SIMPLE_GAL_PATH=$GITHUB_WORKSPACE/resources/bin/darwin-arm64/simple-gal" >> "$GITHUB_ENV"
+      # No shared-build-dir (no monorepo subpackage), no submodules.
+      # Package manager (pnpm) is auto-detected from pnpm-lock.yaml.
