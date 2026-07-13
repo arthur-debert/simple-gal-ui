@@ -1,5 +1,9 @@
 node_modules/
+# dist/ is shipit's release bundle STAGING tree (`shipit release bundle`'s
+# default --out; wf-build uploads it wholesale) — the renderer build lives in
+# dist-web/ so web assets never ride the staged release tree (#78).
 dist/
+dist-web/
 dist-electron/
 
 # Playwright

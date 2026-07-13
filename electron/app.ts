@@ -153,7 +153,7 @@ function createMainWindow(): BrowserWindow {
       )
     })
   } else {
-    win.loadFile(path.join(__dirname, '../dist/index.html'), {
+    win.loadFile(path.join(__dirname, '../dist-web/index.html'), {
       query: initialHome ? { home: initialHome } : undefined
     })
   }

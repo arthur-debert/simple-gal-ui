@@ -9,6 +9,8 @@
   "scripts": {
     "dev": "vite",
     "build": "node app-bin/fetch-simple-gal.mjs && vite build && electron-builder",
+    "build:release": "pnpm install --frozen-lockfile && node app-bin/fetch-simple-gal.mjs && vite build",
+    "dist": "electron-builder --publish never",
     "preview": "vite preview",
     "start": "electron .",
     "check": "svelte-check --tsconfig ./tsconfig.json",

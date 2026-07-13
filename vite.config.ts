@@ -52,7 +52,7 @@ export default defineConfig({
     }
   },
   build: {
-    outDir: 'dist'
+    outDir: 'dist-web'
   },
   server: {
     port: 5173,

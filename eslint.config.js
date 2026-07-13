@@ -39,6 +39,7 @@ export default ts.config(
   {
     ignores: [
       'dist/',
+      'dist-web/',
       'dist-electron/',
       'node_modules/',
       'content/',

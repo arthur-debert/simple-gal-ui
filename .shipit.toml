@@ -62,7 +62,50 @@ required = true
 local = true
 
 [toolchains]
-"." = "npm"
+# The npm leg's BUILD slot is overridden to the compile-only, self-provisioning
+# `build:release` script (see package.json): the registry default (`npm run
+# build`) chains straight into a bare `electron-builder` run — that packaging
+# is the BUNDLE stage's job here (the declared electron composition below), so
+# the default would package every distributable twice per release leg; and the
+# release blocks' checkout provisions nothing beyond pixi (the #582 doctrine),
+# so the leg must install node_modules itself, exactly like the test lane's
+# `test-full`. The legacy `build` script is untouched — the legacy release.yml
+# path still appends electron-builder flags to it until removal after the rc
+# proof.
+"." = { toolchain = "npm", build = ["pnpm", "run", "build:release"] }
+
+# [artifacts] — the repo's release surface (ADP02-WS11, #78; the electron
+# composition per arthur-debert/shipit#823's decision record, hardened by
+# shipit#833). ONE electron artifact:
+#   - build: the npm leg (the compile-only override above) produces the
+#     vite-bundled app + the fetched simple-gal sidecar binary.
+#   - bundle: the declared electron composition runs the consumer's own
+#     electron-builder (`pnpm run dist`) and collects the platform
+#     distributable set from its output dir (`release`, per
+#     electron-builder.yml directories.output — distinct from the bundle out
+#     tree, as the composition requires): darwin `.dmg` (+`.dmg.blockmap`) and
+#     linux `.AppImage`. electron-builder does NOT sign at bundle (no CSC env;
+#     notarize false in electron-builder.yml) — the darwin `.app` ships
+#     unsigned as the reseal payload shipit's STANDALONE mac-sign stage
+#     reopens → resigns (inner-first, per-code-role entitlements, #833) →
+#     reseals → notarizes (workflows.lex §3.1).
+#   - platforms: legacy v0.1.3 parity MINUS windows — `windows-x86_64`
+#     (the legacy x64.exe + .exe.blockmap) is DELIBERATELY OMITTED per the
+#     issue #78 owner amendment (2026-07-13): windows builds are PAUSED
+#     (arthur-debert/shipit#895); windows resumes as its own workstream.
+#   - sign = true routes the darwin lane through the standalone sign stage
+#     and derives the Apple cert + notary (ASC trio) secret requirement.
+#   - product-name matches electron-builder.yml's productName so the
+#     assert-bundle expected-name chain resolves to what the bundler stamps
+#     into the `.app`'s CFBundleExecutable and the `.dmg`/`.AppImage`
+#     filenames (workflows.lex §3.2, the #823 name-tier contract).
+[artifacts.simple-gal-ui]
+build = ["npm"]
+platforms = ["darwin-arm64", "linux-x86_64"]
+bundle = { composition = "electron", command = ["pnpm", "run", "dist"], source = "release" }
+product-name = "simple-gal-ui"
+sign = true
+endpoints = ["gh-release"]
 
 [shipit]
 version = "84818feb7b7c39ebdb5875028828db05b2d65f8a"
