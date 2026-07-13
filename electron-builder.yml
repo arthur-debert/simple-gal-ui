@@ -33,7 +33,7 @@ directories:
 # So we ship ONLY the compiled bundles + package.json + the bundled
 # simple-gal binary (via extraResources below).
 files:
-  - dist/**/*
+  - dist-web/**/*
   - dist-electron/**/*
   - package.json
   - '!**/*.map'
