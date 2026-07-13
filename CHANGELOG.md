@@ -10,18 +10,12 @@
   `CHANGELOG/unreleased-*.md` fragments; `CHANGELOG.md` is generated
   via `bin/changelog render`. Pre-existing history is captured verbatim
   in `CHANGELOG/legacy.md`. See arthur-debert/release#201.
-### Changed
-
 - Retire the bespoke `e2e` job in `.github/workflows/test.yml` in favor
   of the canonical `e2e: true` input on `electron-ci.yml@v1` (landed in
   arthur-debert/release#185). The job now runs from the reusable
   workflow with the consumer-specific glue (`vite build` + setting
   `SIMPLE_GAL_PATH`) moved into the `pre-test` hook.
-### Changed
-
 - Migrate release reusable-workflow callers from @v2 to @v3
-### Changed
-
 - Add vitest unit suite + coverage for `electron/configIO`. Wires
   `release-core test-unit` / `release-core coverage` (previously
   "(none wired)") to a 28-case suite covering the four pure
